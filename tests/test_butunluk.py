@@ -217,7 +217,7 @@ KRITIK_FONKSIYONLAR = {
     "teknikservis.ariza_ekran": ["goster"],
     "shared.tarih": ["hizli_tarih_araligi", "donem_coz", "donem_etiketi", "kisa_aralik"],
     "satis.stok_tamamla": ["eksikler", "dagit", "uygula"],
-    "satis.mikro_esitle": ["fatura_no", "usd_kur", "satir_turu", "mikro_kayitlari", "plan_yap", "aylik_ozet",
+    "satis.mikro_esitle": ["fatura_no", "usd_tutar", "kur_haritasi", "satir_turu", "mikro_kayitlari", "plan_yap", "aylik_ozet",
                            "veri_oku", "plan_hazirla", "uygula", "otomatik", "durum", "ac"],
     "satis.mikro_esitle_ekran": ["sayfa"],
     "shared.bt_hesap": ["sure_ozeti", "karsilastir", "hata_ozeti", "kapi_karari", "gunluk_seri",

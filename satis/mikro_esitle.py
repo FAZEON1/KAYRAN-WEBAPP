@@ -75,13 +75,36 @@ def _sku_a(sku):
     return sku_anahtar(sku)
 
 
-def usd_kur(r):
-    """Satırın $ kuru: fatura $ ise faturanın kuru, değilse alternatif döviz kuru. Bilinmiyorsa None."""
-    if _i(r.get("cha_d_cins")) == 1 and _f(r.get("cha_d_kur")) > 1:
-        return _f(r.get("cha_d_kur"))
-    if _f(r.get("sth_alt_doviz_kuru")) > 1:
-        return _f(r.get("sth_alt_doviz_kuru"))
-    return None
+def kur_haritasi(satirlar):
+    """{gün: $ kuru} — aynı gün kesilen $ faturalarının kuru (Mikro'nun kendi kuru). TL faturanın satırında
+    $ kuru yok (alternatif kur 1): o günün ya da en yakın önceki günün $ kuru kullanılır. Ocak–Haziran 2026
+    TL faturalarında eski Excel kayıtlarıyla 325 faturadan 324'ü birebir tuttu."""
+    h = {}
+    for r in satirlar or []:
+        if _i(r.get("cha_d_cins")) == 1 and _f(r.get("cha_d_kur")) > 1:
+            g = _gun(r.get("cha_tarihi"))
+            h[g] = max(h.get(g, 0.0), _f(r.get("cha_d_kur")))
+    return h
+
+
+def _onceki_kur(kurlar, gun):
+    aday = [g for g in kurlar if g <= gun]
+    return kurlar[max(aday)] if aday else None
+
+
+def usd_tutar(r, kurlar=None):
+    """Satır tutarı (iskonto düşülmüş, KDV hariç) $ olarak. Mikro satır tutarı FATURANIN DÖVİZİNDE tutar:
+    $ faturada doğrudan $ (Ocak–Haziran 2026: 1.501 faturanın hepsi eski Excel kaydıyla birebir); TL faturada
+    TL → o günün $ kuruyla çevrilir; başka döviz (€) önce faturanın kuruyla TL'ye. Kur bilinmiyorsa None."""
+    net = _f(r.get("sth_tutar")) - _f(r.get("sth_iskonto"))
+    cins = _i(r.get("cha_d_cins"))
+    if cins == 1:
+        return net
+    tl = net if cins == 0 else net * _f(r.get("cha_d_kur"))
+    kur = _onceki_kur(kurlar or {}, _gun(r.get("cha_tarihi")))
+    if not kur and _f(r.get("sth_alt_doviz_kuru")) > 1:
+        kur = _f(r.get("sth_alt_doviz_kuru"))
+    return tl / kur if kur else None
 
 
 def satir_turu(r):
@@ -95,12 +118,13 @@ def satir_turu(r):
 
 
 # ── Mikro satırı → satış / iade kaydı ───────────────────────────────
-def mikro_kayitlari(satirlar, baslangic=BASLANGIC):
+def mikro_kayitlari(satirlar, baslangic=BASLANGIC, kurlar=None):
     """Döner: {satis: {fatura_no: [kayıt]}, iade: {belge_no: [kayıt]}, atlanan: {neden: adet},
     son_fatura: {kanonik firma: son satış faturası tarihi}, cariler: {kanonik firma}, iade_cari: {cari kodu}}.
     Kayıtlarda maliyet yok (maliyet_ata doldurur)."""
     satis, iade = defaultdict(list), defaultdict(list)
     atlanan = defaultdict(int)
+    kurlar = kur_haritasi(satirlar) if kurlar is None else kurlar
     son_fatura, cariler, iade_cari = {}, set(), set()
     for r in satirlar or []:
         tur = satir_turu(r)
@@ -112,7 +136,7 @@ def mikro_kayitlari(satirlar, baslangic=BASLANGIC):
         no = fatura_no(r.get("cha_evrakno_seri"), r.get("cha_evrakno_sira"))
         kod = str(r.get("sth_cari_kodu") or "").strip()
         unvan = " ".join(str(r.get("cari_unvan1") or "").split()) or kod
-        sku = str(r.get("sth_stok_kod") or "").strip()
+        sku = _sku_a(r.get("sth_stok_kod"))      # 'Fazeon X24F200' → 'X24F200' (Excel içe aktarmayla aynı)
         adet = _i(r.get("sth_miktar"))
         tutar, isk = _f(r.get("sth_tutar")), _f(r.get("sth_iskonto"))
         if tur == "satis":
@@ -127,15 +151,16 @@ def mikro_kayitlari(satirlar, baslangic=BASLANGIC):
         if tur == "satis" and abs(tutar - isk) < 0.005:
             atlanan["bedelsiz"] += 1          # bedelsiz değişim: teknik servis yazıyor
             continue
-        kur = usd_kur(r)
-        if not kur:
+        net_usd = usd_tutar(r, kurlar)
+        if net_usd is None:
             atlanan["kursuz"] += 1
             continue
+        oran = net_usd / (tutar - isk) if abs(tutar - isk) > 1e-9 else 0.0     # satır dövizi → $
         ad = " ".join(str(r.get("sto_isim") or "").split())
         if tur == "satis":
             satis[no].append({
                 "tarih": tarih, "kanal": unvan, "sku": sku, "urun_adi": ad, "adet": adet,
-                "birim_satis": round((tutar - isk) / kur / adet, 4),
+                "birim_satis": round(net_usd / adet, 4),
                 "birim_firma_destek": 0, "birim_ek_destek": 0,
                 "siparis_no": no, "notlar": f"{NOT_ONEKI} · Cari kodu: {kod}",
             })
@@ -143,8 +168,8 @@ def mikro_kayitlari(satirlar, baslangic=BASLANGIC):
             from kayranpm.database import depo_kanonik
             iade[no].append({
                 "tarih": tarih, "kanal": f"{kod} {unvan}".strip(), "sku": sku, "urun_adi": ad,
-                "iade_adet": adet, "iade_brut": round(tutar / kur, 4), "iade_iskonto": round(isk / kur, 4),
-                "iade_masraf": 0, "iade_net": round((tutar - isk) / kur, 4),
+                "iade_adet": adet, "iade_brut": round(tutar * oran, 4), "iade_iskonto": round(isk * oran, 4),
+                "iade_masraf": 0, "iade_net": round(net_usd, 4),
                 "donem_bas": tarih, "donem_bit": tarih,
                 "depo": depo_kanonik(r.get("giris_depo_adi") or "") or "İADE DEPO", "belge_no": no,
             })
@@ -335,8 +360,11 @@ def durum():
 
 def veri_oku(baslangic=BASLANGIC):
     """(mikro satırları, mevcut satışlar, mevcut iadeler, Mikro satış faturası başlıkları)."""
+    from datetime import date, timedelta
     cli = _cli()
-    mikro = cli.table("mikro_satis_satir").select("*").gte("cha_tarihi", baslangic).execute().data or []
+    # 15 gün önceden: başlangıcın ilk günlerindeki TL faturaları için önceki günlerin $ kuru lazım
+    once = (date.fromisoformat(baslangic[:10]) - timedelta(days=15)).isoformat()
+    mikro = cli.table("mikro_satis_satir").select("*").gte("cha_tarihi", once).execute().data or []
     satislar = (cli.table("satislar").select("id,tarih,kanal,sku,adet,birim_satis,birim_maliyet,"
                                              "birim_firma_destek,birim_ek_destek,siparis_no,notlar")
                 .gte("tarih", baslangic).execute().data or [])

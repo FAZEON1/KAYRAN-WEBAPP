@@ -12,14 +12,14 @@ M = pytest.importorskip("satis.mikro_esitle")
 KOK = Path(__file__).resolve().parent.parent
 
 
-def _s(no_sira, sku, adet, tutar_tl, kur=46.0, tarih="2026-09-16", cari="120.01.003",
+def _s(no_sira, sku, adet, tutar, kur=46.0, tarih="2026-09-16", cari="120.01.003",
        unvan="VATAN BILGISAYAR SANAYI VE TICARET ANONIM SIRKETI", tip=63, iade=0, isk=0.0, doviz=1, alt=0,
        depo="İADE DEPO"):
     return {"sth_guid": f"g-{no_sira}-{sku}-{adet}", "cha_evrak_tip": tip, "cha_normal_iade": iade,
             "cha_evrakno_seri": "G5F26", "cha_evrakno_sira": no_sira, "cha_tarihi": tarih + " 00:00:00",
             "cha_d_cins": doviz, "cha_d_kur": kur if doviz == 1 else 1, "sth_alt_doviz_kuru": alt,
             "sth_stok_kod": sku, "sto_isim": f"{sku} adı", "sth_cari_kodu": cari, "cari_unvan1": unvan,
-            "sth_miktar": adet, "sth_tutar": tutar_tl, "sth_iskonto": isk, "giris_depo_adi": depo}
+            "sth_miktar": adet, "sth_tutar": tutar, "sth_iskonto": isk, "giris_depo_adi": depo}
 
 
 VATAN = "VATAN BILGISAYAR SANAYI VE TICARET ANONIM SIRKETI"
@@ -31,16 +31,25 @@ def test_fatura_no_eski_excel_bicimi():
 
 
 def test_kur_ve_net_fiyat():
-    """Satır tutarı TL ve KDV hariç: (tutar − iskonto) / fatura kuru / adet = $ birim fiyat."""
-    k = M.mikro_kayitlari([_s(1788, "X27F241S", 3, 3 * 125 * 46.0857, kur=46.0857, tarih="2026-07-15")])
+    """Mikro satır tutarı FATURANIN DÖVİZİNDE (canlı veri, Ekim 2026: Ocak–Haziran'daki 1.501 $ faturanın hepsi
+    eski Excel kaydıyla birebir). $ faturada (tutar − iskonto) / adet; TL faturada o günün $ faturalarının
+    kuruyla (yoksa en yakın önceki gün)."""
+    k = M.mikro_kayitlari([_s(1788, "X27F241S", 3, 375, kur=46.0857, tarih="2026-07-15")])
     r = k["satis"]["G5F26-1788"][0]
     assert r["birim_satis"] == pytest.approx(125.0) and r["adet"] == 3 and r["kanal"] == VATAN
     assert r["siparis_no"] == "G5F26-1788" and r["tarih"] == "2026-07-15"
-    # iskonto düşülür; TL faturada alternatif ($) kur kullanılır
-    k2 = M.mikro_kayitlari([_s(5, "A", 2, 1000, isk=80, doviz=0, alt=46.0)])
+    # TL fatura: aynı günün $ faturasının kuru (46), iskonto düşülür
+    k2 = M.mikro_kayitlari([_s(5, "A", 2, 1000, isk=80, doviz=0, tarih="2026-09-16"),
+                            _s(4, "B", 1, 10, kur=46.0, tarih="2026-09-16")])
     assert k2["satis"]["G5F26-5"][0]["birim_satis"] == pytest.approx(920 / 46 / 2, abs=1e-4)
-    k3 = M.mikro_kayitlari([_s(6, "A", 1, 1000, doviz=0, alt=0)])
-    assert not k3["satis"] and k3["atlanan"]["kursuz"] == 1
+    # o gün $ fatura yoksa en yakın önceki gün; hiç yoksa alınmaz
+    k3 = M.mikro_kayitlari([_s(6, "A", 1, 480, doviz=0, tarih="2026-09-20"), _s(4, "B", 1, 10, kur=48.0)])
+    assert k3["satis"]["G5F26-6"][0]["birim_satis"] == pytest.approx(10.0)
+    k4 = M.mikro_kayitlari([_s(6, "A", 1, 1000, doviz=0, alt=1)])
+    assert not k4["satis"] and k4["atlanan"]["kursuz"] == 1
+    # SKU kart yazımına (Excel içe aktarmayla aynı kural)
+    k5 = M.mikro_kayitlari([_s(7, "Fazeon X24F200", 6, 90)])
+    assert k5["satis"]["G5F26-7"][0]["sku"] == "X24F200" and k5["satis"]["G5F26-7"][0]["birim_satis"] == 15
 
 
 def test_bedelsiz_alis_iadesi_ve_eski_tarih_alinmaz():
@@ -53,7 +62,7 @@ def test_bedelsiz_alis_iadesi_ve_eski_tarih_alinmaz():
 
 
 def test_satis_iadesi_iadelere_gider():
-    k = M.mikro_kayitlari([_s(31, "X24F200", 1, 120 * 46, tip=0, iade=1, cari="120.02.005", unvan="EERA",
+    k = M.mikro_kayitlari([_s(31, "X24F200", 1, 120, tip=0, iade=1, cari="120.02.005", unvan="EERA",
                               tarih="2026-08-01")])
     r = k["iade"]["G5F26-31"][0]
     assert r["kanal"] == "120.02.005 EERA" and r["iade_adet"] == 1 and r["iade_net"] == pytest.approx(120)
@@ -67,7 +76,7 @@ def _sat(id_, tarih, kanal, sku, adet, fiyat, maliyet, no, notlar=""):
 
 
 def test_siparis_excel_satirlari_fatura_tarihine_kadar_degisir():
-    mikro = [_s(2525, "X27F241S", 3, 3 * 125 * 46, tarih="2026-09-16")]
+    mikro = [_s(2525, "X27F241S", 3, 375, tarih="2026-09-16")]
     satislar = [
         _sat(1, "2026-09-10", VATAN, "X27F241S", 3, 125, 85, "151"),       # faturalı firma, faturadan önce → değişir
         _sat(2, "2026-09-20", VATAN, "X27F241S", 2, 125, 85, "160"),       # son faturadan SONRA → kalır (faturası gelmedi)
@@ -86,7 +95,7 @@ def test_siparis_excel_satirlari_fatura_tarihine_kadar_degisir():
 
 
 def test_degismeyen_fatura_yeniden_yazilmaz_degisen_yazilir():
-    mikro = [_s(10, "A", 2, 2 * 50 * 46), _s(11, "B", 1, 70 * 46)]
+    mikro = [_s(10, "A", 2, 100), _s(11, "B", 1, 70)]
     satislar = [_sat(5, "2026-09-16", VATAN, "A", 2, 50, 30, "G5F26-10", "Mikro · Cari kodu: 120.01.003"),
                 _sat(6, "2026-09-16", VATAN, "B", 1, 60, 40, "G5F26-11", "Mikro · Cari kodu: 120.01.003")]
     p = M.plan_yap(mikro, satislar, [], pacal_fn=lambda s: 0.0)
@@ -108,7 +117,7 @@ def test_iptal_fatura_silinir_satirsiz_fatura_korunur():
 
 
 def test_excel_iadeleri_mikro_iadeleriyle_degisir():
-    mikro = [_s(31, "X24F200", 1, 120 * 46, tip=0, iade=1, cari="120.02.005", unvan="EERA", tarih="2026-08-01")]
+    mikro = [_s(31, "X24F200", 1, 120, tip=0, iade=1, cari="120.02.005", unvan="EERA", tarih="2026-08-01")]
     iadeler = [{"id": 9, "tarih": "2026-09-30", "kanal": "120.02.005 EERA", "sku": "X24F200", "iade_adet": 1,
                 "iade_net": 120, "kaynak": "excel"},
                {"id": 10, "tarih": "2026-09-30", "kanal": "120.09.999 BAŞKA", "sku": "Z", "iade_adet": 1,
