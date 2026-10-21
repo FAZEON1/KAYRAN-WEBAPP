@@ -3523,6 +3523,8 @@ def _mikro_esitle_dene():
         _gider_otomatik()                # aylık gider tablosu (Mikro adım 1c)
         from kayranpm.mikro_stok import otomatik as _stok_otomatik
         _stok_otomatik()                 # depo stoğu (Mikro adım 2)
+        from kayranacc.mikro_stok_degeri import otomatik as _stok_degeri_otomatik
+        _stok_degeri_otomatik()          # Toplam Aktifler stok değeri = depo stoğu × paçal (adım 2b; stoktan sonra)
     _th.Thread(target=_is, daemon=True, name="mikro_esitle").start()   # sayfa beklemesin
 
 

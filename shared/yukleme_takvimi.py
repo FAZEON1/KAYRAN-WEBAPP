@@ -349,6 +349,12 @@ def _mikro_kapsadigi():
             out.add("satis_dokumu")       # satışlar Mikro faturalarından (satis/mikro_esitle)
     except Exception:  # noqa: BLE001
         pass
+    try:
+        from kayranacc.mikro_stok_degeri import acik_mi as stok_degeri_acik
+        if stok_degeri_acik():
+            out.add("aktif_stok")         # Toplam Aktifler stok değeri: depo stoğu × paçal
+    except Exception:  # noqa: BLE001
+        pass
     return out
 
 

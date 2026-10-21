@@ -90,7 +90,7 @@ def ilk_onay_kutusu():
         st.caption("Onaydan sonra banka bakiyeleri, firma çekleri ve Toplam Aktifler'deki cari borç / alacak ile "
                    "ithalat ödenen Mikro'dan kendiliğinden güncellenir; bu üç Excel yüklemesi kalkar. Uygulamada "
                    "girilen ödeme, tahsilat ve virman kayıtları durur, ama bakiye Mikro'daki hesaptan gelir. "
-                   "Stok değeri ve gider tablosu şimdilik dosyayla devam eder. Bu kutu bir daha çıkmaz.")
+                   "Stok değeri ve gider tablosu kendi sayfalarında ayrı onayla gelir. Bu kutu bir daha çıkmaz.")
         if not st.toggle("Karşılaştırmayı göster", key="mm_goster"):
             return
         with st.spinner("Mikro hareketleri okunuyor…"):
