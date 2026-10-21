@@ -163,6 +163,101 @@ def _cari_sec(kap, key):
     return str(v or "").strip()
 
 
+# ── Seri no → Mikro (Ekim 2026) ──────────────────────────────────────
+@st.cache_data(ttl=300, show_spinner=False)
+def _mikro_seri_bilgileri(seriler, stok_ciftleri=()):
+    """{seri_anahtar: bilgi} (teknikservis.mikro_serino.bul); mikro_serino tablosu yoksa / boşsa None."""
+    from . import mikro_serino as _MS
+    try:
+        return _MS.bul(list(seriler), stok_kodlari=dict(stok_ciftleri))
+    except Exception as _e:  # noqa: BLE001
+        sessiz("teknikservis.main._mikro_seri_bilgileri", _e, "debug")
+        return None
+
+
+def _mikro_urun_adi(sku, yedek=""):
+    """Ürün adı: kartın adı, yoksa Mikro'daki stok adı (shared.ana_veri.urun_ad)."""
+    try:
+        from shared.ana_veri import urun_ad
+        return urun_ad(sku, yedek)
+    except Exception:  # noqa: BLE001
+        return str(yedek or "").strip()
+
+
+def _mk_mikro_doldur(b):
+    """Tekli mal kabul: BOŞ stok kodu / stok adı / firma Mikro'dan (düğme geri çağrısı; widget'lar çizilmeden önce
+    çalışır). Dolu alan değiştirilmez."""
+    from . import mikro_serino as _MS
+    if not str(st.session_state.get("mk_sk") or "").strip() and b.get("stok_kodu"):
+        st.session_state["mk_sk"] = b["stok_kodu"]
+        _u = urun_getir(b["stok_kodu"]) or {}
+        st.session_state["mk_stok_adi"] = (_u.get("stok_adi") or _mikro_urun_adi(b["stok_kodu"], b.get("mikro_adi")))
+        if _u.get("urun_grubu"):
+            st.session_state["mk_urun_grubu"] = _u["urun_grubu"]
+            st.session_state["mk_grup_sec"] = ts_grup_ad(_u["urun_grubu"])
+    _secili = st.session_state.get("mk_firma_sec")
+    _bos = (not _secili or _secili == "— Firma seç —") and not str(st.session_state.get("mk_firma_yeni") or "").strip()
+    if _bos and b.get("cari_unvan"):
+        _f = _MS.firma_esle(b["cari_unvan"], ts_firmalar_tam())
+        if _f:
+            # Mağaza seçimindeki yol: hedef firma seçim listesine index olarak uygulanır; eski seçim düşülür ki
+            # liste yeni index'le kurulsun (Session State'e doğrudan değer yazmak Streamlit uyarısı verir)
+            st.session_state["_mk_firma_hedef"] = _f
+            st.session_state.pop("mk_firma_sec", None)
+        else:
+            st.session_state["mk_firma_yeni"] = b["cari_unvan"]
+    st.session_state["_mk_dialog_ac"] = True
+
+
+def _mk_mikro_paneli():
+    """Okunan / girilen seri no'nun Mikro bilgisi (bilgi amaçlı). Tablo yoksa ya da seri no bulunamazsa hiçbir
+    şey çizilmez (eski ekran)."""
+    from . import mikro_serino as _MS
+    from shared.utils import firma_gorunen_ad
+    _seri = str(st.session_state.get("mk_seri") or "").strip()
+    _a = _MS.seri_anahtar(_seri)
+    if not _a:
+        return
+    _sk = str(st.session_state.get("mk_sk") or "").strip()
+    _bilgi = _mikro_seri_bilgileri((_seri,), ((_a, _sk),))
+    if _bilgi is None:
+        return
+    b = _bilgi.get(_a)
+    if not b:
+        st.caption(f"Mikro: {_seri} seri numarası Mikro'da bulunamadı.")
+        return
+    _firma_ad = firma_gorunen_ad(b["cari_unvan"]) if b.get("cari_unvan") else ""
+    _metin = _MS.bilgi_metni(b, _firma_ad, _mikro_urun_adi(b["stok_kodu"], b.get("mikro_adi")))
+    _firma_g = (st.session_state.get("mk_firma_yeni") or "").strip() or (
+        "" if st.session_state.get("mk_firma_sec") in (None, "— Firma seç —") else st.session_state.get("mk_firma_sec"))
+    _uyari = [u for u, ok in (
+        (f"stok kodu {_sk}, Mikro'da {b['stok_kodu']}", _MS.stok_uyumlu_mu(_sk, b["stok_kodu"])),
+        (f"firma {_firma_g}, Mikro'da {b.get('cari_unvan')}", _MS.firma_uyumlu_mu(_firma_g, b.get("cari_unvan"))),
+    ) if ok is False]
+    (st.warning if _uyari else st.info)(
+        f"Mikro: {_metin}" + (f"\n\nMikro'yla çelişiyor: {'; '.join(_uyari)} (girilen değer korunur)." if _uyari else ""))
+    _bos_sk = not _sk and b.get("stok_kodu")
+    _bos_f = not _firma_g and b.get("cari_unvan")
+    if _bos_sk or _bos_f:
+        st.button("Boş alanları Mikro'dan doldur", key="mk_mikro_doldur", on_click=_mk_mikro_doldur, args=(b,),
+                  icon=":material/download:")
+
+
+def _mk_mikro_sonrasi(data, form_no):
+    """Kayıttan sonra: girilen stok kodu / firma Mikro'yla çelişiyorsa uyarı (kayıt değiştirilmez)."""
+    from . import mikro_serino as _MS
+    _a = _MS.seri_anahtar(data.get("seri_no"))
+    if not _a:
+        return
+    b = (_mikro_seri_bilgileri((data.get("seri_no"),), ((_a, data.get("stok_kodu") or ""),)) or {}).get(_a)
+    if not b:
+        return
+    _, _, _, _uyari = _MS.satir_tamamla(data.get("stok_kodu"), data.get("firma_bilgisi"), b)
+    if _uyari:
+        st.session_state["_mk_mikro_msg"] = (f"{form_no}: seri {data.get('seri_no')} Mikro'yla çelişiyor — "
+                                             + "; ".join(_uyari) + ". Kayıt girildiği gibi kaldı, kontrol et.")
+
+
 # ── Mal Kabül ────────────────────────────────────────────────────────
 def _mal_kabul():
     _baslik("📥", "Mal Kabül", "Servise/iadeye gelen ürünü kaydet · Servis No otomatik üretilir (G5F)")
@@ -187,6 +282,9 @@ def _mal_kabul():
     if _son_ok:
         st.success(f"✅ Kayıt tamamlandı: {_son_ok} — yeni kayda hazır.")
         st.balloons()          # dialog kapandıktan SONRA — rerun onu yutmasın
+    _son_mikro = st.session_state.pop("_mk_mikro_msg", None)
+    if _son_mikro:
+        st.warning(_son_mikro)
     _son_stok = st.session_state.pop("_mk_stok_msg", None)
     if _son_stok:
         (st.caption if _son_stok.startswith("📦") else st.warning)(_son_stok)
@@ -251,6 +349,13 @@ def kapi_mal_kabul(dosya, kapi):
                         return v
             return ""
         _mevcut_seri = tum_seriler()
+        # Seri no → Mikro (Ekim 2026): boş Stok Kodu / Firma doldurulur, çelişen uyarılır. Tablo yoksa None.
+        from . import mikro_serino as _MS
+        _mikro = _mikro_seri_bilgileri(tuple(
+            _tv(_r, "Seri No", "Seri") for _, _r in _tdf.iterrows()), tuple(
+            (_MS.seri_anahtar(_tv(_r, "Seri No", "Seri")), _tv(_r, "Stok Kodu", "SKU")) for _, _r in _tdf.iterrows()))
+        _mikro_firmalar = ts_firmalar_tam() if _mikro else []
+        _mikro_dolan, _mikro_celiski = 0, []
         _grup_h = ts_grup_haritasi()           # ürün grubu tek yazımla kaydedilir ('kasa' → 'Kasa')
         _gecerli, _hatali = [], []
         _dosya_seri = set()
@@ -264,6 +369,15 @@ def kapi_mal_kabul(dosya, kapi):
             _seri_t = _tv(_r, "Seri No", "Seri") or "NO SERIAL NUMBER"
             _ariza_t = _tv(_r, "Arıza")
             _firma_t = _tv(_r, "Firma (Cari Unvan)", "Firma")
+            _mb = (_mikro or {}).get(_MS.seri_anahtar(_seri_t))
+            _mikro_not = ""
+            if _mb:
+                _sk_t, _firma_t, _doldu, _uyari = _MS.satir_tamamla(_sk_t, _firma_t, _mb, _mikro_firmalar)
+                _mikro_dolan += bool(_doldu)
+                _mikro_celiski += [f"Satır {_i + 2} ({_seri_t}): " + "; ".join(_uyari)] if _uyari else []
+                _mikro_not = " · ".join(
+                    ([("dolduruldu: " + ", ".join(_doldu))] if _doldu else [])
+                    + (["Mikro'yla çelişiyor"] if _uyari else []) + [_mb["garanti_durumu"]])
             _sorunlar = []
             if not _tur:
                 _sorunlar.append("İşlem Türü (Teknik/İade)")
@@ -306,6 +420,8 @@ def kapi_mal_kabul(dosya, kapi):
                     _grp_t = _grp_t or _u_t.get("urun_grubu", "")
                 except Exception as _e:
                     sessiz("teknikservis.main.kapi_mal_kabul", _e, "debug")
+            if not _ad_t and _mb:                # kart yoksa Mikro'daki stok adı (shared.ana_veri.urun_ad)
+                _ad_t = _mikro_urun_adi(_sk_t, _mb.get("mikro_adi", ""))
             _grp_t = ts_grup_ad(_grp_t, _grup_h)
             _seri_u = _seri_t.upper()
             _muk = (_seri_u not in {"NO SERIAL NUMBER", "N/A", "YOK", "-"} and
@@ -316,7 +432,7 @@ def kapi_mal_kabul(dosya, kapi):
             if _kargo_t:
                 _sevk_t = (f"{_sevk_t} · Takip No: {_kargo_t}").strip(" ·")
             _fno_t = _tv(_r, "Fatura No")
-            _gecerli.append({"_muk": _muk, "veri": {
+            _gecerli.append({"_muk": _muk, "_mikro": _mikro_not, "veri": {
                 "arayuz": _tur, "stok_kodu": _sk_t, "stok_adi": _ad_t,
                 "urun_grubu": _grp_t, "seri_no": _seri_t, "ariza": _ariza_t,
                 "firma_bilgisi": _firma_t, "sevk_kargo_bilgisi": _sevk_t,
@@ -337,6 +453,13 @@ def kapi_mal_kabul(dosya, kapi):
         if _hatali:
             st.error("Düzeltilmesi gerekenler:\n\n" + "\n".join("• " + h for h in _hatali[:15])
                      + ("" if len(_hatali) <= 15 else f"\n• … +{len(_hatali) - 15} satır daha"))
+        if _mikro:
+            st.caption(f"Mikro seri no kaydı: {sum(1 for g in _gecerli if g['_mikro'])} satır bulundu, "
+                       f"{_mikro_dolan} satırda boş Stok Kodu / Firma Mikro'dan dolduruldu.")
+        if _mikro_celiski:
+            st.warning("Mikro'yla çelişen satırlar (dosyadaki değer korunur, kontrol et):\n\n"
+                       + "\n".join("• " + h for h in _mikro_celiski[:15])
+                       + ("" if len(_mikro_celiski) <= 15 else f"\n• … +{len(_mikro_celiski) - 15} satır daha"))
         if _gecerli:
             st.dataframe(pd.DataFrame([{
                 "Tür": ("Teknik" if g["veri"]["arayuz"] == "teknik" else "İade"),
@@ -345,6 +468,7 @@ def kapi_mal_kabul(dosya, kapi):
                 "Arıza": g["veri"]["ariza"][:32], "Depo": g["veri"]["giris_depo"] or "",
                 "İade fiyat": (_stok.iade_fiyat_metni(g["veri"]) if g["veri"]["arayuz"] == "iade" else ""),
                 "Mükerrer": "evet" if g["_muk"] else "",
+                **({"Mikro": g["_mikro"]} if _mikro else {}),
             } for g in _gecerli[:100]]), hide_index=True, use_container_width=True,
                 height=min(320, 60 + 36 * min(len(_gecerli), 8)))
             _muk_ok = True
@@ -751,6 +875,10 @@ def _mal_kabul_dialog():
     # kaydedince güncellendiği için okunan numara alana yazılamazdı.
     from shared.barkod import barkod_okuyucu
     barkod_okuyucu("mk_seri", etiket="Seri no'yu kamerayla okut")
+    try:
+        _mk_mikro_paneli()      # okunan seri no'nun Mikro bilgisi (tablo yoksa çizilmez)
+    except Exception as _e:  # noqa: BLE001
+        sessiz("teknikservis.main._mk_mikro_paneli", _e, "debug")
 
     # Barkod okuyucular her okutmada Enter gönderir; Enter formu GÖNDERMESİN
     # (kayıt yalnız "✅ Kayıt Tamamla" butonuyla tamamlanır)
@@ -902,6 +1030,10 @@ def _mal_kabul_dialog():
             if (firma_yeni or "").strip():
                 ekle_ts_firma(firma_yeni.strip())
             st.session_state["_mk_kayit_ok"] = form_no or msg
+            try:
+                _mk_mikro_sonrasi(data, form_no)      # Mikro'yla çelişki uyarısı (bilgi amaçlı)
+            except Exception as _e:  # noqa: BLE001
+                sessiz("teknikservis.main._mk_mikro_sonrasi", _e, "debug")
             # ── Stok: seçilen giriş deposuna (+1); iade ise Satış › İade'ye de manuel iade kaydı ──
             _sok, _smsg = _stok.mal_kabul_girisi(data)
             _iok, _imsg = _stok.iade_kaydi_yaz(data)

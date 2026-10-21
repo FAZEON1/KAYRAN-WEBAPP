@@ -63,9 +63,15 @@ def kapi_musteri_haftalik(dosya, kapi):
         return
     _dd = "/".join(str(oz["rapor_tarihi"])[:10].split("-")[::-1])
     st.success(f"Rapor haftası **{_dd}** · {len(oz['firmalar'])} firma")
+    _mk = any(v.get("mikro") for v in oz["firmalar"].values())     # Mikro kod eşleşmesi (kayranpm.mikro_multikod)
     st.dataframe(pd.DataFrame([{"Firma": firma_gorunen_ad(k), "SKU": v["sku"], "Stok": v["stok"], "Satış": v["satis"],
+                                **({"Mikro kod eşleşmesi": v.get("mikro", 0)} if _mk else {}),
                                 "Bu haftada kayıtlı satır": v["mevcut"] if v["mevcut"] is not None else "?"}
                                for k, v in oz["firmalar"].items()]), hide_index=True, use_container_width=True)
+    if _mk:
+        st.caption("Mikro kod eşleşmesi: bugünkü kurallarla hiçbir karta bağlanamayan rapor kodları Mikro'daki "
+                   "müşteri ürün kodu tanımıyla bizim SKU'ya çevrilir; eşleşen kodlar olduğu gibi kalır. "
+                   "Yalnız bu yükleme etkilenir, kayıtlı raporlar değişmez.")
     if any(v["mevcut"] for v in oz["firmalar"].values()):
         st.info("Bu hafta için kayıtlı satırı olan firmalarda eski satırlar dosyadakilerle değiştirilir "
                 "(aynı haftanın dosyası tekrar yüklenince şişmesin). Yükleme geçmişinden geri alınabilir.")
@@ -544,6 +550,8 @@ def _sayfa_tum_urunler():
     st.markdown(_sb("📋 Ürün Yönetimi", "Tüm Ürünler", aciklama="Ürün listesi · paçal maliyet · satış · marj · stok dağılımı · ayrıntı için satıra tıkla"), unsafe_allow_html=True)
     from .mikro_stok_ekran import ilk_onay_kutusu as _mikro_stok_onay
     _mikro_stok_onay()                    # Mikro'dan otomatik depo stoğu: bir kerelik onay / kaynak notu
+    from .mikro_urun_ekran import ilk_onay_kutusu as _mikro_urun_onay
+    _mikro_urun_onay()                    # Mikro'dan ürün kartları + fiyat listeleri: bir kerelik onay / kaynak notu
 
     # Ürün verilerini yükle
     try:

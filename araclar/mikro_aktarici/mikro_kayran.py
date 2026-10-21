@@ -360,6 +360,88 @@ WHERE cha_iptal=0 AND (cha_evrak_tip IN (37,55) OR cha_cari_cins=5)
   AND cha_lastup_date > '{SON}'
 """,
     },
+    # ── Teknik servis (Ekim 2026): seri numarası tanımları (kullanıcı: seri no dosya / elle giriş yerine Mikro'dan) ──
+    # Seri no → stok kodu, alış ve satış belgesi (seri + sıra), alıcı cari, garanti tarihleri. Belge ve cari seri no
+    # satırının kendisinde olduğu için CIHAZ_HAREKETLERI (seri no → hareket) çekilmez. İptal işareti WHERE'de
+    # süzülmez (sonradan iptal edilen tanım artımlı turda güncellenir); bit alan tamsayıya çevrilir.
+    # İlk tam çekim ~22 bin satır (gece tam aktarım da her şeyi baştan çeker). Hesap uygulamada
+    # (teknikservis/mikro_serino.py).
+    "serino": {
+        "tablo": "mikro_serino", "anahtar": "chz_guid",
+        "artimli": True,
+        "sql": """
+SELECT z.chz_Guid, z.chz_serino, z.chz_stok_kodu, s.sto_isim, CAST(z.chz_iptal AS int) AS chz_iptal,
+       z.chz_lotno, z.chz_uretim_tarihi, z.chz_aciklama1,
+       z.chz_al_tarih, z.chz_al_evr_seri, z.chz_al_evr_sira, z.chz_al_cari_kodu,
+       z.chz_al_fiati_ana, z.chz_al_fiati_alt, z.chz_al_fiati_orj,
+       z.chz_st_tarih, z.chz_st_evr_seri, z.chz_st_evr_sira, z.chz_st_cari_kodu,
+       z.chz_st_fiati_ana, z.chz_st_fiati_alt, z.chz_st_fiati_orj,
+       z.chz_GrnBasTarihi AS chz_grn_bas_tarihi, z.chz_GrnBitTarihi AS chz_grn_bit_tarihi,
+       z.chz_musteri_garanti_baslangic, z.chz_musteri_garanti_bitis, z.chz_create_date, z.chz_lastup_date
+FROM STOK_SERINO_TANIMLARI z
+LEFT JOIN STOKLAR s ON s.sto_kod = z.chz_stok_kodu
+WHERE z.chz_lastup_date > '{SON}'
+""",
+    },
+    # ── Ürün kartları, barkod, satış fiyat listeleri (Ekim 2026, kullanıcı: "Mikro'da yeni ürün açılınca programa
+    # da gelsin"). Küçük tablolar (197 kart, 172 barkod, 496 fiyat, 5 liste): her turda tam çekilir. Kart ↔
+    # uygulama eşleşmesi ve "yalnız boş alan dolar" kuralı uygulamada (kayranpm/mikro_urun.py). Ana / alt grup
+    # adı alt sorguyla (TOP 1): aynı kodlu iki grup kaydı kartı iki kez döndürmesin. Bit alanlar int'e çevrilir.
+    "stok_kart": {
+        "tablo": "mikro_stok_kart", "anahtar": "sto_kod",
+        "artimli": False,
+        "sql": """
+SELECT s.sto_kod, s.sto_isim, s.sto_kisa_ismi, s.sto_yabanci_isim, s.sto_marka_kodu, s.sto_kategori_kodu,
+       s.sto_anagrup_kod,
+       (SELECT TOP 1 g.san_isim FROM STOK_ANA_GRUPLARI g WHERE g.san_kod = s.sto_anagrup_kod AND g.san_iptal=0)
+           AS anagrup_isim,
+       s.sto_altgrup_kod,
+       (SELECT TOP 1 a.sta_isim FROM STOK_ALT_GRUPLARI a WHERE a.sta_kod = s.sto_altgrup_kod AND a.sta_iptal=0)
+           AS altgrup_isim,
+       s.sto_model_kodu, s.sto_uretici_kodu, s.sto_garanti_sure, s.sto_garanti_sure_tipi, s.sto_GtipNo AS sto_gtipno,
+       s.sto_mensei, s.sto_birim1_ad, s.sto_birim1_agirlik, s.sto_birim1_en, s.sto_birim1_boy, s.sto_birim1_yukseklik,
+       CAST(s.sto_pasif_fl AS int) AS sto_pasif, s.sto_satis_dursun, s.sto_create_date, s.sto_lastup_date
+FROM STOKLAR s WHERE s.sto_iptal=0
+""",
+    },
+    "stok_barkod": {
+        "tablo": "mikro_stok_barkod", "anahtar": "bar_guid",
+        "artimli": False,
+        "sql": """
+SELECT bar_Guid, bar_kodu, bar_stokkodu, bar_barkodtipi, bar_birimpntr, CAST(bar_master AS int) AS bar_master,
+       bar_lastup_date
+FROM BARKOD_TANIMLARI WHERE bar_iptal=0
+""",
+    },
+    "satis_fiyat": {
+        "tablo": "mikro_satis_fiyat", "anahtar": "sfiyat_guid",
+        "artimli": False,
+        "sql": """
+SELECT sfiyat_Guid, sfiyat_stokkod, sfiyat_listesirano, sfiyat_deposirano, sfiyat_odemeplan, sfiyat_birim_pntr,
+       sfiyat_fiyati, sfiyat_doviz, sfiyat_lastup_date
+FROM STOK_SATIS_FIYAT_LISTELERI WHERE sfiyat_iptal=0
+""",
+    },
+    "fiyat_liste": {
+        "tablo": "mikro_fiyat_liste", "anahtar": "sfl_sirano",
+        "artimli": False,
+        "sql": """
+SELECT sfl_sirano, sfl_aciklama, CAST(sfl_kdvdahil AS int) AS sfl_kdvdahil, sfl_doviz_uygulama, sfl_sabit_doviz,
+       sfl_ilktarih, sfl_sontarih, sfl_lastup_date
+FROM STOK_SATIS_FIYAT_LISTE_TANIMLARI WHERE sfl_iptal=0
+""",
+    },
+    # ── Müşteri ürün kodları (Ekim 2026): cari başına müşterinin kendi kodu → bizim stok kodu (D-market 'HBCV…').
+    # Haftalık müşteri raporu bu kodlarla bizim SKU'ya bağlanır (kayranpm/mikro_multikod.py). Küçük tablo
+    # (yaklaşık 2.000 satır): her turda tam çekilir. Kolon adları Mikro'daki yazımla (mcod_Guid, mcod_Iptal).
+    "multikod": {
+        "tablo": "mikro_multikod", "anahtar": "mcod_guid",
+        "artimli": False,
+        "sql": """
+SELECT mcod_Guid, mcod_carikodu, mcod_stokkod, mcod_caristok_kod, mcod_caristok_ismi, mcod_tipi, mcod_lastup_date
+FROM MULTIKOD_TANIMLARI WHERE mcod_Iptal=0
+""",
+    },
 }
 
 # --------------------------------------------------------------------------- #

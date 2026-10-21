@@ -157,7 +157,7 @@ def _egilim(seri, haftalar, key):
 
 
 _KART_KAYNAK = {"sku": "SKU birebir", "tablo": "Onaylı eşleme", "kural": "Ürün adı / model kodu",
-                "belirsiz": "Belirsiz, onay bekliyor"}
+                "mikro": "Mikro kod eşleşmesi", "belirsiz": "Belirsiz, onay bekliyor"}
 
 
 def _eslesme_bolumu(rows, meta, kartlar, eslesme_satir):
@@ -311,6 +311,10 @@ def render():
     except Exception:  # noqa: BLE001 — harita okunamazsa kurallarla devam
         pass
     oz = H.ozet(rows)
+    _mk = sum(1 for m in meta.values() if m.get("kart_kaynak") == "mikro")
+    if _mk:
+        st.caption(f"Mikro kod eşleşmesi: {tr_sayi(_mk)} ürün, yüklemede raporun kendi kodundan Mikro'daki müşteri "
+                   "ürün kodu tanımıyla karta bağlandı (Excel'de \"Kart eşleşmesi\" ve \"Rapordaki kod\").")
 
     # Önceki eşit dönem (satış karşılaştırması). Okunamazsa rozet çıkmaz, sayfa çalışır.
     ob, oe = _onceki(bas, bit)
@@ -340,7 +344,7 @@ def render():
     # Excel: bu görünümün özeti + ham satırlar (yalnız tıklanınca üretilir)
     ham = pd.DataFrame([{"Rapor": str(r.get("yukleme_tarihi") or "")[:10], "Müşteri": _cari(r.get("firma")),
                          "SKU": (meta.get(str(r.get("sku") or "").strip()) or {}).get("kart_sku") or r.get("sku", ""),
-                         "Rapordaki kod": r.get("sku", ""),
+                         "Rapordaki kod": r.get("musteri_kodu") or r.get("sku", ""),
                          "Ürün": urun_ad((meta.get(str(r.get("sku") or "").strip()) or {}).get("kart_sku")
                                          or r.get("sku"), r.get("urun_adi")),
                          "Marka": (meta.get(str(r.get("sku") or "").strip()) or {}).get("marka", ""),
