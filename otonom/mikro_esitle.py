@@ -23,6 +23,7 @@ ISLER = (
     ("Gider tablosu", "kayranacc.mikro_gider", "otomatik"),
     ("Depo stoğu", "kayranpm.mikro_stok", "otomatik"),
     ("Toplam Aktifler stok değeri", "kayranacc.mikro_stok_degeri", "otomatik"),   # depo stoğundan SONRA
+    ("Ürün kartları / fiyat listeleri", "kayranpm.mikro_urun", "otomatik"),
 )
 
 

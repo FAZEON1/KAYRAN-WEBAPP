@@ -3525,6 +3525,8 @@ def _mikro_esitle_dene():
         _stok_otomatik()                 # depo stoğu (Mikro adım 2)
         from kayranacc.mikro_stok_degeri import otomatik as _stok_degeri_otomatik
         _stok_degeri_otomatik()          # Toplam Aktifler stok değeri = depo stoğu × paçal (adım 2b; stoktan sonra)
+        from kayranpm.mikro_urun import otomatik as _urun_otomatik
+        _urun_otomatik()                 # ürün kartları, boş alanlar, barkod, müşteri fiyat listeleri
     _th.Thread(target=_is, daemon=True, name="mikro_esitle").start()   # sayfa beklemesin
 
 

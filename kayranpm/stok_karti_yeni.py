@@ -282,12 +282,13 @@ _TUR_RENK = {"satis": "var(--k-yesil)", "iade": "var(--k-amber)", "alim": "var(-
 _UY_IKON = {"uyari": ("warning", "skn-am"), "iyi": ("check", "skn-ye"), "kotu": ("error", "skn-ki")}
 
 
-def _bas_html(sku, u, toplam_stok, marka, kategori, ilk):
+def _bas_html(sku, u, toplam_stok, marka, kategori, ilk, ek=()):
     if toplam_stok > 0:
         durum = f'<span class="skn-durum skn-ye"><i></i>Stokta · {tr_sayi(toplam_stok)} adet satılabilir</span>'
     else:
         durum = '<span class="skn-durum skn-ki"><i></i>Satılabilir stok yok</span>'
     cipler = [("Marka", marka), ("Kategori", kategori), ("Barkod", u.get("barkod")), ("İlk görülme", ilk)]
+    cipler += list(ek or ())                 # Mikro'dan: garanti, GTİP, ağırlık, ölçü (kayranpm.mikro_urun)
     return (f'<div class="skn-bas"><div class="skn-ust"><span class="skn-sku">{_e(sku)}</span>{durum}</div>'
             f'<div class="skn-ad">{_e(u.get("urun_adi") or "—")}</div><div class="skn-meta">'
             + "".join(f'<span class="skn-cip">{_e(a)} <b>{_e(d)}</b></span>' for a, d in cipler if d)
@@ -427,8 +428,10 @@ def ciz(sku, v, govdeler, satis_detay):
 
     st.markdown(CSS, unsafe_allow_html=True)
     c1, c2 = st.columns([2.2, 1], vertical_alignment="top")
+    from .mikro_urun import kart_cipleri
     c1.markdown(_bas_html(sku, u, v["toplam_stok"], marka_ad(u.get("marka")), kategori_ad(u.get("kategori")),
-                          _gun(v["ilk_gorulen"]) if v["ilk_gorulen"] else ""), unsafe_allow_html=True)
+                          _gun(v["ilk_gorulen"]) if v["ilk_gorulen"] else "", ek=kart_cipleri(sku)),
+                unsafe_allow_html=True)
     with c2:
         baska_sku_secici(sku, "Başka ürün aç · SKU ya da model")
     st.markdown(_bant_html(v, musteri_toplam), unsafe_allow_html=True)
