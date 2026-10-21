@@ -84,6 +84,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "yedek_tablolari.py",   # gece yedeği tablo listesi + sayfalı okuma (Eki 2026)
                "sirket_ayar.py", "kur.py",
                "stok_hesap.py", "musteri_ekran.py",   # kanal stoğu kod eşleşmesi karşılaştırması (Eki 2026)
+               "satis_hesap.py",                      # elle siparişte mükerrer uyarısı (Eki 2026)
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -221,7 +222,9 @@ KRITIK_FONKSIYONLAR = {
     "satis.stok_tamamla": ["eksikler", "dagit", "uygula"],
     "satis.mikro_esitle": ["fatura_no", "usd_tutar", "kur_haritasi", "satir_turu", "mikro_kayitlari", "plan_yap", "aylik_ozet",
                            "veri_oku", "plan_hazirla", "uygula", "otomatik", "durum", "acik_mi", "ac", "aktarici_yayinla", "aktarici_ozeti", "aktarici_yayinda_mi", "kopyasiz", "aktarim_suruyor_mu", "aktarim_suruyor", "otomatik_guvenli_mi", "acik_mi",
-                           "siparis_kayitlari", "siparis_oku"],
+                           "siparis_kayitlari", "siparis_oku",
+                           "elle_fatura_eslestir"],   # elle satır ↔ fatura satırı (çift sayım, Eki 2026)
+    "satis.satis_hesap": ["mukerrer_kalemler", "siparis_grupla"],   # elle siparişte mükerrer uyarısı
     "satis.mikro_esitle_ekran": ["ilk_onay_kutusu"],
     "shared.mikro_saglik": ["zaman", "dakika_once", "sure_metni", "is_durumu", "sorunlar", "bildirim_karari",
                             "senk_oku", "satis_durumu", "gunluk_oku", "gunluk_yaz", "tetik_durumu",
@@ -384,7 +387,8 @@ KRITIK_FONKSIYONLAR = {
     "shared.dosya_tani": ["tani", "sayfalari_oku", "norm"],
     "satis.main": ["iade_excel_oku", "iade_fatura_satirlari", "iade_fatura_ozetle", "kapi_iade",
                    # sayfa gövdeleri run()'dan ayrı fonksiyonlara taşındı (Ekim 2026, mimari)
-                   "run", "_sayfa_satis_girisi", "_sayfa_satislar", "_sayfa_kar_pnl", "_sayfa_iade"],
+                   "run", "_sayfa_satis_girisi", "_sayfa_satislar", "_sayfa_kar_pnl", "_sayfa_iade",
+                   "_mukerrer_onay"],   # elle siparişte mükerrer onayı (Eki 2026)
     "kayranacc.main": ["run", "_sayfa_dashboard", "_sayfa_bu_hafta", "_sayfa_banka_bakiyeleri", "_sayfa_nakit_akis",
                        "_sayfa_firma_cekleri", "_sayfa_odenenler_gecmis", "_sayfa_gelenler_gecmisi",
                        "_sayfa_e_defter", "_sayfa_raporlar_bildirim", "_sayfa_ertelenen_odemeler",

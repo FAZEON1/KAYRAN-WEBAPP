@@ -170,3 +170,28 @@ def test_iade_dort_kart_ve_ice_aktar_adimlari():
     src = _oku("satis/main.py")
     assert '("İade oranı", f"%{tr_sayi(_ior, 1)}", trenk("amber"))' not in src     # 9'lu eski kartlar
     assert "def _adim_gostergesi(" in src and "_adim_gostergesi(2)" in src
+
+
+# ── Elle sipariş girişinde mükerrer uyarısı (denetim, Ekim 2026: 21.10'da EERA'ya aynı SKU / adet / fiyatla
+#    iki elle sipariş girildi — "2847" ve "S261021-134832") ──
+def test_mukerrer_kalem_ayni_firma_gun_sku_adet():
+    eera = "EERA ELEKTRONİK TİCARET VE BİLİŞİM HİZMETLERİ ANONİM ŞİRKETİ"
+    mevcut = [{"tarih": "2026-10-21", "kanal": eera, "sku": "X27F241S", "adet": 4, "siparis_no": "2847"},
+              {"tarih": "2026-10-19", "kanal": eera, "sku": "X24F200", "adet": 5, "siparis_no": "eski"},
+              {"tarih": "2026-10-21", "kanal": "BAŞKA", "sku": "X32F240S", "adet": 2, "siparis_no": "b"}]
+    yeni = [{"tarih": "2026-10-21", "kanal": eera, "sku": "x27f241s", "adet": 4},    # yazım farkı: aynı SKU
+            {"tarih": "2026-10-21", "kanal": eera, "sku": "X27F241S", "adet": 3},    # adet farklı
+            {"tarih": "2026-10-21", "kanal": eera, "sku": "X24F200", "adet": 5},     # 2 gün önce: pencere dışı
+            {"tarih": "2026-10-22", "kanal": eera, "sku": "X27F241S", "adet": 4},    # ertesi gün: içeride
+            {"tarih": "2026-10-21", "kanal": eera, "sku": "X32F240S", "adet": 2}]    # başka firma
+    m = H.mukerrer_kalemler(yeni, mevcut)
+    assert [(x["tarih"], x["adet"], x["siparis_nolar"]) for x in m] == [
+        ("2026-10-21", 4, ["2847"]), ("2026-10-22", 4, ["2847"])]
+    assert H.mukerrer_kalemler(yeni, []) == []
+
+
+def test_elle_sipariste_mukerrer_onay_kutusu():
+    """Kayıt engellenmez ama mükerrer kalem varsa onay kutusu işaretlenmeden kaydedilmez."""
+    src = _oku("satis/main.py")
+    assert "def _mukerrer_onay(" in src
+    assert src.count("_mukerrer_onay(") >= 2          # tanım + elle sipariş formu
