@@ -239,11 +239,20 @@ def _bugun():
 
 
 # ── Maliyet (paçal) ve ürün katalogu — İthalat / Ürün Yönetimi'nden ──
+@st.cache_data(ttl=300, show_spinner=False)
+def _mikro_pacal():
+    """Mikro'nun giriş paçalı {sku_anahtar: USD} (kayranpm.mikro_maliyet); okunamazsa boş."""
+    from kayranpm.mikro_maliyet import pacal_haritasi
+    return pacal_haritasi()
+
+
 @st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
 def get_pacal_map():
     """{KANONİK sku: birim maliyet USD} — TÜM maliyetlerin tek kapısı.
 
-    İki kaynak, bu öncelikle:
+    Üç kaynak, bu öncelikle:
+      0) Mikro giriş paçalı (kayranpm.mikro_maliyet; kullanıcı 22.10.2026: "Mikro'daki veriler baz alınsın",
+         "A ile yap") — Mikro'da maliyeti olan her SKU'da bu kazanır
       1) İthalat paçalı (get_sku_maliyet_ozet) — landed maliyet
       2) Ürün kartı alis_fiyati — yurt içinden alınanlar için
 
@@ -279,6 +288,14 @@ def get_pacal_map():
                     out[_k] = _af
         except Exception:
             pass
+        # ── MİKRO GİRİŞ PAÇALI: Mikro'da maliyeti olan SKU'da öncekilerin yerine geçer ──
+        try:
+            for _k, _m in (_mikro_pacal() or {}).items():
+                if _m > 0:
+                    out[_k] = _m
+        except Exception as _e:  # noqa: BLE001
+            from shared.kayit import sessiz
+            sessiz("satis.database.get_pacal_map", _e)
         return out
     except Exception:
         return {}
