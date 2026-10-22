@@ -83,6 +83,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "mikro_serino.py",      # seri no → Mikro (teknik servis, Eki 2026)
                "yedek_tablolari.py",   # gece yedeği tablo listesi + sayfalı okuma (Eki 2026)
                "sirket_ayar.py", "kur.py",
+               "yukleme_takvimi.py",   # Mikro'nun karşıladığı kaynaklar: görev yok (22.10.2026)
                "stok_hesap.py", "musteri_ekran.py",   # kanal stoğu kod eşleşmesi karşılaştırması (Eki 2026)
                "satis_hesap.py",                      # elle siparişte mükerrer uyarısı (Eki 2026)
                "main.py"):
@@ -273,6 +274,7 @@ KRITIK_FONKSIYONLAR = {
                                     "kanal_karsilastir", "plan_yap", "veri_oku", "plan_hazirla", "uygula",
                                     "durum", "acik_mi", "ac", "son_aktarim", "otomatik"],
     "kayranacc.mikro_stok_degeri_ekran": ["ilk_onay_kutusu"],
+    "shared.yukleme_takvimi": ["mikro_kaynak_anahtarlari", "durumlar", "ayar_kaynaklari"],   # 22.10.2026
     "kayranpm.mikro_depo": ["hareket_turu", "hareketler", "depo_partileri", "havuz_partileri", "depo_yaslari",
                             "depo_ozet_satirlari", "depo_parti_satirlari", "toplam", "excel_karsilastir",
                             "yas_karsilastir", "veri_oku", "hesapla", "havuz_partileri_oku", "depo_partileri_oku",

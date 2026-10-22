@@ -22,8 +22,9 @@ BEKLENEN = {
     "aktif_ithalat": "kayranacc.mikro_muhasebe", "aktif_cari": "kayranacc.mikro_muhasebe",
     "cek_listesi": "kayranacc.mikro_muhasebe",
     "odeme_listesi": "kayranacc.mikro_odeme_oto",          # 22.10.2026: her pazartesi Mikro'dan
+    "happylife": "kayranpm.mikro_depo",                    # 22.10.2026: palet listesine gerek yok
 }
-KALACAK = ["musteri_haftalik", "kampanya_sablon", "ref_excel", "toplu_mal_kabul", "happylife",
+KALACAK = ["musteri_haftalik", "kampanya_sablon", "ref_excel", "toplu_mal_kabul",
            "alinan_destek"]
 MODULLER = sorted(set(BEKLENEN.values()) | {"kayranpm.mikro_depo"})
 TAM_YETKI = {"satis": True, "kayranacc": True, "kayranpm": True, "ithalat": True, "depo": True,
@@ -51,7 +52,7 @@ def test_mikro_turleri_listesi():
     from shared.dosya_kapisi import MIKRO_ESITLEME, TURLER
     assert MIKRO_ESITLEME == BEKLENEN
     assert set(MIKRO_ESITLEME) <= set(TURLER)
-    assert not set(KALACAK) & set(MIKRO_ESITLEME)          # palet etiketi Mikro'da yok: Happy Life kalır
+    assert not set(KALACAK) & set(MIKRO_ESITLEME)
 
 
 @pytest.mark.parametrize("tur", sorted(BEKLENEN))

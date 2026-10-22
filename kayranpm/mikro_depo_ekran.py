@@ -107,7 +107,7 @@ def ilk_onay_kutusu(yer="hl"):
 
 
 def hl_sayfasi():
-    """Depo › Happy Life, Mikro kaynağı açıkken: stok, giriş tarihi ve yaş Mikro'dan (FIFO, elde kalan parti).
+    """Depo › Happy Life, Mikro kaynağı açıkken: model, adet ve stok yaşı Mikro'dan (FIFO, elde kalan parti).
     Döner: çizildi mi (Mikro verisi yoksa False; sayfa Excel görünümüne düşer)."""
     from shared.masa_liste import ciz, kolon
     from shared.utils import metrik_satiri
@@ -120,36 +120,27 @@ def hl_sayfasi():
         return False
     if v["bos"]:
         return False
-    bugun = v["bugun"]
     oz = M.depo_ozet_satirlari(v["depo"], M.HAPPY_LIFE, v["adlar"])
     t = M.toplam(oz)
-    metrik_satiri([
-        {"label": "Stok", "value": tr_sayi(t["stok"]), "alt": f"{tr_sayi(t['cesit'])} ürün"},
+    kartlar = [
+        {"label": "Stok", "value": tr_sayi(t["stok"]), "alt": f"{tr_sayi(t['cesit'])} model"},
         {"label": "En yaşlı stok", "value": f"{_gun(t['en_eski_gun'])} gün"},
         {"label": "Ağırlıklı ort. yaş", "value": f"{_gun(t['ort_gun'])} gün"},
-        {"label": "Giriş kaydı yok", "value": tr_sayi(t["kayitsiz"])},
-    ])
+    ]
+    if t["kayitsiz"]:
+        kartlar.append({"label": "Giriş kaydı yok", "value": tr_sayi(t["kayitsiz"])})
+    metrik_satiri(kartlar)
     if not oz:
         st.info("Mikro'ya göre Happy Life'ta stok yok.")
         return True
-    st.markdown("**Ürün bazında** — Mikro stoğu ve elde kalan en eski partinin yaşı")
-    st.caption("Yaş, malın Happy Life'a girdiği günden (ithalat girişi ya da depolar arası sevk) FIFO ile: en "
-               "eski önce çıkar, elde kalan stok en yeni girişlerdendir. Her gün kendiliğinden güncellenir.")
-    ciz([{"Ürün": r["ad"] or r["sku"], "SKU": r["sku"], "Stok": r["stok"], "Parti": r["parti"],
-          "En eski giriş": r["en_eski_tarih"] or None, "En eski (gün)": r["en_eski_gun"],
-          "Ort. yaş (gün)": r["ort_gun"], "Kayıtsız adet": r["kayitsiz"]} for r in oz],
-        [kolon("Ürün", ana=True, alt="SKU"), kolon("SKU", gizli=True), kolon("Stok", "adet", gen="90px"),
-         kolon("Parti", "adet", gen="70px", genis=True), kolon("En eski giriş", "tarih", gen="110px"),
-         kolon("En eski (gün)", "adet", gen="100px", dar="alt"), kolon("Ort. yaş (gün)", "adet", gen="100px"),
-         kolon("Kayıtsız adet", "adet", gen="100px", genis=True)],
+    # Kullanıcı (22.10.2026): "palet listesine ihtiyacım yok; sadece adet, model ve stok yaşı yeterli"
+    st.caption("Yaş, malın Happy Life'a girdiği günden (ithalat girişi ya da depolar arası sevk) FIFO ile: en eski "
+               "önce çıkar, elde kalan stok en yeni girişlerdendir. Her gün kendiliğinden güncellenir.")
+    ciz([{"Model": r["ad"] or r["sku"], "SKU": r["sku"], "Adet": r["stok"],
+          "En eski giriş": r["en_eski_tarih"] or None, "Stok yaşı (gün)": r["en_eski_gun"],
+          "Ort. yaş (gün)": r["ort_gun"]} for r in oz],
+        [kolon("Model", ana=True, alt="SKU"), kolon("SKU", gizli=True), kolon("Adet", "adet", gen="90px"),
+         kolon("En eski giriş", "tarih", gen="110px", genis=True), kolon("Stok yaşı (gün)", "adet", gen="110px"),
+         kolon("Ort. yaş (gün)", "adet", gen="100px", dar="alt")],
         "hl_mikro_ozet", excel="happylife_mikro_ozet")
-    st.markdown("**Elde kalan partiler** — her satır bir giriş")
-    pr = M.depo_parti_satirlari(v["depo"], M.HAPPY_LIFE, bugun, v["adlar"])
-    ciz([{"Ürün": r["ad"] or r["sku"], "SKU": r["sku"], "Giriş tarihi": r["giris_tarihi"], "Yaş (gün)": r["yas"],
-          "Kalan adet": r["kalan"], "Tür": r["tur"], "Belge": r["belge"], "Geldiği depo": r["kaynak"]} for r in pr],
-        [kolon("Ürün", ana=True, alt="SKU"), kolon("SKU", gizli=True), kolon("Giriş tarihi", "tarih", gen="104px"),
-         kolon("Yaş (gün)", "adet", gen="90px", dar="alt"), kolon("Kalan adet", "adet", gen="100px"),
-         kolon("Tür", secim=True, gen="110px", genis=True), kolon("Belge", gen="120px", genis=True),
-         kolon("Geldiği depo", gen="120px", genis=True)],
-        "hl_mikro_parti", excel="happylife_mikro_partiler")
     return True

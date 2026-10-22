@@ -531,15 +531,13 @@ def hl_get_stok(rapor_tarihi=None):
 
 def kapi_happylife(dosya, kapi):
     """Dosya kapısı (Ekim 2026): Happy Life günlük stok Excel'i (eskiden bu sayfadaki açılır bölüm).
-    Mikro depo hareketleri kaynağı açıksa (kayranpm.mikro_depo) stok ve giriş tarihi Mikro'dan gelir; Excel
-    yalnız palet listesi içindir ve kullanıcı isterse kaydedilir."""
+    Mikro depo hareketleri kaynağı açıksa (kayranpm.mikro_depo, varsayılan açık) model, adet ve stok yaşı
+    Mikro'dan gelir; Excel kaydedilmez (kullanıcı 22.10.2026: palet listesine gerek yok)."""
     from kayranpm.mikro_depo import acik_mi as _md_acik
     if _md_acik():
         st.info("Happy Life stoğu, giriş tarihleri ve stok yaşı artık Mikro'dan otomatik geliyor; bu Excel'i "
-                "yüklemeye gerek yok. Mikro'da olmayan tek şey palet etiketi: palet listesini görmek istersen "
-                "aşağıdan yine kaydedebilirsin.")
-        if not st.checkbox("Palet listesi olarak yine de kaydet", key=kapi.anahtar("hl_palet_kaydet")):
-            return
+                "yüklemeye gerek yok. Bu dosya kaydedilmez.")
+        return
     from shared.yukleme_takvimi import serit as _yt_serit
     _yt_serit("happylife")
     st.caption("Happy Life'tan gelen günlük stok Excel'i. Stok yaşı, Excel'deki sabit sayı yerine "
@@ -572,22 +570,20 @@ def kapi_happylife(dosya, kapi):
 
 
 def _sayfa_happylife():
-    _baslik("🏭 Happy Life Kiralık Depo",
-            "Palet bazlı stok · stok yaşı tarihe göre canlı hesaplanır (kira takibi)")
-    from shared.yukleme_takvimi import serit as _yt_serit
-    _yt_serit("happylife")                       # dönemsel rapor: geri sayım şeridi (Mikro açıkken çıkmaz)
-    # Mikro depo hareketleri (Ekim 2026): kapalıyken bir kerelik onay kutusu; açıkken stok, giriş tarihi ve yaş
-    # Mikro'dan. Happy Life Excel'i (palet listesi) varsa altta açılır bölümde kalır.
+    # Mikro depo hareketleri (varsayılan açık, kullanıcı kararı 22.10.2026): model, adet ve stok yaşı Mikro'dan;
+    # palet listesi (Happy Life Excel'i) gösterilmez. Kaynak kapatılırsa ya da Mikro verisi yoksa eski Excel görünümü.
     from kayranpm import mikro_depo as _md
     from kayranpm.mikro_depo_ekran import ilk_onay_kutusu as _md_onay, hl_sayfasi as _md_sayfa
+    if _md.acik_mi():
+        _baslik("🏭 Happy Life Kiralık Depo", "Model, adet ve stok yaşı Mikro'dan · her gün kendiliğinden güncellenir")
+        if _md_sayfa():
+            return
+    else:
+        _baslik("🏭 Happy Life Kiralık Depo",
+                "Palet bazlı stok · stok yaşı tarihe göre canlı hesaplanır (kira takibi)")
+    from shared.yukleme_takvimi import serit as _yt_serit
+    _yt_serit("happylife")                       # dönemsel rapor: geri sayım şeridi (Mikro açıkken çıkmaz)
     _md_onay("hl")
-    if _md.acik_mi() and _md_sayfa():
-        if hl_rapor_tarihleri():
-            with st.expander("Happy Life palet listesi (son Excel)", expanded=False, icon=":material/inventory_2:"):
-                st.caption("Palet etiketi Mikro'da yok; bu bölüm Happy Life'ın gönderdiği son Excel'dir ve yalnız "
-                           "yeni Excel kaydedilince değişir.")
-                _hl_excel_goster()
-        return
     _hl_excel_goster()
 
 
