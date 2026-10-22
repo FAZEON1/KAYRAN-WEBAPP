@@ -17,8 +17,8 @@ okunur; uygulamaya hiçbir şey kopyalanmaz. Onaydan sonra kaynak değişir, hes
                     Merkez / Happy Life'a sevk yeni parti değildir.
   Değer farkı       (sth_cins 9) ve iptal edilmiş hareket sayılmaz.
 
-Mikro'da OLMAYAN: palet etiketi ve palet sayısı (Happy Life'ın kendi deposundaki palet kaydı). Onlar için Happy
-Life Excel'i isteğe bağlı yüklenebilir; stok, giriş tarihi ve yaş Mikro'dan gelir.
+Mikro'da OLMAYAN: palet etiketi ve palet sayısı. Kullanıcı (22.10.2026): palet listesine gerek yok; Happy Life Excel
+yüklemesi bu kaynak açıkken kalkar (kapı, takvim, sayfa). Kaynak varsayılan açık; kapatılırsa Excel görünümü geri gelir.
 Durum sistem_ayarlari'nda (DURUM_ANAHTAR). Ekran: kayranpm/mikro_depo_ekran.py.
 """
 from collections import defaultdict
@@ -248,20 +248,21 @@ def _cli():
 
 
 def veri_oku():
-    """(hareket satırları, {dep_no: dep_adi}, mikro_stok_miktar satırları). Tablo yoksa / boşsa boş liste."""
-    # Sıralı okuma + kopya denetimi (satis.mikro_esitle, 21.10.2026 olayı): sırasız sayfalar satır kaçırıp
-    # kopyalayabiliyordu. Tutarsız okumada hareketler boş döner → sayfalar bugünkü kaynaklara düşer.
-    from satis.mikro_esitle import kopyasiz
+    """(hareket satırları, {dep_no: dep_adi}, mikro_stok_miktar satırları). Tablo yoksa / boşsa boş liste.
+    Sayfalar .range() ile açıkça okunur (satis.mikro_esitle.sayfali_oku): hareket tablosu 20.000 satırı geçiyor
+    (22.10.2026: 20.657); oto-sayfalama bayatlarsa ilk 1.000 satırda kalınıyor, Happy Life stoğunun %96'sı "giriş
+    kaydı yok" görünüyordu. Tutarsız okumada hareketler boş döner → sayfalar bugünkü kaynaklara düşer."""
+    from satis.mikro_esitle import sayfali_oku
     cli = _cli()
     try:
-        har = kopyasiz(cli.table(TABLO).select(KOLONLAR).order("sth_guid").execute().data or [], "sth_guid")
+        har = sayfali_oku(lambda: cli.table(TABLO).select(KOLONLAR).order("sth_guid"), "sth_guid")
     except Exception:  # noqa: BLE001 — göç (43) uygulanmadıysa tablo yok / okuma tutarsız
         har = []
     depo = {_i(d.get("dep_no")): _s(d.get("dep_adi")) for d in
             (cli.table("mikro_depo_kart").select("dep_no,dep_adi").execute().data or [])}
     try:
-        stok = kopyasiz(cli.table("mikro_stok_miktar").select("sto_kod,sto_isim,depo,miktar").order("sto_kod")
-                        .order("depo").execute().data or [], ("sto_kod", "depo"))
+        stok = sayfali_oku(lambda: cli.table("mikro_stok_miktar").select("sto_kod,sto_isim,depo,miktar")
+                           .order("sto_kod").order("depo"), ("sto_kod", "depo"))
     except Exception:  # noqa: BLE001
         har, stok = [], []
     return har, depo, stok
@@ -341,7 +342,10 @@ def durum():
 
 
 def acik_mi():
-    return bool(durum().get("acik"))
+    """Varsayılan AÇIK (kullanıcı kararı 22.10.2026: "Happy Life palet listesine ihtiyacım yok; adet, model ve stok
+    yaşı yeterli … Mikro'dan gelen datalarla yazalım"); yalnız {"acik": false} kapatır (eski Excel / alım dosyası
+    kaynağına döner)."""
+    return durum().get("acik", True) is not False
 
 
 def ac(kullanici, ozet=None):

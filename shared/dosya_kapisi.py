@@ -97,7 +97,7 @@ SABLONLAR = [
 # Mikro'nun karşıladığı türler (kullanıcı kararı 22.10.2026): ilgili eşitleme AÇIKKEN tür listede, tür seçiminde,
 # otomatik tanımada ve boş şablonlarda görünmez; tanınan böyle bir dosya bırakılırsa tek bilgi notu çıkar, kayıt
 # yapılmaz. Kod silinmez: eşitleme kapanırsa tür geri gelir. Gövdeler de aynı eşitlemeye bakıp kaydetmez (yedek).
-# Happy Life KALIR: stok ve giriş tarihi Mikro'dan (kayranpm.mikro_depo) gelse de palet etiketi Mikro'da yok.
+# Happy Life (22.10.2026): palet etiketi Mikro'da yok ama kullanıcı palet listesini istemiyor; o da kalkar.
 MIKRO_ESITLEME = {
     "siparis_vatan": "satis.mikro_esitle", "siparis_itopya": "satis.mikro_esitle",
     "mikro_fatura": "satis.mikro_esitle", "iade_excel": "satis.mikro_esitle",
@@ -108,11 +108,12 @@ MIKRO_ESITLEME = {
     "aktif_ithalat": "kayranacc.mikro_muhasebe", "aktif_cari": "kayranacc.mikro_muhasebe",
     "cek_listesi": "kayranacc.mikro_muhasebe",
     "odeme_listesi": "kayranacc.mikro_odeme_oto",      # 22.10.2026: her pazartesi Mikro'dan kendiliğinden
+    "happylife": "kayranpm.mikro_depo",                # 22.10.2026: palet listesine gerek yok; adet, model, yaş Mikro'dan
 }
 MIKRO_NOTU = "Bu dosyanın verisi artık Mikro'dan geliyor; yüklemeye gerek yok."
 # Durumu okunamazsa "açık" sayan eşitlemeler (varsayılan açık): okuma hatasında kapı açık kalsın diye önce
 # ayarın okunabildiği denenir
-_VARSAYILAN_ACIK = {"ithalat.mikro_ithalat", "kayranacc.mikro_odeme_oto"}
+_VARSAYILAN_ACIK = {"ithalat.mikro_ithalat", "kayranacc.mikro_odeme_oto", "kayranpm.mikro_depo"}
 # Şablon → türü (şablon da türüyle birlikte gizlenir)
 _SABLON_TUR = {"satis.main:sablon_siparis_vatan": "siparis_vatan",
                "satis.main:sablon_siparis_itopya": "siparis_itopya",

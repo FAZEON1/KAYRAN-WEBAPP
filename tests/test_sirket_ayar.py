@@ -153,7 +153,7 @@ def test_yetki_tablosu_rol_etiketlerini_korur(monkeypatch):
         def execute(self):
             class R:
                 data = [{"kullanici": "derya", "moduller": [], "aktif": True, "salt_okur": False,
-                         "ozel": ["kar_gorur", "yukleme_sorumlusu:aktif_stok", "uydurma"]}]
+                         "ozel": ["kar_gorur", "yukleme_sorumlusu:musteri_haftalik", "uydurma"]}]
             return R()
 
     class _Sb:
@@ -162,7 +162,7 @@ def test_yetki_tablosu_rol_etiketlerini_korur(monkeypatch):
 
     monkeypatch.setattr(Y, "_supabase", lambda: _Sb())
     t = Y.yetki_tablosu()
-    assert t["derya"]["ozel"] == ["kar_gorur", "yukleme_sorumlusu:aktif_stok"]
+    assert t["derya"]["ozel"] == ["kar_gorur", "yukleme_sorumlusu:musteri_haftalik"]
 
 
 # ── 4) sistem_ayarlari yedeği ─────────────────────────────────────────────
@@ -225,9 +225,14 @@ def test_yetki_ekrani_secenekleri():
     for rol in SA.ROLLER:
         assert rol in Y.OZEL and Y.OZEL_ADI[rol]
     import shared.yukleme_takvimi as YT
+    mikro = YT.mikro_kaynak_anahtarlari()
     for k in YT.KAYNAKLAR:
         r = SA.yukleme_rolu(k["anahtar"])
-        assert r in Y.OZEL and k["ad"] in Y.OZEL_ADI[r]
+        if k["anahtar"] in mikro:            # verisi Mikro'dan: yükleme görevi atanmaz (kullanıcı 22.10.2026)
+            assert r not in Y.OZEL, r
+        else:
+            assert r in Y.OZEL and k["ad"] in Y.OZEL_ADI[r]
+    assert [r for r in Y.OZEL if r.startswith(SA.YUKLEME_ONEK)] == [SA.yukleme_rolu("musteri_haftalik")]
     assert len(Y.OZEL) == len(set(Y.OZEL))
     for eski in ("yonetim", "patron_panel", "kar", "claude_onay", "kullanici_yonetimi"):
         assert eski in Y.OZEL                                                # eskiler yerinde

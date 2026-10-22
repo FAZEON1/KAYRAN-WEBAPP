@@ -324,9 +324,16 @@ def _bugun():
 # shared.dosya_kapisi.MIKRO_ESITLEME (kaynak anahtarı = kapı türü); farklı adlı ve kapıda kalan kaynaklar burada.
 _MIKRO_AYRIK = {
     "satis_dokumu": "satis.mikro_esitle",         # satışlar Mikro faturalarından (kapı türü: mikro_fatura)
-    # Happy Life: stok ve giriş tarihleri Mikro'dan → hatırlatma yok; palet Excel'i kapıda isteğe bağlı kalır
-    "happylife": "kayranpm.mikro_depo",
 }
+
+
+def mikro_kaynak_anahtarlari():
+    """Verisi Mikro eşitlemesinden gelebilen kaynakların anahtarları (eşitlemenin açık olup olmadığına bakmaz)."""
+    try:
+        from shared.dosya_kapisi import MIKRO_ESITLEME
+    except Exception:  # noqa: BLE001
+        MIKRO_ESITLEME = {}
+    return {a for a in _KAYNAK if a in _MIKRO_AYRIK or a in MIKRO_ESITLEME}
 
 
 def _mikro_kapsadigi():
@@ -395,15 +402,17 @@ def durumlar(bugun=None):
     return out
 
 
-try:
-    import streamlit as _st
+def _onbellek(f):
+    try:
+        import streamlit as _st
+        return _st.cache_data(ttl=300, show_spinner=False)(f)
+    except Exception:  # noqa: BLE001 — streamlit yoksa (betikler) önbelleksiz
+        return f
 
-    @_st.cache_data(ttl=300, show_spinner=False)
-    def tum_durumlar(bugun_iso):
-        return durumlar(date.fromisoformat(bugun_iso))
-except Exception:  # noqa: BLE001 — streamlit yoksa (betikler) önbelleksiz
-    def tum_durumlar(bugun_iso):
-        return durumlar(date.fromisoformat(bugun_iso))
+
+@_onbellek
+def tum_durumlar(bugun_iso):
+    return durumlar(date.fromisoformat(bugun_iso))
 
 
 def _temizle():

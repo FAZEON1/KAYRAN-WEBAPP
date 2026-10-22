@@ -79,7 +79,8 @@ def _sorunlar(at):
 # İthalat Excel'i ve haftalık ödeme listesi yalnız Mikro eşitlemesi kapatılınca kaydeder (varsayılan açık: veri
 # Mikro'dan gelir; ödeme listesi 22.10.2026'dan beri her pazartesi Mikro'dan)
 MIKRO_KAPALI = {"ithalat_rapor": {"sistem_ayarlari": [{"anahtar": "mikro_ithalat_durum", "deger": '{"acik": false}'}]},
-                "odeme_listesi": {"sistem_ayarlari": [{"anahtar": "mikro_odeme_durum", "deger": '{"acik": false}'}]}}
+                "odeme_listesi": {"sistem_ayarlari": [{"anahtar": "mikro_odeme_durum", "deger": '{"acik": false}'}]},
+                "happylife": {"sistem_ayarlari": [{"anahtar": "mikro_depo_durum", "deger": '{"acik": false}'}]}}
 
 
 @pytest.mark.parametrize("tur", sorted(ORNEKLER))
@@ -125,6 +126,18 @@ def test_odeme_listesi_exceli_mikro_acikken_kaydedilmez():
     assert any("Mikro'dan otomatik" in m.value for m in at.info), [m.value for m in at.info]
     assert not [b for b in at.button if b.key == _anahtar(KAYDET["odeme_listesi"])]
     assert len(sahte_db.TABLOLAR.get("haftalar") or []) == len(VERI.get("haftalar") or [])
+
+
+def test_happylife_exceli_mikro_acikken_kaydedilmez():
+    """Kullanıcı (22.10.2026): palet listesine gerek yok; Mikro depo kaynağı açıkken (varsayılan) Happy Life Excel'i
+    kaydedilmez, "yine de kaydet" seçeneği de yok."""
+    import sahte_db
+    at = _kapida("happylife")
+    assert not _sorunlar(at), _sorunlar(at)
+    assert any("Mikro'dan otomatik" in m.value for m in at.info), [m.value for m in at.info]
+    assert not [c for c in at.checkbox if "Palet" in str(c.label)]
+    assert not [b for b in at.button if b.key == _anahtar(KAYDET["happylife"])]
+    assert len(sahte_db.TABLOLAR.get("happylife_stok") or []) == len(VERI.get("happylife_stok") or [])
 
 
 def _uygulama(mod="anasayfa", tablolar=None, **durum):
@@ -194,9 +207,10 @@ def test_mikro_acikken_tur_secimde_ve_sablonlarda_yok():
         assert any("artık Mikro'dan geliyor" in m.value for m in at.info), [m.value for m in at.info]
         secenek = list(at.selectbox(key="kapi_tur_a2").options)
         for gizli in ("VATAN sipariş Excel'i", "Mikro satış fatura dökümü", "İade Excel'i", "G5F depo stok sayımı",
-                      "Satın alım raporu (ithalat)", "Haftalık ödeme listesi"):   # ithalat, ödeme: varsayılan açık
+                      "Satın alım raporu (ithalat)", "Haftalık ödeme listesi",   # ithalat, ödeme, Happy Life:
+                      "Happy Life stok raporu"):                                  # varsayılan açık
             assert not any(o.startswith(gizli) for o in secenek), (gizli, secenek)
-        for kalan in ("Happy Life stok raporu", "Aylık gider tablosu"):
+        for kalan in ("Aylık gider tablosu",):
             assert any(o.startswith(kalan) for o in secenek), (kalan, secenek)
         # Kapalıyken eski liste
         at = _uygulama(tablolar=MIKRO_KAPALI["ithalat_rapor"], _kapi_acik=True, _kapi_dosyalar=dosya)

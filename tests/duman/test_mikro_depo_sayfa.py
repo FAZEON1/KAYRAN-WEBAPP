@@ -37,7 +37,8 @@ MIKRO = {
 }
 
 
-def _ac(uygulama, anahtar, sayfa, acik=False, durum=None):
+def _ac(uygulama, anahtar, sayfa, acik=None, durum=None):
+    """acik: None → durum kaydı yok (varsayılan: AÇIK, kullanıcı kararı 22.10.2026); True / False → kayıt."""
     import os
     import sahte_db
     from streamlit.testing.v1 import AppTest
@@ -46,8 +47,9 @@ def _ac(uygulama, anahtar, sayfa, acik=False, durum=None):
     sahte_db.TABLOLAR["kullanici_yetkileri"] = [dict(r) for r in sahte_db.YETKI]
     for t, rows in list(VERI.items()) + list(MIKRO.items()):
         sahte_db.TABLOLAR[t] = [dict(r) for r in rows]
-    if acik:
-        sahte_db.TABLOLAR["sistem_ayarlari"] = [{"anahtar": "mikro_depo_durum", "deger": '{"acik": true}'}]
+    if acik is not None:
+        sahte_db.TABLOLAR["sistem_ayarlari"] = [{"anahtar": "mikro_depo_durum",
+                                                 "deger": '{"acik": true}' if acik else '{"acik": false}'}]
     at = AppTest.from_file(BETIK, default_timeout=SURE)
     at.secrets["supabase"] = {"url": "http://sahte.local", "key": "sahte", "service_role_key": "sahte"}
     for k, v in dict({"giris_yapildi": True, "aktif_kullanici": sahte_db.KULLANICI, "aktif_uygulama": uygulama,
@@ -61,7 +63,7 @@ def _ac(uygulama, anahtar, sayfa, acik=False, durum=None):
 
 
 def test_kapaliyken_onay_kutusu_ve_karsilastirma():
-    at = _ac("depo", "depo_sayfa", HL, durum={"md_goster_hl": True})
+    at = _ac("depo", "depo_sayfa", HL, acik=False, durum={"md_goster_hl": True})
     assert not _sorunlar(at), _sorunlar(at)
     assert any("Mikro'dan gelsin" in e.label for e in at.expander)
     m = _metin(at)
@@ -69,12 +71,15 @@ def test_kapaliyken_onay_kutusu_ve_karsilastirma():
     assert at.button(key="md_ac_hl").disabled                  # onay işareti olmadan açılmaz
 
 
-def test_aciliyken_happy_life_mikrodan():
-    at = _ac("depo", "depo_sayfa", HL, acik=True)
+@pytest.mark.parametrize("acik", [True, None])                  # None: kayıt yok → varsayılan açık
+def test_aciliyken_happy_life_mikrodan(acik):
+    """Kullanıcı (22.10.2026): "palet listesine ihtiyacım yok; sadece adet, model ve stok yaşı yeterli"."""
+    at = _ac("depo", "depo_sayfa", HL, acik=acik)
     assert not _sorunlar(at), _sorunlar(at)
     m = _metin(at)
-    assert "Elde kalan partiler" in m and "Mikro'nun stok hareketlerinden" in m
-    assert any("palet listesi" in e.label for e in at.expander)
+    assert "Model, adet ve stok yaşı Mikro'dan" in m
+    assert "Elde kalan partiler" not in m and "Palet" not in m
+    assert not any("palet" in e.label.lower() for e in at.expander)
     assert not any("Mikro'dan gelsin" in e.label for e in at.expander)
 
 

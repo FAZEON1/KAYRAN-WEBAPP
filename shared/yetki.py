@@ -44,9 +44,13 @@ from shared import sirket_ayar as _sa   # noqa: E402 — modül düzeyinde proje
 
 
 def _yukleme_rol_adlari():
+    """Atanabilir yükleme sorumlusu rolleri. Verisi Mikro'dan gelen kaynaklar (dosya_kapisi.MIKRO_ESITLEME,
+    yukleme_takvimi._MIKRO_AYRIK) listede yok — kullanıcı 22.10.2026: "bu upload görevleri kaldırılsın". Eşitleme
+    kapatılırsa takvim yine varsayılan sorumluyu (sirket_ayar.VARSAYILAN_YUKLEME) kullanır."""
     try:
-        from shared.yukleme_takvimi import KAYNAKLAR
-        return [(k["anahtar"], k["ad"]) for k in KAYNAKLAR]
+        from shared.yukleme_takvimi import KAYNAKLAR, mikro_kaynak_anahtarlari
+        mikro = mikro_kaynak_anahtarlari()
+        return [(k["anahtar"], k["ad"]) for k in KAYNAKLAR if k["anahtar"] not in mikro]
     except Exception:  # noqa: BLE001 — yetki modülü hiçbir koşulda çökmesin
         return [(a, a) for a in _sa.VARSAYILAN_YUKLEME]
 
