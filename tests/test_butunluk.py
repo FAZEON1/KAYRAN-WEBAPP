@@ -86,6 +86,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "yukleme_takvimi.py",   # Mikro'nun karşıladığı kaynaklar: görev yok (22.10.2026)
                "stok_hesap.py", "musteri_ekran.py",   # kanal stoğu kod eşleşmesi karşılaştırması (Eki 2026)
                "satis_hesap.py",                      # elle siparişte mükerrer uyarısı (Eki 2026)
+               "toplam_aktif.py", "toplam_aktif_ekran.py",   # Toplam Aktifler eşitleme turunda (22.10.2026)
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
