@@ -33,6 +33,7 @@ ISLER = (
     ("Toplam Aktifler sonucu", "kayranacc.toplam_aktif", "otomatik"),            # bütün kalemlerden SONRA
     ("Ürün kartları / fiyat listeleri", "kayranpm.mikro_urun", "otomatik"),
     ("İthalat dosyaları / masraflar", "ithalat.mikro_ithalat", "otomatik"),
+    ("Yurt içi alışlar", "kayranpm.mikro_yurtici", "otomatik"),
 )
 
 

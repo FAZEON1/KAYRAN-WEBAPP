@@ -348,6 +348,25 @@ WHERE sth_iptal=0 AND sth_tip=0 AND ISNULL(sth_cari_kodu, '') <> '' AND sth_tari
   AND sth_lastup_date > '{SON}'
 """,
     },
+    # ── Mikro'nun stok maliyeti (Ekim 2026, kullanıcı: "Mikro'da ürünlerin maliyeti neyse programda da o olsun").
+    # STOK_HAREKETLERI_OZET stok × yıl × hareket cinsi toplamı (depo ve dönem toplanır); her turda tam çekilir.
+    "stok_maliyet": {
+        "tablo": "mikro_stok_maliyet", "anahtar": "stok_kod,yil,hareket_cins",
+        "artimli": False,
+        "sql": """
+SELECT sho_StokKodu AS stok_kod, sho_MaliYil AS yil, sho_HareketCins AS hareket_cins,
+       SUM(sho_GirisNormal) AS giris, SUM(sho_GirisIade) AS giris_iade,
+       SUM(sho_CikisNormal) AS cikis, SUM(sho_CikisIade) AS cikis_iade,
+       SUM(sho_Maliyet_Ana_Giris) AS ana_giris, SUM(sho_Maliyet_Ana_GirisIade) AS ana_giris_iade,
+       SUM(sho_Maliyet_Ana_Cikis) AS ana_cikis, SUM(sho_Maliyet_Ana_CikisIade) AS ana_cikis_iade,
+       SUM(sho_Maliyet_Alt_Giris) AS alt_giris, SUM(sho_Maliyet_Alt_GirisIade) AS alt_giris_iade,
+       SUM(sho_Maliyet_Alt_Cikis) AS alt_cikis, SUM(sho_Maliyet_Alt_CikisIade) AS alt_cikis_iade,
+       SUM(sho_Belge_Ana_Giris) AS belge_ana_giris, SUM(sho_Belge_Alt_Giris) AS belge_alt_giris
+FROM STOK_HAREKETLERI_OZET
+WHERE ISNULL(sho_StokKodu, '') <> ''
+GROUP BY sho_StokKodu, sho_MaliYil, sho_HareketCins
+""",
+    },
     # ── Adım 4 (Ekim 2026): depo hareketleri — Happy Life raporu ve stok yaşı (depoya giriş tarihi, FIFO) ──
     # Bir depoya giren ya da depodan çıkan bütün hareketler: giriş (sth_tip 0), çıkış (1), depolar arası sevk (2).
     # İptal işareti de çekilir (WHERE'de süzülmez): sonradan iptal edilen satır artımlı turda güncellenir.
