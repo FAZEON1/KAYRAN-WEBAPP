@@ -144,11 +144,12 @@ def test_menu_ve_sayfalar():
     from shared.tasarim import menu_etiketi
     pm = next(m for m in MODULLER if m["kod"] == "kayranpm")
     adlar = {s[1]: s[0] for s in pm["sayfalar"]}
-    assert adlar["maliyet"] == "💵  Yurt İçi Alış" and adlar["stok_yasi"] == "Stok Yaşı"
+    # Yurt içi alış sayfası kalktı (kullanıcı, 22.10.2026: "tüm alımlar Mikro'dan yansıyacak")
+    assert "maliyet" not in adlar and adlar["stok_yasi"] == "Stok Yaşı"
     assert menu_etiketi("Stok Yaşı") == ":material/hourglass_bottom: Stok Yaşı"
-    assert hedef("kayranpm/stok_yasi") and hedef("kayranpm/maliyet")
+    assert hedef("kayranpm/stok_yasi") and not hedef("kayranpm/maliyet")
     m = (KOK / "kayranpm" / "main.py").read_text(encoding="utf-8")
-    assert '"Stok Yaşı": lambda: _sayfa_stok_yasi(' in m and "yurtici_ekran import goster" in m
+    assert '"Stok Yaşı": lambda: _sayfa_stok_yasi(' in m and '"💵  Yurt İçi Alış"' not in m
     k = (KOK / "kayranpm" / "stok_karti.py").read_text(encoding="utf-8")
     assert "kart_bolumu(sku)" in k
 

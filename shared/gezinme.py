@@ -68,14 +68,13 @@ MODULLER = [
          ("📈  Müşteri Satışları", "musteri_satislari", "Müşteri satışları", None),
          ("🎯  Kampanya Takip", "kampanya", "Kampanya takip", None),
          ("📦  Sipariş Önerisi", "siparis_onerisi", "Sipariş önerisi", None),
-         ("💵  Yurt İçi Alış", "maliyet", "Yurt içi alış", None),
          ("🔖  Ref No Takibi", "ref_no", "Ref No takibi", None),
          ("Toplu İşlemler", "veri_yukleme", "Toplu işlemler", None),
      ],
      # 9 sayfa tek sekme satırına sığmıyor → iki katlı (Stok yaşı eklenince, Ekim 2026)
      "gruplar": [
          ("genel", "Genel bakış", ["genel_bakis"]),
-         ("urunler", "Ürün ve stok", ["tum_urunler", "stok_yasi", "maliyet"]),
+         ("urunler", "Ürün ve stok", ["tum_urunler", "stok_yasi"]),
          ("musteri", "Müşteri ve kampanya", ["musteri_satislari", "kampanya", "ref_no"]),
          ("siparis", "Sipariş", ["siparis_onerisi"]),
          ("veri", "Toplu işlemler", ["veri_yukleme"]),

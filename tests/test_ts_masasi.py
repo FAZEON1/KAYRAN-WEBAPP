@@ -127,24 +127,17 @@ def test_depo_masasi_sira_grup_ve_satis():
     assert [x["id"] for x in v["satirlar"] if masa.kosul_uyar(x, gor["Satıldı"])] == [22, 24]
 
 
-def test_depo_toplu_satis_ve_ac(monkeypatch):
+def test_depo_toplu_satis_yok_ac_var(monkeypatch):
+    """Toplu Satış kaldırıldı (kullanıcı, 22.10.2026: satış Mikro'daki faturadan gelir)."""
     v = M.depo_masa_verisi(DEPO, TUM, DEPOLAR, BUGUN, GIRIS)
     acilan, durum = [], {}
     yurut = M.depo_yurutucu(DEPO, lambda on_ek, i: acilan.append((on_ek, i)), durum)
-    t, h = masa.istek_al(v, {"islem": "sat", "ids": [21, 22]})
-    assert t is None and "uygun değil" in h                                     # satılmış ürün satılamaz
-    t, h = masa.istek_al(v, {"islem": "sat", "ids": [21, 25, 23]})
-    assert h is None
-    s = yurut(t)
-    assert s == {"ok": True, "mesaj": "", "yenileme": False, "sessiz": True}
-    assert durum[M.TOPLU_AC] is True
-    assert durum["ts_toplu_sec"] == [M.toplu_etiket({k["id"]: k for k in DEPO}[i]) for i in (21, 25, 23)]
-    assert durum["ts_toplu_sec"][0] == "G5F00021 · SK21 · Ürün 21 · Seri SN21 · [outlet]"
+    assert {i["k"] for i in v["islemler"]} == {"ac", "excel"}
+    t, h = masa.istek_al(v, {"islem": "sat", "ids": [21, 25]})
+    assert t is None and "Bilinmeyen" in h
     t, h = masa.istek_al(v, {"islem": "ac", "ids": [24]})
     yurut(t)
-    assert acilan == [("ts_depo", 24)]
-    t, h = masa.istek_al(dict(v, salt=True), {"islem": "sat", "ids": [21]})
-    assert t is None and "Salt-okur" in h
+    assert acilan == [("ts_depo", 24)] and M.TOPLU_AC not in durum
 
 
 def test_toplu_etiket_eski_expander_ile_ayni():
@@ -157,16 +150,15 @@ def test_ekran_bayraklari_ve_ayni_kod_yolu():
     m = (KOK / "teknikservis/main.py").read_text(encoding="utf-8")
     assert "TS_MASASI_YENI = True" in m and "DEPO_MASASI_YENI = True" in m
     assert "if TS_MASASI_YENI:\n        _liste_masa(" in m and "if DEPO_MASASI_YENI:\n        _depolar_masa(kayitlar)" in m
-    # Toplu Satış: eski expander ve yeni pencere AYNI fonksiyonu çağırır
-    assert "_toplu_satis_formu(_satilabilir, st.rerun)" in m and "_toplu_satis_formu(satilabilir, _rerun_app)" in m
-    assert m.count("def _toplu_satis_formu(") == 1 and m.count('key="ts_toplu_btn"') == 1
+    # Toplu Satış kaldırıldı (22.10.2026): ne eski expander ne masa penceresi açar
+    assert "_toplu_satis_formu(_satilabilir, st.rerun)" not in m and "_dlg_toplu_satis([" not in m
     # eski liste yolu duruyor
     assert "E.kayit_listesi(_gruplar, _g_of, _bitmis_of, _fatura_var, on_ek)" in m
     assert 'E.depo_listesi(goster, DEPOLAR, "ts_depo")' in m
-    # masadan sonra: seçilenlerin Excel'i ve toplu satış penceresi
+    # masadan sonra: seçilenlerin Excel'i (toplu satış penceresi kalktı, 22.10.2026)
     i = m.index("def _depolar_masa(")
     blok = m[i:m.index("\ndef ", i + 10)]
-    assert "_TM.depo_yurutucu(goster, E.sec, st.session_state)" in blok and "_dlg_toplu_satis(" in blok
+    assert "_TM.depo_yurutucu(goster, E.sec, st.session_state)" in blok and "_dlg_toplu_satis(" not in blok
     assert "_ozet_kirilim(donemsel, aktif, donem)" in blok
 
 

@@ -548,20 +548,18 @@ def _alinan_masa():
     from . import ref_masasi as RM
     eur, tl = _kurlar()
     bugun = date.today()
-    c0, _c1, c4 = st.columns([1.0, 4.2, 1.35], vertical_alignment="bottom")
+    c0, _c1 = st.columns([1.0, 5.55], vertical_alignment="bottom")
     yil = c0.selectbox("Yıl", [bugun.year, bugun.year - 1, bugun.year + 1], key="ad2_yil",
                        label_visibility="collapsed")
     kayitlar = N.get_alinan_destekler(yil) or []
-    firmalar = sorted({(r.get("firma") or "").strip() for r in kayitlar if (r.get("firma") or "").strip()})
-    if c4.button("Yeni kayıt", icon=":material/add:", type="primary", use_container_width=True, key="ad2_yeni"):
-        _ad_yeni_dialog(firmalar)
+    # "Yeni kayıt" kaldırıldı (kullanıcı, 22.10.2026): alınan destek Mikro'dan gelir (eski dönemler Excel'le).
     veri = RM.alinan_verisi(kayitlar, yil, bugun, eur, tl, kat_ad=_ref_kat_ad)
     if veri["t"]["cevrilmeyen"]:
         st.markdown(mesaj("uyari", "Kur bulunamadığı için USD toplamına katılmayan: " + " · ".join(
             f"{R.SEMBOL.get(d, d)}{tr_sayi(v)}" for d, v in veri["t"]["cevrilmeyen"].items())), unsafe_allow_html=True)
     if not kayitlar:
         st.markdown(bos_durum("Bu dönemde alınan destek yok",
-                              "'Yeni kayıt' ile ekle ya da Excel'i üst menüdeki Dosya düğmesinden toplu yükle.",
+                              "2026'dan itibaren Mikro'dan gelir; eski dönemler Excel'le üst menüdeki Dosya düğmesinden.",
                               "savings"), unsafe_allow_html=True)
         return
     veri.pop("t", None)
@@ -574,7 +572,7 @@ def _alinan_gorunum():
         return _alinan_masa()
     eur, tl = _kurlar()
     bugun = date.today()
-    c0, c1, c2, c4 = st.columns([1.0, 3.2, 1.0, 1.35], vertical_alignment="bottom")
+    c0, c1, c2, _c4 = st.columns([1.0, 3.2, 1.0, 1.35], vertical_alignment="bottom")
     yil = c0.selectbox("Yıl", [bugun.year, bugun.year - 1, bugun.year + 1], key="ad2_yil",
                        label_visibility="collapsed")
     kayitlar = [dict(r, donem_=str(r.get("donem") or "")[:7]) for r in (N.get_alinan_destekler(yil) or [])]
@@ -585,8 +583,7 @@ def _alinan_gorunum():
     _f = B.filtre(c2, [{"etiket": "Firma", "secenekler": firmalar, "key": "ad2_f_firma"},
                        {"etiket": "Tür", "secenekler": turler, "key": "ad2_f_tur"}])
     f_firma, f_tur = _f["ad2_f_firma"], _f["ad2_f_tur"]
-    if c4.button("Yeni kayıt", icon=":material/add:", type="primary", use_container_width=True, key="ad2_yeni"):
-        _ad_yeni_dialog(firmalar)
+    # "Yeni kayıt" kaldırıldı (22.10.2026; alınan destek Mikro'dan)
 
     from shared.utils import tr_kucuk
     a = tr_kucuk(ara)
