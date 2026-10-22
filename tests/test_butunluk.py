@@ -215,7 +215,7 @@ KRITIK_FONKSIYONLAR = {
     "teknikservis.database": [
         "kullanilmis_irsaliye_nolari", "irsaliye_no_ayir", "irsaliye_isle", "fatura_kayitlari",
         "ts_urun_gruplari", "ts_grup_haritasi", "ts_grup_ad", "form_durumu", "servis_formu_pdf",
-        "mikro_cariler",
+        "mikro_cariler", "sayfali",
     ],
     "shared.telegram_gonder": ["gonder", "aktif_mi"],
     "shared.marj_uyari": ["marj_uyarisi", "sorunlu_kalemler", "mail_uret", "mail_alicilari"],
