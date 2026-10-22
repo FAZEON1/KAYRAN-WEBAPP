@@ -442,7 +442,7 @@ KRITIK_FONKSIYONLAR = {
     "kayranpm.main": ["mikro_karti_mi", "run", "_sayfa_dashboard", "_sayfa_tum_urunler", "_sayfa_stok_yasi", "_sayfa_yurt_ici_alis",
                       "_sayfa_musteri_satislari", "_sayfa_kampanya_takip", "_sayfa_siparis_onerisi",
                       "_sayfa_ref_no_takibi", "_sayfa_toplu_islemler", "stok_mikrodan"],    "shared.dataframe_yamasi": ["kur", "asil_fonksiyon", "html_uygun_mu"],
-    "yonetim_hesap": ["gider_yili_bul"],
+    "yonetim_hesap": ["gider_yili_bul", "gider_tahmini", "pnl_topla"],
     "kayranpm.ref_no": ["alinan_destek_kolonlari", "alinan_destek_excel_ice_aktar", "ref_ekle", "ref_ekle_no",
                         "ref_firma_kodu"],
     "kayranpm.kampanya_ref": ["ref_firmasi_sec", "ref_plani", "mevcut_refler", "elle_benzerler", "onizleme",

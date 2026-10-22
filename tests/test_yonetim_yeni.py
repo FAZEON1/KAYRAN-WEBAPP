@@ -100,7 +100,7 @@ def test_girilmemis_gider_ayi_eksiklerde():
     assert any("Temmuz" in e and "Ağustos" in e for e in r["eksikler"]), r["eksikler"]
     # henüz gelmemiş aylar (Kasım, Aralık) ve içinde bulunulan ay eksik sayılmaz
     r = pt(2026, "Tüm Yıl", "2026-01-01", "2026-12-31", _Kaynak(), bugun=date(2026, 10, 20))
-    g = next(e for e in r["eksikler"] if "gider" in e.lower())
+    g = next(e for e in r["eksikler"] if "girilmemiş ay" in e.lower())
     assert "Ekim" not in g and "Kasım" not in g and "Ocak" in g
     r = pt(2026, "Eylül", "2026-09-01", "2026-09-30", _Kaynak(gider={}), bugun=date(2026, 10, 20))
     assert any("gider tablosu" in e.lower() for e in r["eksikler"])
@@ -212,3 +212,18 @@ def test_ay_raporu_panoyla_ayni_kaynagi_kullanir():
     g = g[:g.index("\ndef ", 1)]
     assert "_PnlKaynak(_okur)" in g and g.count("kaynak=_kyn") == 2
     assert "_PnlKaynak(_oturum_kur)" in y
+
+
+def test_icinde_bulunulan_ay_gideri_tahmini():
+    """22.10.2026: Ekim'in gideri Mikro'dan ay kapanınca gelir; o zamana kadar net kâr bir aylık gider kadar yüksek
+    görünüyordu. Tahmin = son 3 ayın ortalaması × geçen gün oranı; ekranda yazar."""
+    pt = _hesap()
+    gider = {"Sabit": [0.0] * 6 + [3000.0, 6000.0, 9000.0] + [0.0] * 3}
+    r = pt(2026, "Ekim", "2026-10-01", "2026-10-31", _Kaynak(gider=gider, kur={}, yedek_kur=30.0),
+           bugun=date(2026, 10, 20))
+    tahmin = 6000.0 * 20 / 31
+    assert abs(r["gider_tahmini_tl"] - tahmin) < 0.01 and abs(r["gider"] - tahmin / 30) < 0.01
+    assert any("Ekim gideri tahmini" in e for e in r["eksikler"])
+    # geçmiş ay: tahmin yok, girilmemiş uyarısı
+    r = pt(2026, "Eylül", "2026-09-01", "2026-09-30", _Kaynak(gider={"Sabit": [0.0] * 12}), bugun=date(2026, 10, 20))
+    assert "gider_tahmini_tl" not in r and any("Eylül" in e for e in r["eksikler"])

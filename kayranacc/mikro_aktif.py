@@ -13,9 +13,12 @@ iki şey ekler:
    (artı); net KDV, ödenecek vergi ve SGK, gider tahakkukları, personele / diğer borçlar, kredi ve kart
    borçları, yurt içi satıcılar (eksi). TL bakiye ekranda o günün kuruyla dolara çevrilir.
    İKİ KEZ SAYILMASIN: Toplam Aktifler'in kendi kalemlerinin hesapları (KAPSANAN: banka 102, çek 103,
-   cari 120 / 340, ithalat avansı 320.50, stok 153) hiçbir kaleme girmez; testte denetlenir. 159 (verilen sipariş
-   avansları: ithalat masrafları navlun / ardiye / gümrük ve dönem sonu 320 → 159 virmanı) da girmez: teslim
-   alınmış dosyaların masrafı paçalda, yani stok değerinde zaten var.
+   cari 120 / 340, ithalat avansı 320.50, stok 153) hiçbir kaleme girmez; testte denetlenir.
+   159 (verilen sipariş avansları) 22.10.2026'dan beri GİRER ("Antrepodaki mal ve sipariş avansları"; kullanıcı:
+   "159'u doğrudan ekle"): antrepoda bekleyen 57.283 adet (FOB 1.171.793 $) Mikro depo stoğunda yok, yalnız bir
+   kısmı 320.50 avansında; antrepo dönemi ödemeleri ve antrepodaki konteynerlerin masrafı 159.02'de birikiyor
+   (24,3 milyon TL). Eski kural ("159'da yalnız teslim alınmış dosyaların paçalda olan masrafı var") bu malı
+   aktiflerden düşürüyordu. Teslim alınan dosyanın masrafı 159'dan 153'e aktarılınca 159'dan düşer.
    KDV (kullanıcı, 21.10: "gümrükte %20 KDV'yi peşin ödüyoruz, göstermezsek eksik olur mu — sen belirle"):
    gümrükte ödenen KDV Mikro'da 191 indirilecek KDV'dedir; "KDV" kalemi 190 + 191 − 391 netidir, yani peşin
    ödenen KDV satışta tahsil edilecek KDV'den mahsup edilmiş olarak sayılır. Bu yüzden açıkken stok × 1,00
@@ -43,7 +46,7 @@ SAYFA = 1000
 KURUS = 0.005
 
 # Toplam Aktifler'in kendi kalemlerinin hesapları — defter kalemlerine GİRMEZ (iki kez sayılmasın)
-KAPSANAN = ("102", "103", "120", "340", "153", "159", "320.50")
+KAPSANAN = ("102", "103", "120", "340", "153", "320.50")
 
 # (ad, hesap önekleri, hariç önekler) — tutar işaretli: borç bakiyesi artı (varlık), alacak bakiyesi eksi (borç)
 DEFTER_KALEMLERI = (
@@ -51,6 +54,7 @@ DEFTER_KALEMLERI = (
     ("İş ve personel avansları", ("195", "196"), ()),
     ("Verilen depozito ve teminatlar", ("226",), ()),
     ("Peşin ödenen vergiler", ("193",), ()),
+    ("Antrepodaki mal ve sipariş avansları", ("159",), ()),
     ("KDV (indirilecek − hesaplanan)", ("190", "191", "391"), ()),
     ("Ödenecek vergi ve fonlar", ("360",), ()),
     ("Ödenecek SGK", ("361",), ()),
@@ -65,6 +69,7 @@ MANUEL_KELIME = {
     "İş ve personel avansları": ("AVANS",),
     "Verilen depozito ve teminatlar": ("DEPOZİTO", "TEMİNAT"),
     "Peşin ödenen vergiler": ("PEŞİN VERGİ", "GEÇİCİ VERGİ"),
+    "Antrepodaki mal ve sipariş avansları": ("ANTREPO", "SİPARİŞ AVANS"),
     "KDV (indirilecek − hesaplanan)": ("KDV",),
     "Ödenecek vergi ve fonlar": ("VERGİ", "STOPAJ", "MUHTASAR"),
     "Ödenecek SGK": ("SGK", "SSK", "PRİM"),
