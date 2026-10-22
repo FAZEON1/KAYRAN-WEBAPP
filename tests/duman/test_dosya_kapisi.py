@@ -115,11 +115,13 @@ def test_ithalat_exceli_mikro_acikken_kaydedilmez():
     assert len(sahte_db.TABLOLAR.get("ithalat_dosyalari") or []) == len(VERI.get("ithalat_dosyalari") or [])
 
 
-def _uygulama(mod="anasayfa", **durum):
+def _uygulama(mod="anasayfa", tablolar=None, **durum):
     import sahte_db
     from streamlit.testing.v1 import AppTest
     sahte_db.TABLOLAR.clear()
     sahte_db.TABLOLAR["kullanici_yetkileri"] = [dict(r) for r in sahte_db.YETKI]
+    for t, rows in (tablolar or {}).items():
+        sahte_db.TABLOLAR[t] = [dict(r) for r in rows]
     at = AppTest.from_file(BETIK, default_timeout=SURE)
     at.secrets["supabase"] = {"url": "http://sahte.local", "key": "sahte", "service_role_key": "sahte"}
     at.session_state["giris_yapildi"] = True
@@ -164,6 +166,34 @@ def test_liste_tur_secimi_ve_kapat():
     assert at.session_state["_kapi_aktif"] == "a1"
     [b for b in at.button if b.key == "kapi_geri"][0].click().run()
     assert "_kapi_aktif" not in at.session_state
+
+
+def test_mikro_acikken_tur_secimde_ve_sablonlarda_yok():
+    """Kullanıcı kararı 22.10.2026: Mikro'nun karşıladığı türler, eşitleme açıkken tür seçiminde ve boş
+    şablonlarda görünmez; bırakılan böyle bir dosya için tek bilgi notu çıkar."""
+    acik = {"mikro_esitleme_durum": [{"id": 1, "acik": True}],
+            "sistem_ayarlari": [{"anahtar": "mikro_stok_durum", "deger": '{"acik": true}'}]}
+    dosya = [{"id": "a2", "ad": "bilinmeyen.xlsx", "veri": b"", "secim": None, "adaylar": []}]
+    os.environ["DUMAN_ONBELLEK_TEMIZLE"] = "1"
+    try:
+        at = _uygulama(tablolar=acik, _kapi_acik=True, _kapi_dosyalar=dosya,
+                       _kapi_mikro_not=["vatan.xlsx: Bu dosyanın verisi artık Mikro'dan geliyor; yüklemeye gerek yok."])
+        assert not _sorunlar(at), _sorunlar(at)
+        assert any("artık Mikro'dan geliyor" in m.value for m in at.info), [m.value for m in at.info]
+        secenek = list(at.selectbox(key="kapi_tur_a2").options)
+        for gizli in ("VATAN sipariş Excel'i", "Mikro satış fatura dökümü", "İade Excel'i", "G5F depo stok sayımı",
+                      "Satın alım raporu (ithalat)"):           # ithalat: varsayılan açık
+            assert not any(o.startswith(gizli) for o in secenek), (gizli, secenek)
+        for kalan in ("Haftalık ödeme listesi", "Happy Life stok raporu", "Aylık gider tablosu"):
+            assert any(o.startswith(kalan) for o in secenek), (kalan, secenek)
+        # Kapalıyken eski liste
+        at = _uygulama(tablolar=MIKRO_KAPALI["ithalat_rapor"], _kapi_acik=True, _kapi_dosyalar=dosya)
+        assert not _sorunlar(at), _sorunlar(at)
+        secenek = list(at.selectbox(key="kapi_tur_a2").options)
+        for t in ("VATAN sipariş Excel'i", "G5F depo stok sayımı", "Satın alım raporu (ithalat)"):
+            assert any(o.startswith(t) for o in secenek), (t, secenek)
+    finally:
+        os.environ.pop("DUMAN_ONBELLEK_TEMIZLE", None)
 
 
 def test_sonuc_ekrani_kapat():

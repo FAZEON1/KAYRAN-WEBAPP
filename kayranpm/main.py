@@ -46,6 +46,16 @@ def render_renkli_tablo(df, para=None, yuzde=None, kar=None, sol=None,
                           gizle=gizle, satir_vurgu=vurgu))
 
 
+STOK_MIKRO_NOTU = "Depo stoğu Mikro'dan gelir (15 dakikada bir)"
+
+
+def stok_mikrodan():
+    """Depo stoğu Mikro eşitlemesinden mi geliyor (kayranpm.mikro_stok açık). Açıkken G5F sayımı ve ürün
+    düzenlemedeki stok alanı ekrandan kalkar (kod yedek: eşitleme kapanırsa geri gelir). Okuma hatasında False."""
+    from shared.dosya_kapisi import mikro_kapsar
+    return mikro_kapsar("g5f_sayim")
+
+
 # ══════════════════ DOSYA KAPISI GÖVDELERİ (Ekim 2026) ══════════════════
 # Haftalık müşteri stok + satış (eskiden Müşteri Satışları'ndaki pencere) ve G5F depo sayımı
 # (eskiden Veri Yükleme sayfası) artık üst menüdeki Dosya kapısında (shared/dosya_kapisi).
@@ -563,8 +573,10 @@ def _sayfa_tum_urunler():
         st.error(f"Veri yüklenemedi: {e}")
         return
 
+    _stok_mk = stok_mikrodan()
     if not urun_data:
-        st.info("Henüz ürün yüklenmemiş. üst menüdeki Dosya düğmesinden G5F stok dosyasını yükleyin.")
+        st.info(f"Henüz ürün yok. {STOK_MIKRO_NOTU}." if _stok_mk else
+                "Henüz ürün yüklenmemiş. üst menüdeki Dosya düğmesinden G5F stok dosyasını yükleyin.")
         return
 
     # ── Liste ↔ sayfa içi detay (Ekim 2026) ──
@@ -683,7 +695,8 @@ def _sayfa_tum_urunler():
             _sk = _sat_kontrol(secilen.get("depo_kirilim"), bizim_stok)
             _sat_fark_html = (
                 f' <span style="color:var(--k-amber);font-weight:600">· kırılıma göre {tr_sayi(_sk["hesap"])}, '
-                f'fark {"+" if _sk["fark"] > 0 else "−"}{tr_sayi(abs(_sk["fark"]))} — G5F sayımını yeniden yükle</span>'
+                f'fark {"+" if _sk["fark"] > 0 else "−"}{tr_sayi(abs(_sk["fark"]))} — '
+                f'{STOK_MIKRO_NOTU if _stok_mk else "G5F sayımını yeniden yükle"}</span>'
                 if _sk["fark"] else "")
             _chips = "".join(
                 f'<span style="display:inline-flex;gap:8px;align-items:center;background:color-mix(in srgb,var(--k-metin) 4%,transparent);'
@@ -839,7 +852,14 @@ def _sayfa_tum_urunler():
                         d_satis = st.number_input("Genel Satış ($)", value=float(_u.get("satis_fiyati", 0) or 0), min_value=0.0, step=1.0, format="%.4f",
                                                   help="Genel/liste fiyatı — kâr marjı ve dashboard bundan hesaplanır.")
                     with fc4:
-                        d_stok = st.number_input("G5F Depo", value=int(_u.get("bizim_stok", 0) or 0), min_value=0, step=1)
+                        if _stok_mk:
+                            # Mikro yönetir: düzenlenmez, upsert_urun de stoğu yazmaz
+                            d_stok = int(_u.get("bizim_stok", 0) or 0)
+                            st.number_input("G5F Depo", value=d_stok, disabled=True, key="urun_stok_mikro",
+                                            help="Stok Mikro'dan gelir (15 dakikada bir).")
+                            st.caption("Stok Mikro'dan gelir")
+                        else:
+                            d_stok = st.number_input("G5F Depo", value=int(_u.get("bizim_stok", 0) or 0), min_value=0, step=1)
 
                     # ── YURT İÇİ ALIM MALİYETİ ──
                     # Kaspersky, mouse pad gibi ithalatı olmayan ürünlerin

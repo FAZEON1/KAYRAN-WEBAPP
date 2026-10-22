@@ -72,7 +72,8 @@ def _sg_acilis():
     st.markdown(kpi_serit(kal), unsafe_allow_html=True)
 
     yedi = [o for o in sip if o["tarih"] >= str(bugun - timedelta(days=6))]
-    st.markdown(B.grup_basligi("Son siparişler", "son 7 gün · tıkla: kalemleri gör, düzelt ya da sil"),
+    st.markdown(B.grup_basligi("Son siparişler", "son 7 gün · tıkla: kalemleri gör"
+                               + ("" if _mikro_acik() else ", düzelt ya da sil")),
                 unsafe_allow_html=True)
     if yedi:
         siparis_listesi(yedi, "sg", sayfa=12)
@@ -954,6 +955,21 @@ def kapi_siparis_itopya(dosya, kapi):
         _sg_kaydet(_gecerli, _uz, _depo_k, dosya.name, kapi, _plan_k)
 
 
+SG_MIKRO_ACIKLAMA = "Satış ve siparişler Mikro'dan gelir (15 dakikada bir)."
+IADE_MIKRO_NOTU = "İadeler Mikro'daki iade faturasından gelir (15 dakikada bir); elle iade girilmez."
+
+
+def _mikro_acik():
+    """Satış eşitlemesi açık mı (satis/mikro_esitle). Açıkken Mikro'dan sonra anlamsız kalan ekran parçaları
+    (elle sipariş / iade düğmeleri, düzelt-sil eylemleri) gösterilmez — kullanıcı, 22.10.2026: silinmez, kod
+    yedek kalır. Durum okunamazsa kapalı (eski ekran)."""
+    try:
+        from satis.mikro_esitle import acik_mi
+        return bool(acik_mi())
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def _mikrodan_geliyor(ne, kaynak="faturalarından"):
     """Satış eşitlemesi açıksa (satis/mikro_esitle) satışlar ve iadeler Mikro faturalarından, bekleyen
     siparişler Mikro siparişlerinden gelir: bu dosya kaydedilmez (Ekim 2026; muhasebe tarafındaki
@@ -1298,13 +1314,21 @@ def run():
 def _sayfa_satis_girisi(*, _kanallar):
     # Ekim 2026: başlık + iki ana eylem tek satırda; altında bugünün özeti,
     # firma başına Excel kartları ve son siparişler (eskiden yalnız üç düğme).
+    # Mikro esas (kullanıcı, 22.10.2026): eşitleme açıkken satış ve sipariş Mikro'dan gelir; elle sipariş ve
+    # yeni kanal düğmeleri gösterilmez (kod ve pencereler yedek: eşitleme kapanırsa geri gelir).
     from shared import bilesen as _B
+    _mikro = _mikro_acik()
     _sg_ey = _B.baslik_eylem("🧾 Satış", "Satış Girişi",
-                             aciklama="Sipariş gir: elle, ya da firmanın Excel'inden toplu.",
-                             eylemler=[{"etiket": "Yeni kanal", "key": "sg_kanal_btn", "icon": ":material/add_business:",
-                                        "help": "Cari listesinde olmayan yeni satış kanalı / firma ekle"},
-                                       {"etiket": "Manuel sipariş", "key": "sg_manuel_btn", "icon": ":material/edit_note:",
-                                        "birincil": True}])
+                             aciklama=(SG_MIKRO_ACIKLAMA if _mikro
+                                       else "Sipariş gir: elle, ya da firmanın Excel'inden toplu."),
+                             eylemler=[] if _mikro else
+                             [{"etiket": "Yeni kanal", "key": "sg_kanal_btn", "icon": ":material/add_business:",
+                               "help": "Cari listesinde olmayan yeni satış kanalı / firma ekle"},
+                              {"etiket": "Manuel sipariş", "key": "sg_manuel_btn", "icon": ":material/edit_note:",
+                               "birincil": True}])
+    if _mikro:                            # eski bayrak kaldıysa pencere açılmasın
+        st.session_state.pop("_ms_dialog_ac", None)
+        st.session_state.pop("_mk_dialog_ac", None)
     if _sg_ey.get("sg_manuel_btn"):
         st.session_state["_ms_dialog_ac"] = True
     if _sg_ey.get("sg_kanal_btn"):
@@ -2442,10 +2466,16 @@ def _sayfa_kar_pnl(*, _kar_ok, _sb, kpi_serit, sayi):
 # ───────────────────────── İADE ─────────────────────────
 def _sayfa_iade(*, _kanallar, _kar_ok):
     from shared import bilesen as _B3
+    # Mikro esas (22.10.2026): eşitleme açıkken iade Mikro'daki iade faturasından gelir; elle iade düğmesi ve
+    # penceresi gösterilmez (pencere yedek; seçilen tarih başlangıçtan sonraysa yine kaydetmez, ekle_iade de yazmaz).
+    _mikro = _mikro_acik()
     _iey = _B3.baslik_eylem(
         "🧾 Satış", "İade Yönetimi",
         aciklama="İadeler satıştan ayrı tutulur; mal stoğa döner, kâr brüt satıştan hesaplanır.",
-        eylemler=[{"etiket": "Manuel iade", "key": "btn_sat_miade", "icon": ":material/add:", "birincil": True}])
+        eylemler=[] if _mikro else
+        [{"etiket": "Manuel iade", "key": "btn_sat_miade", "icon": ":material/add:", "birincil": True}])
+    if _mikro:
+        st.caption(IADE_MIKRO_NOTU)
 
     _IADE_DEPOLAR = IADE_DEPOLAR
 
@@ -2463,6 +2493,10 @@ def _sayfa_iade(*, _kanallar, _kar_ok):
         _i_depo = ig7.selectbox("Giren depo", _IADE_DEPOLAR, key="iade_depo_g",
                                 help="Mal fiziksel olarak hangi depoya girdiyse onu seç — "
                                      "stok o depoya eklenir.")
+        from satis.database import mikro_esas_mi as _mem
+        if _mem(str(_i_tarih)[:10]):
+            st.info(IADE_MIKRO_NOTU)
+            return
         st.caption("Bu kayıt **manuel** işaretlenir; ay sonu toplu yüklemede "
                    "mükerrer sayılmaz, avans olarak düşülür.")
         if st.button("İadeyi Kaydet", type="primary", key="iade_kaydet", icon=":material/save:"):

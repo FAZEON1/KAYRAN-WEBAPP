@@ -22,6 +22,80 @@ def _yuzde(v):
     return f"%{tr_sayi(v * 100, 2)}"
 
 
+def kaynak_notu(stok_acik, muhasebe_acik):
+    """Toplam Aktifler'in üstündeki tek satır kaynak notu (22.10.2026: Mikro açıkken Excel durum kartları yerine).
+    stok_acik: kayranacc.mikro_stok_degeri; muhasebe_acik: kayranacc.mikro_muhasebe (ithalat ödenen + cari)."""
+    if stok_acik and muhasebe_acik:
+        return "Stok, ithalat ödenen ve cari Mikro'dan, 15 dakikada bir."
+    if stok_acik:
+        return ("Stok Mikro'dan (depo stoğu × paçal), 15 dakikada bir. İthalat ödeme takip ve cari alacaklar "
+                "listesi üst menüdeki **Dosya** düğmesinden yüklenir; kartlar kayıttan hemen sonra güncellenir.")
+    if muhasebe_acik:
+        return ("İthalat ödenen ve cari Mikro'dan, 15 dakikada bir. Stok değeri raporu üst menüdeki **Dosya** "
+                "düğmesinden yüklenir; kart kayıttan hemen sonra güncellenir.")
+    return ("Stok değeri raporu, ithalat ödeme takip ve cari alacaklar listesi üst menüdeki **Dosya** düğmesinden "
+            "yüklenir; kartlar kayıttan hemen sonra güncellenir.")
+
+
+def excel_kartlari(stok_acik, muhasebe_acik):
+    """Gösterilecek Excel durum kartları ("Yüklendi / Yüklenmedi"): eşitlemesi açık kaynağın kartı ekrandan kalkar
+    (kod yedek: eşitleme kapanınca geri gelir)."""
+    return [t for t, acik in (("stok", stok_acik), ("ithalat", muhasebe_acik), ("cari", muhasebe_acik)) if not acik]
+
+
+def temizle_gorunur(stok_acik, muhasebe_acik, defter_acik):
+    """"Yüklenen verileri temizle" düğmesi yalnız bütün Mikro eşitlemeleri kapalıyken görünür: silme Mikro'nun
+    yazdığı kayıtları da götürürdü (22.10.2026)."""
+    return not (stok_acik or muhasebe_acik or defter_acik)
+
+
+def formul_metni(stok_acik, muhasebe_acik, defter_acik, carpan, kur):
+    """"Hesaplama Formülü" kutusunun metni; sayfanın gerçek kaynaklarına ve stok çarpanına göre (22.10.2026).
+    Hepsi kapalıyken eski metin (Excel kaynakları, × 1,20)."""
+    carpan_y = tr_sayi(carpan, 2)
+    if stok_acik:
+        stok = "Bütün depolardaki stok (Mikro'dan, 15 dakikada bir) × paçal maliyet"
+    else:
+        stok = "Stok Excel'inden USD STOK DEĞERİ toplamı"
+    stok += (" (%20 KDV dahil)" if carpan > 1 else
+             " (maliyetle; gümrükte ödenen KDV Mikro defterinin KDV kaleminde ayrı sayılır)")
+    if muhasebe_acik:
+        ithalat = "Mikro'daki ithalat ödemeleri (15 dakikada bir)"
+        banka = "Mikro'ya bağlı hesapların bakiyesi Mikro'dan; TL hesapları kur ile USD'ye çevrilir"
+        alacak = "Mikro cari hesaplarından POZİTİF bakiyeler (size borçlular)"
+        borc = "Mikro cari hesaplarından NEGATİF bakiyeler (sizin borçlu olduklarınız)"
+        cek = "Mikro'dan gelen firma çeklerinin kalanları"
+    else:
+        ithalat = "İthalat Excel \"Ödenen / USD\" toplamı"
+        banka = "Uygulamadaki TL hesapları kur ile USD'ye çevrilir"
+        alacak = "Cari Excel'inden POZİTİF bakiyeler (size borçlular)"
+        borc = "Cari Excel'inden NEGATİF bakiyeler (sizin borçlu olduklarınız)"
+        cek = "Uygulamadaki bekleyen + ciro çek kalanları"
+    manuel_ek = " (Mikro defterinden de gelen kalem iki kez sayılmaz)" if defter_acik else ""
+    satirlar = [
+        f"- **Stok Değeri × {carpan_y}** — {stok}",
+        f"- **+ İthalat Ödenmiş Tutar** — {ithalat}",
+        f"- **+ Banka Hesapları USD eşdeğeri** — {banka}",
+        f"- **+ Cari Alacaklar** — {alacak}",
+        f"- **+ Manuel Eklemeler** — Kullanıcının elle eklediği kalemler{manuel_ek}",
+        f"- **− Cari Borçlar** — {borc}",
+        f"- **− Sistemdeki Çekler** — {cek}",
+        f"- **− Manuel Çıkarmalar** — Kullanıcının elle çıkardığı kalemler{manuel_ek}",
+    ]
+    if defter_acik:
+        satirlar += [
+            "- **+ Mikro defter kalemleri** — kasa, iş / personel avansları, depozito, peşin ödenen vergi "
+            "(Mikro muhasebe bakiyeleri, bugünkü kurla)",
+            "- **− Mikro defter kalemleri** — net KDV, ödenecek vergi ve SGK, gider tahakkukları, personel ve diğer "
+            "borçlar, kredi ve kart borçları, yurt içi satıcılar",
+            "- **− Satış maliyeti** — stok × son 12 ayın satış masrafı oranı (kargo, lojistik, depolama, kredi kartı "
+            "komisyonu, teknik servis; satış destek bedelleri hariç)",
+        ]
+    return ("**Toplam Aktifler (USD) =**\n\n" + "\n".join(satirlar)
+            + f"\n\nKullanılan kur: **{kur} TL/USD** (sidebar'daki güncel kur — sidebar'da değiştirirsen burası da "
+              "değişir)")
+
+
 def kalem_satirlari(ozet):
     return [{"Kalem": k["ad"], "Tutar": ("+ " if k["usd"] > 0 else "− ") + _usd(abs(k["usd"])),
              "Mikro hesapları": ", ".join(list((k.get("hesaplar") or {}))[:8])

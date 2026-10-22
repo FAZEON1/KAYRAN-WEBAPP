@@ -23,8 +23,8 @@ def ilk_onay_kutusu():
     from shared.kar_gizle import kar_gorunur
     d = M.durum()
     if d.get("acik"):
-        st.caption("Yeni ürün kartları, boş ad / kategori / marka / barkod ve Mikro fiyat listeleri Mikro'dan "
-                   "otomatik gelir; dolu alanlar değişmez.")
+        # Açıkken yalnız kaynak notu; aşağıdaki onay dalı yedek (eşitleme kapanırsa geri gelir)
+        st.caption("Ürün kartları ve fiyat listeleri Mikro'dan gelir; dolu alanlar değişmez.")
         return
     if not kar_gorunur():
         return

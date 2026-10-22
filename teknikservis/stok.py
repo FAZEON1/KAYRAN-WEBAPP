@@ -246,7 +246,10 @@ def iade_kaydi_yaz(kayit, tarih=None):
     P&L iadeyi düşer (net tutar girildiyse), ay sonu iade Excel'i yüklenirse mükerrer sayılmaz
     (kaynak='manuel' → avans). Stok BURADA işlenmez; mal_kabul_girisi zaten işledi (stok_isle=False).
     Yazılan iade satırının kimliği kayit['iade_id']'ye konur (fiyat sonradan değişince o satır
-    güncellenir). Teknik servis kaydı için hiçbir şey yapmaz. Döner: (ok, mesaj)."""
+    güncellenir). Teknik servis kaydı için hiçbir şey yapmaz. Döner: (ok, mesaj).
+    Mikro esas (22.10.2026): satış eşitlemesi açıkken başlangıçtan sonraki iade Mikro'daki iade faturasından gelir;
+    burada iadeler'e yazılsaydı aynı iade iki kez sayılırdı. Servis kaydı ve stok akışı (mal_kabul_girisi) sürer,
+    yalnız iadeler tablosuna yazılmaz (satis_kaydi_yaz ile aynı)."""
     k = kayit or {}
     if str(k.get("arayuz") or "").strip().lower() != "iade":
         return True, ""
@@ -254,8 +257,10 @@ def iade_kaydi_yaz(kayit, tarih=None):
     if not sku:
         return False, "stok kodu boş — iade kaydı açılmadı"
     try:
-        from satis.database import ekle_iade
+        from satis.database import ekle_iade, mikro_esas_mi
         from datetime import date as _date
+        if mikro_esas_mi(str(tarih or _date.today())[:10]):
+            return True, "iade Mikro'daki iade faturasından gelir (uygulamada iade kaydı açılmadı)"
         try:
             net = float(k.get("iade_net") or 0)
         except (TypeError, ValueError):
@@ -291,6 +296,12 @@ def iade_fiyat_guncelle(kayit, fiyat, para_birimi, kur=None):
         return False, "TL fiyat için kur bulunamadı — fiyat kaydedilmedi", {}
     alanlar = {"iade_fiyat": float(fiyat or 0), "iade_pb": pb, "iade_kur": float(kur) if pb == "TL" else None,
                "iade_net": usd}
+    from satis.database import mikro_esas_mi
+    if mikro_esas_mi(str(k.get("mal_kabul_tarihi") or "")[:10]):
+        # Mikro esas: iade tutarı Mikro'daki iade faturasından gelir; uygulamadaki iade satırına dokunulmaz
+        if not kayit_guncelle(k.get("id"), alanlar):
+            return False, "servis kaydı güncellenemedi", {}
+        return True, "Fiyat servis kaydına yazıldı; iade tutarı Mikro'daki iade faturasından gelir.", alanlar
     iade_id = k.get("iade_id")
     if not iade_id:
         iade_id = manuel_iade_bul(_sku_ad(k)[0], str(k.get("firma_bilgisi") or "").strip(),

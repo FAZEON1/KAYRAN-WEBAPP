@@ -21,7 +21,8 @@ Değiştirilen kayıtlar (başlangıç tarihinden sonra):
   · Mikro dışı kaynaklı BÜTÜN satış satırları (elle sipariş, sipariş Excel'i, teknik servis / 2.el satışı):
     Mikro esas (kullanıcı, 21.10.2026). Faturası kesilmemiş sipariş Mikro'ya girilir, açık Mikro siparişi olarak
     gelir (siparis_kayitlari). Uygulamada yeni elle satış açılmaz (satis.database.mikro_esas_mi).
-  · Excel'den gelen iade satırları (kaynak 'excel') — firması Mikro'da olan.
+  · Mikro dışı kaynaklı BÜTÜN iade satırları (iade Excel'i, elle iade, teknik servis mal kabulünün yazdığı iade):
+    Mikro esas (kullanıcı, 22.10.2026). Uygulamada yeni Mikro dışı iade yazılmaz (satis.database.ekle_iade).
   · Mikro'da değişen faturanın eski satırları (fatura yeniden yazılır); Mikro'da iptal edilen fatura.
 
 Yazma veritabanında TEK İŞLEMDE (mikro_esitle_uygula, veritabani/37_mikro_satis.sql): silinen her satır
@@ -356,14 +357,17 @@ def plan_yap(mikro_satirlar, satislar, iadeler, baslangic=BASLANGIC, pacal_fn=No
         elif no not in satirli_nolar and no not in mikro_nolari and no.startswith(_seri_onek(mikro_nolari)):
             fatura_nolar.append(no)
 
-    # İadeler
+    # İadeler — MİKRO ESAS (kullanıcı, 22.10.2026; satıştaki sil_satis'in aynısı): başlangıçtan sonraki Mikro dışı
+    # HER iade satırı kaldırılır (Excel, elle iade, teknik servis mal kabulünün yazdığı iade; arşive yazılarak).
+    # Eskiden yalnız firması Mikro iade faturasında geçen Excel satırı kalkıyordu: teknik servisin yazdığı 'manuel'
+    # iade, aynı malın Mikro iade faturasıyla birlikte iki kez sayılırdı. Uygulama yeni Mikro dışı iade yazmaz
+    # (satis.database.ekle_iade, teknikservis.stok.iade_kaydi_yaz).
     mevcut_iade = defaultdict(list)
     sil_iade = []
     for r in iadeler:
-        kaynak = str(r.get("kaynak") or "")
-        if kaynak == "mikro":
+        if str(r.get("kaynak") or "") == "mikro":
             mevcut_iade[str(r.get("belge_no") or "")].append(r)
-        elif kaynak == "excel" and str(r.get("kanal") or "").split(" ")[0] in mk["iade_cari"]:
+        else:
             sil_iade.append(r)
     iade_belgeler, ekle_iade = [], []
     for no, ks in sorted(mk["iade"].items()):

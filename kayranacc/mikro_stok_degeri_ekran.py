@@ -44,12 +44,11 @@ def _plan_goster(plan):
 
 
 def ilk_onay_kutusu():
-    """Toplam Aktifler sayfasının üstü: kapalıysa bir kerelik onay; açıksa kaynağı söyleyen kısa not."""
+    """Toplam Aktifler sayfasının üstü: kapalıysa bir kerelik onay; açıksa bir şey yazmaz — kaynak notu Toplam
+    Aktifler'in tek satırında (mikro_aktif_ekran.kaynak_notu; 22.10.2026, iki not alt alta tekrar ediyordu)."""
     from shared.kar_gizle import kar_gorunur
     d = M.durum()
     if d.get("acik"):
-        st.caption("Stok değeri uygulamadan otomatik gelir: bütün depolardaki stok (Mikro'dan) × paçal, "
-                   "15 dakikada bir. Stok değeri raporu Excel'i gerekmez.")
         return
     if not kar_gorunur():
         return

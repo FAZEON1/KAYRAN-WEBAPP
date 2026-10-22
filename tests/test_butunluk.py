@@ -194,7 +194,7 @@ KRITIK_FONKSIYONLAR = {
         "tahsilat_guncelle", "tahsilat_bakiye_farki",   # para girişi düzenleme (Ekim 2026)
         "hafta_olustur",                          # yeni hafta + ödemeler + aktif (Mikro önerisi, Ekim 2026)
     ],
-    "satis.database": ["mikro_esas_mi", "pacal_bul", "satis_sku_listesi",
+    "satis.database": ["mikro_esas_mi", "mikro_esitleme", "mikro_kaynakli_mi", "pacal_bul", "satis_sku_listesi",
         "satis_anahtar", "_magaza_ayikla",        # mağazalı mükerrer anahtarı
         "_tum_satislar_yalin", "_satislar_yalin_aralik", "_tum_iadeler", "_iadeler_aralik",  # ortak okuma
         "kanal_kok", "kanal_bolunmeleri",         # kanal adı tekilleştirme
@@ -240,11 +240,12 @@ KRITIK_FONKSIYONLAR = {
                               "manuel_cakisan", "manuel_usd", "cakisan_etki", "usd_ozeti", "veri_oku", "plan_hazirla",
                               "kayitli", "uygula", "durum", "acik_mi", "ac", "son_aktarim",
                               "otomatik", "stok_carpani"],   # Toplam Aktifler: Mikro defter kalemleri + satış maliyeti (Eki 2026)
-    "kayranacc.mikro_aktif_ekran": ["kalem_satirlari", "oran_satirlari", "bolum"],
+    "kayranacc.mikro_aktif_ekran": ["kalem_satirlari", "oran_satirlari", "bolum", "kaynak_notu", "excel_kartlari",
+                                   "temizle_gorunur", "formul_metni"],   # Mikro açıkken ekran sadeleşir (22.10.2026)
     "kayranacc.mikro_alinan": ["aylik", "ay_kuru", "usd_satirlari", "durum", "acik_mi",
                                "mikro_satirlari"],   # alınan destekler Mikro 602 (Eki 2026)
     "shared.mikro_kilit": ["sahip_adi", "al", "birak", "tur_kilidi"],   # eşitleme turu kilidi (Eki 2026)
-    "kayranacc.mikro_muhasebe": ["bagli_banka_mi", "donem_sonu_virmansiz", "hareket_tutari", "bakiyeler", "banka_bakiyeleri", "cari_bakiyeleri", "cari_ozeti",
+    "kayranacc.mikro_muhasebe": ["bagli_banka_mi", "yalniz_bagli_mi", "donem_sonu_virmansiz", "hareket_tutari", "bakiyeler", "banka_bakiyeleri", "cari_bakiyeleri", "cari_ozeti",
                                  "ithalat_odenen", "banka_eslestir", "cek_satirlari", "cek_imzasi", "cek_ozeti",
                                  "plan_yap", "veri_oku", "plan_hazirla", "uygula", "durum", "acik_mi", "ac",
                                  "son_aktarim", "otomatik"],
@@ -355,7 +356,7 @@ KRITIK_FONKSIYONLAR = {
                                     "haftalar_verisi", "haftalar_yurutucu", "cek_arsivi_verisi", "cek_arsivi_yurutucu",
                                     "gelenler_verisi", "gelenler_yurutucu", "kimden_ne_kadar", "firma_cekleri_verisi",
                                     "salt_okunur_yurutucu", "banka_verisi", "banka_yurutucu"],
-    "kayranacc.banka_ekran": ["banka_ozet_kalemleri", "banka_listesi"],
+    "kayranacc.banka_ekran": ["banka_ozet_kalemleri", "banka_listesi", "bakiye_mikrodan", "mikro_islemi_mi"],
     "kayranacc.cek_ekran": ["render_firma_cekleri"],
     "shared.sol_menu": ["menu_yapisi", "secili_sayfa", "css", "ciz", "konum_adi"],   # sol menü (Eki 2026)
     "kayranpm.stok_karti_yeni": ["ciz", "haftalik_seri", "son_hareketler", "durum_uyarilari", "stok_yerleri",
@@ -389,6 +390,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.dosya_tani": ["tani", "sayfalari_oku", "norm"],
     "satis.main": ["iade_excel_oku", "iade_fatura_satirlari", "iade_fatura_ozetle", "kapi_iade",
                    # sayfa gövdeleri run()'dan ayrı fonksiyonlara taşındı (Ekim 2026, mimari)
+                   "_mikro_acik",                  # Mikro esas: açıkken elle giriş düğmeleri yok (22.10.2026)
                    "run", "_sayfa_satis_girisi", "_sayfa_satislar", "_sayfa_kar_pnl", "_sayfa_iade",
                    "_mukerrer_onay"],   # elle siparişte mükerrer onayı (Eki 2026)
     "kayranacc.main": ["run", "_sayfa_dashboard", "_sayfa_bu_hafta", "_sayfa_banka_bakiyeleri", "_sayfa_nakit_akis",
@@ -397,15 +399,15 @@ KRITIK_FONKSIYONLAR = {
                        "_sayfa_cari_ekstre", "_sayfa_toplam_aktifler"],
     "kayranpm.main": ["run", "_sayfa_dashboard", "_sayfa_tum_urunler", "_sayfa_stok_yasi", "_sayfa_yurt_ici_alis",
                       "_sayfa_musteri_satislari", "_sayfa_kampanya_takip", "_sayfa_siparis_onerisi",
-                      "_sayfa_ref_no_takibi", "_sayfa_toplu_islemler"],
-    "shared.dataframe_yamasi": ["kur", "asil_fonksiyon", "html_uygun_mu"],
+                      "_sayfa_ref_no_takibi", "_sayfa_toplu_islemler", "stok_mikrodan"],    "shared.dataframe_yamasi": ["kur", "asil_fonksiyon", "html_uygun_mu"],
     "yonetim_hesap": ["gider_yili_bul"],
     "kayranpm.ref_no": ["alinan_destek_kolonlari", "alinan_destek_excel_ice_aktar", "ref_ekle", "ref_ekle_no",
                         "ref_firma_kodu"],
     "kayranpm.kampanya_ref": ["ref_firmasi_sec", "ref_plani", "mevcut_refler", "elle_benzerler", "onizleme",
                               "kapaninca_ref_ac", "ekran_mesaji", "mail_icerigi", "mail_alicilari"],
     "shared.dosya_kapisi": ["ac", "acik", "kapat", "ciz", "izinli", "izinli_turler", "gorunur",
-                            "yetkiler_topla", "dosyalari_ekle", "ana_sayfa_alani"],
+                            "yetkiler_topla", "dosyalari_ekle", "ana_sayfa_alani", "esitleme_acik",
+                            "mikro_kapsar", "mikro_turleri", "secilebilir_turler", "gorunen_sablonlar"],
     "kayranacc.aktif_excel": ["parse_stok_excel", "aktif_kaydet"],
     "kayranacc.excel_islemler": ["ayni_hafta", "cek_degisim_ozeti"],
     "kayranpm.excel_islemler": ["excel_yukle_g5f_depolar", "_g5f_tek_islem", "_g5f_mesaj", "_kart_skulari"],   # G5F tek işlem

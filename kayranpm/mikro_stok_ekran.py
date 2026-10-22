@@ -20,7 +20,8 @@ def ilk_onay_kutusu():
     from shared.kar_gizle import kar_gorunur
     d = M.durum()
     if d.get("acik"):
-        st.caption("Depo stoğu Mikro'dan otomatik gelir (15 dakikada bir); G5F sayım dosyası gerekmez.")
+        # Açıkken yalnız kaynak notu; aşağıdaki onay dalı yedek (eşitleme kapanırsa geri gelir)
+        st.caption("Depo stoğu Mikro'dan gelir (15 dakikada bir).")
         return
     if not kar_gorunur():
         return

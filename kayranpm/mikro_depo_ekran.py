@@ -37,6 +37,7 @@ def ilk_onay_kutusu(yer="hl"):
     """yer: anahtar öneki (aynı kutu iki sayfada)."""
     from shared.kar_gizle import kar_gorunur
     if M.acik_mi():
+        # Açıkken yalnız kaynak notu; aşağıdaki onay dalı yedek (eşitleme kapanırsa geri gelir)
         st.caption("Depo stoğu, depoya giriş tarihleri ve stok yaşı Mikro'nun stok hareketlerinden gelir.")
         return
     if not kar_gorunur() or not M.son_aktarim():

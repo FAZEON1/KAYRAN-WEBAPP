@@ -319,49 +319,32 @@ def _bugun():
         return date.today()
 
 
-# Mikro'dan otomatik gelen kaynaklar: eşitleme açıkken hatırlatma ve gecikme uyarısı çıkmaz (Ekim 2026)
-MIKRO_KAYNAKLARI = ("aktif_cari", "aktif_ithalat")
+# Mikro'dan otomatik gelen kaynaklar: eşitleme açıkken hatırlatma ve gecikme uyarısı çıkmaz, takvim ayarları
+# tablosunda listelenmez (Ekim 2026). Hangi eşitlemenin hangi dosyayı karşıladığı tek yerde:
+# shared.dosya_kapisi.MIKRO_ESITLEME (kaynak anahtarı = kapı türü); farklı adlı ve kapıda kalan kaynaklar burada.
+_MIKRO_AYRIK = {
+    "satis_dokumu": "satis.mikro_esitle",         # satışlar Mikro faturalarından (kapı türü: mikro_fatura)
+    # Happy Life: stok ve giriş tarihleri Mikro'dan → hatırlatma yok; palet Excel'i kapıda isteğe bağlı kalır
+    "happylife": "kayranpm.mikro_depo",
+}
 
 
 def _mikro_kapsadigi():
-    out = set()
     try:
-        from kayranacc.mikro_muhasebe import acik_mi
-        if acik_mi():
-            out |= set(MIKRO_KAYNAKLARI)
+        from shared.dosya_kapisi import MIKRO_ESITLEME, esitleme_acik
     except Exception:  # noqa: BLE001
-        pass
-    try:
-        from kayranacc.mikro_gider import acik_mi as gider_acik
-        if gider_acik():
-            out.add("gider_tablosu")
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        from kayranpm.mikro_stok import acik_mi as stok_acik
-        if stok_acik():
-            out.add("g5f_sayim")
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        from satis.mikro_esitle import acik_mi as satis_acik
-        if satis_acik():
-            out.add("satis_dokumu")       # satışlar Mikro faturalarından (satis/mikro_esitle)
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        from kayranacc.mikro_stok_degeri import acik_mi as stok_degeri_acik
-        if stok_degeri_acik():
-            out.add("aktif_stok")         # Toplam Aktifler stok değeri: depo stoğu × paçal
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        from kayranpm.mikro_depo import acik_mi as depo_acik
-        if depo_acik():
-            out.add("happylife")         # Happy Life stoğu ve giriş tarihleri Mikro'dan (palet Excel'i isteğe bağlı)
-    except Exception:  # noqa: BLE001
-        pass
-    return out
+        return set()
+    harita = {a: _MIKRO_AYRIK.get(a) or MIKRO_ESITLEME.get(a) for a in _KAYNAK}
+    acik = {}
+    return {a for a, m in harita.items() if m and acik.setdefault(m, esitleme_acik(m))}
+
+
+def ayar_kaynaklari():
+    """Takvim ayarları tablosu: (gösterilen kaynaklar, Mikro'dan gelen kaynakların adları). Mikro'dan gelenler
+    tabloda görünmez; ayarları kayıtta korunur (app.py eski ayarla birleştirerek kaydeder)."""
+    mikro = _mikro_kapsadigi()
+    return ([k for k in KAYNAKLAR if k["anahtar"] not in mikro],
+            [k["ad"] for k in KAYNAKLAR if k["anahtar"] in mikro])
 
 
 def durumlar(bugun=None):
