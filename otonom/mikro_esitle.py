@@ -25,6 +25,7 @@ ISLER = (
     ("Aktarıcı kodu", "satis.mikro_esitle", "aktarici_yayinla"),
     ("Satış / iade", "satis.mikro_esitle", "otomatik"),
     ("Banka / çek / cari", "kayranacc.mikro_muhasebe", "otomatik"),
+    ("Haftalık ödeme listesi", "kayranacc.mikro_odeme_oto", "otomatik"),        # çekler eşitlendikten SONRA
     ("Gider tablosu", "kayranacc.mikro_gider", "otomatik"),
     ("Depo stoğu", "kayranpm.mikro_stok", "otomatik"),
     ("Toplam Aktifler stok değeri", "kayranacc.mikro_stok_degeri", "otomatik"),   # depo stoğundan SONRA

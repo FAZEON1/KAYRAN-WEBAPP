@@ -260,7 +260,8 @@ def test_ekran_yalniz_dugmeyle_yazar():
     for yazan in ("_yt_kaydet(", "_yg_kaydet(", ".insert(", ".update(", ".delete(", "set_ayar("):
         assert all(i > dugme for i in _hepsi(s, yazan)), yazan
     o = (KOK / "kayranacc" / "odeme_ekran.py").read_text(encoding="utf-8")
-    assert o.count("oneri_penceresi(kategoriler)") == 2                # eski ve yeni Bu Hafta ekranında
+    assert o.count("oneri_penceresi(kategoriler)") == 1                # ortak işleyicide (_mikro_eylem_isle)
+    assert o.count("    _mikro_eylem_isle(ey, kategoriler, hafta)\n") == 2   # eski ve yeni Bu Hafta ekranında
 
 
 # ── Aktarıcı: ödeme planları keşifte ───────────────────────────────

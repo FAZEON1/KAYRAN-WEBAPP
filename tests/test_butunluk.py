@@ -76,7 +76,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "claude_talep.py", "ariza_orani.py", "ariza_ekran.py", "ceviri.py", "ipucu.py",
                "soru.py", "soru_cevap.py", "soru_ekran.py", "paralel.py", "urun_karnesi.py", "gezinme.py",
                "dosya_tani.py", "dosya_kapisi.py", "aktif_excel.py", "dataframe_yamasi.py", "kampanya_ref.py", "stok_tamamla.py", "bt_hesap.py",
-               "bt_olcum.py", "bt_ekran.py", "mikro_esitle.py", "mikro_esitle_ekran.py", "mikro_muhasebe.py", "mikro_muhasebe_ekran.py", "mikro_gider.py", "mikro_gider_ekran.py", "mikro_odeme.py", "mikro_odeme_ekran.py", "mikro_stok.py", "mikro_stok_ekran.py", "mikro_stok_degeri.py", "mikro_stok_degeri_ekran.py", "mikro_depo.py", "mikro_depo_ekran.py", "mikro_sevk.py", "mikro_saglik.py", "mikro_saglik_ekran.py", "mikro_urun.py", "mikro_urun_ekran.py", "mikro_ithalat.py", "mikro_ithalat_ekran.py", "mikro_aktif.py", "mikro_aktif_ekran.py", "mikro_alinan.py", "mikro_kilit.py", "mikro_multikod.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
+               "bt_olcum.py", "bt_ekran.py", "mikro_esitle.py", "mikro_esitle_ekran.py", "mikro_muhasebe.py", "mikro_muhasebe_ekran.py", "mikro_gider.py", "mikro_gider_ekran.py", "mikro_odeme.py", "mikro_odeme_ekran.py", "mikro_odeme_oto.py", "mikro_stok.py", "mikro_stok_ekran.py", "mikro_stok_degeri.py", "mikro_stok_degeri_ekran.py", "mikro_depo.py", "mikro_depo_ekran.py", "mikro_sevk.py", "mikro_saglik.py", "mikro_saglik_ekran.py", "mikro_urun.py", "mikro_urun_ekran.py", "mikro_ithalat.py", "mikro_ithalat_ekran.py", "mikro_aktif.py", "mikro_aktif_ekran.py", "mikro_alinan.py", "mikro_kilit.py", "mikro_multikod.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "masa.py", "masa_liste.py", "form.py", "ikon.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
                "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_belge.py", "urun_notlari.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "bekleyen_ekran.py", "urun_masasi.py", "kampanya_masasi.py", "siparis_masasi.py", "ref_masasi.py", "yurtici_masasi.py", "stok_yasi_masasi.py", "masa_ortak.py", "urunler_ekran.py", "muhasebe_masalari.py", "cek_ekran.py", "banka_ekran.py", "sol_menu.py", "stok_karti_yeni.py", "hm_hesap.py", "bilesen.py",
@@ -193,6 +193,7 @@ KRITIK_FONKSIYONLAR = {
         "virman_yap",
         "tahsilat_guncelle", "tahsilat_bakiye_farki",   # para girişi düzenleme (Ekim 2026)
         "hafta_olustur",                          # yeni hafta + ödemeler + aktif (Mikro önerisi, Ekim 2026)
+        "odeme_ekle_bulk", "odeme_mikro_kapandi", "odeme_mikro_guncelle",   # Mikro ödeme listesi (22.10.2026)
     ],
     "satis.database": ["mikro_esas_mi", "mikro_esitleme", "mikro_kaynakli_mi", "pacal_bul", "satis_sku_listesi",
         "satis_anahtar", "_magaza_ayikla",        # mağazalı mükerrer anahtarı
@@ -256,8 +257,15 @@ KRITIK_FONKSIYONLAR = {
     "kayranacc.mikro_gider_ekran": ["ilk_onay_kutusu"],
     "kayranacc.mikro_odeme": ["vade_bul", "hafta_araligi", "hafta_adi", "kategori_bul", "plan_gunleri",
                               "taksit_haritasi", "acik_kalemler", "oneri_satirlari", "ozet", "odemeye_cevir",
-                              "firma_kelimeleri", "ayni_firma", "karsilastir", "veri_oku", "oneri_hazirla"],
-    "kayranacc.mikro_odeme_ekran": ["oneri_penceresi"],   # Bu Hafta › Mikro'dan öneri (Eki 2026)
+                              "firma_kelimeleri", "ayni_firma", "karsilastir", "veri_oku", "oneri_hazirla",
+                              "fatura_kalemleri", "vade_gunleri_ogren", "tekrar_tahminleri", "donem_borclari",
+                              "maas_satirlari"],
+    "kayranacc.mikro_odeme_ekran": ["oneri_penceresi", "vade_penceresi", "vade_tablosu"],   # Bu Hafta (Eki 2026)
+    # Haftalık ödeme listesi her pazartesi Mikro'dan (22.10.2026)
+    "kayranacc.mikro_odeme_oto": ["pazartesi", "liste_satirlari", "tasinacaklar", "guncelleme_plani",
+                                  "gecmis_satirlari", "durum", "acik_mi", "mikro_haftasi", "son_aktarim", "veri_oku",
+                                  "firma_gunleri", "hafta_ac", "hafta_yenile", "otomatik", "elle_yenile",
+                                  "firma_vadeleri_kaydet"],
     "kayranpm.mikro_stok": ["kirilim_yap", "farklar", "depo_ozeti", "plan_hazirla", "uygula", "durum", "acik_mi",
                             "ac", "son_aktarim", "otomatik"],
     "kayranpm.mikro_stok_ekran": ["ilk_onay_kutusu"],

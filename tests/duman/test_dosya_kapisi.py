@@ -76,8 +76,10 @@ def _sorunlar(at):
     return s
 
 
-# İthalat Excel'i yalnız Mikro eşitlemesi kapatılınca kaydeder (varsayılan açık: dosyalar Mikro'dan gelir)
-MIKRO_KAPALI = {"ithalat_rapor": {"sistem_ayarlari": [{"anahtar": "mikro_ithalat_durum", "deger": '{"acik": false}'}]}}
+# İthalat Excel'i ve haftalık ödeme listesi yalnız Mikro eşitlemesi kapatılınca kaydeder (varsayılan açık: veri
+# Mikro'dan gelir; ödeme listesi 22.10.2026'dan beri her pazartesi Mikro'dan)
+MIKRO_KAPALI = {"ithalat_rapor": {"sistem_ayarlari": [{"anahtar": "mikro_ithalat_durum", "deger": '{"acik": false}'}]},
+                "odeme_listesi": {"sistem_ayarlari": [{"anahtar": "mikro_odeme_durum", "deger": '{"acik": false}'}]}}
 
 
 @pytest.mark.parametrize("tur", sorted(ORNEKLER))
@@ -113,6 +115,16 @@ def test_ithalat_exceli_mikro_acikken_kaydedilmez():
     assert any("Mikro'dan otomatik" in m.value for m in at.info), [m.value for m in at.info]
     assert not [b for b in at.button if b.key == _anahtar(KAYDET["ithalat_rapor"])]
     assert len(sahte_db.TABLOLAR.get("ithalat_dosyalari") or []) == len(VERI.get("ithalat_dosyalari") or [])
+
+
+def test_odeme_listesi_exceli_mikro_acikken_kaydedilmez():
+    """Mikro ödeme listesi açıkken (varsayılan) Excel hafta açmaz; kapı nedenini söyler."""
+    import sahte_db
+    at = _kapida("odeme_listesi")
+    assert not _sorunlar(at), _sorunlar(at)
+    assert any("Mikro'dan otomatik" in m.value for m in at.info), [m.value for m in at.info]
+    assert not [b for b in at.button if b.key == _anahtar(KAYDET["odeme_listesi"])]
+    assert len(sahte_db.TABLOLAR.get("haftalar") or []) == len(VERI.get("haftalar") or [])
 
 
 def _uygulama(mod="anasayfa", tablolar=None, **durum):
@@ -159,7 +171,7 @@ def test_liste_tur_secimi_ve_kapat():
     assert not _sorunlar(at), _sorunlar(at)
     assert [b.key for b in at.button if b.key and b.key.startswith("kapi_ac_")] == ["kapi_ac_a1", "kapi_ac_a2"]
     assert [b for b in at.button if b.key == "kapi_ac_a2"][0].disabled      # tür seçilmeden açılmaz
-    at.selectbox(key="kapi_tur_a2").select("odeme_listesi").run()
+    at.selectbox(key="kapi_tur_a2").select("cek_listesi").run()
     assert not [b for b in at.button if b.key == "kapi_ac_a2"][0].disabled
     [b for b in at.button if b.key == "kapi_ac_a1"][0].click().run()
     assert not _sorunlar(at), _sorunlar(at)
@@ -182,9 +194,9 @@ def test_mikro_acikken_tur_secimde_ve_sablonlarda_yok():
         assert any("artık Mikro'dan geliyor" in m.value for m in at.info), [m.value for m in at.info]
         secenek = list(at.selectbox(key="kapi_tur_a2").options)
         for gizli in ("VATAN sipariş Excel'i", "Mikro satış fatura dökümü", "İade Excel'i", "G5F depo stok sayımı",
-                      "Satın alım raporu (ithalat)"):           # ithalat: varsayılan açık
+                      "Satın alım raporu (ithalat)", "Haftalık ödeme listesi"):   # ithalat, ödeme: varsayılan açık
             assert not any(o.startswith(gizli) for o in secenek), (gizli, secenek)
-        for kalan in ("Haftalık ödeme listesi", "Happy Life stok raporu", "Aylık gider tablosu"):
+        for kalan in ("Happy Life stok raporu", "Aylık gider tablosu"):
             assert any(o.startswith(kalan) for o in secenek), (kalan, secenek)
         # Kapalıyken eski liste
         at = _uygulama(tablolar=MIKRO_KAPALI["ithalat_rapor"], _kapi_acik=True, _kapi_dosyalar=dosya)
