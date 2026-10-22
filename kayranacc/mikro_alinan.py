@@ -10,8 +10,7 @@ için kullanılmaya devam eder; 2026 ve sonrası için yeni kayıt açılmaz (ik
 kayması; toplam tutuyor).
 
 Kapatmak: sistem_ayarlari mikro_alinan_durum = {"acik": false} (varsayılan AÇIK).
-DİKKAT: yıl sonu kapanış fişi Aralık'ta 602'yi sıfırlar; kapanış ayıklanana kadar Aralık değeri eksi / sıfır çıkabilir
-(kayranacc/mikro_gider.py ile aynı sorun; Aralık 2026'dan önce çözülecek).
+Yıl sonu: Aralık'ta 602'yi 690'a kapatan mahsup fişi ayıklanır (kayranacc/mikro_yil_sonu.py, 22.10.2026).
 """
 from collections import defaultdict
 
@@ -82,17 +81,12 @@ def acik_mi():
 
 @st.cache_data(ttl=300, show_spinner=False)
 def _oku():
+    """602 satırları yıl sonu kapanış fişi ayıklanmış (kayranacc/mikro_yil_sonu): Aralık'ta 602'yi 690'a kapatan
+    mahsup fişi alınmaz, Aralık desteği sıfır / eksi görünmez."""
     from kayranacc.database import get_client
+    from kayranacc.mikro_yil_sonu import oku as _ys_oku
     cli = get_client()
-    out, bas = [], 0
-    while True:
-        parca = (cli.table("mikro_muhasebe_ay").select("yil,ay,hesap_kod,borc,alacak").like("hesap_kod", "602%")
-                 .gte("yil", int(ILK_AY[:4])).order("yil").order("ay").order("hesap_kod")
-                 .range(bas, bas + SAYFA - 1).execute().data or [])
-        out += parca
-        if len(parca) < SAYFA:
-            break
-        bas += SAYFA
+    out, _turlu = _ys_oku(cli, (HESAP_ONEK,), int(ILK_AY[:4]))
     adlar = {str(r.get("muh_hesap_kod")): str(r.get("muh_hesap_isim1") or "") for r in
              (cli.table("mikro_hesap_plani").select("muh_hesap_kod,muh_hesap_isim1").like("muh_hesap_kod", "602%")
               .execute().data or [])}

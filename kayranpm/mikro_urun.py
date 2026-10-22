@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Mikro → ürün kartları, barkod ve müşteri bazlı satış fiyatları (Ekim 2026).
+"""Mikro → ürün kartları ve barkod (Ekim 2026). Müşteri bazlı satış fiyatları kapalı (FIYAT_LISTESI, 22.10.2026).
 
 Kullanıcı: "Mikro'da yeni ürün açılınca programa da gelsin. Stok kartları Mikro'da bazı modellerde 'Fazeon X...'
 diye başlıyor; Fazeon olmasın, kodun önünde sadece kod olsun." Aktarıcı (araclar/mikro_aktarici/mikro_kayran.py:
@@ -30,6 +30,9 @@ TABLOLAR = ("mikro_stok_kart", "mikro_stok_barkod", "mikro_satis_fiyat", "mikro_
 DOLAR = 1                      # Mikro döviz cinsi: 0 TL, 1 USD, 2 EUR
 DOLAN_ALANLAR = ("urun_adi", "kategori", "marka", "barkod")
 FIYAT_ESIK = 0.00005
+# Kullanıcı (22.10.2026): "Fiyat listesi Mikro'da da yok zaten" — fiyat listesi eşitlenmez (okunmaz, yazılmaz).
+# Mikro'da müşteri fiyat listesi tutulmaya başlanırsa True yapmak yeter; kurallar fiyat_plani'nda duruyor.
+FIYAT_LISTESI = False
 # Liste adında müşteriyi değil listeyi anlatan sözcükler (normalize_tr hâlleri): "VATAN FİYAT LİSTESİ" → "VATAN"
 _LISTE_SOZCUKLERI = {"FIYAT", "FIYATI", "FIYATLARI", "LISTE", "LISTESI", "SATIS", "SATIS."}
 
@@ -58,11 +61,27 @@ def mikro_kategori(k):
     return _s(k.get("anagrup_isim")) or _s(k.get("altgrup_isim")) or _s(k.get("sto_kategori_kodu"))
 
 
+_HARFSIZ = str.maketrans("çğıöşü", "cgiosu")
+
+
+def _harfsiz(ad):
+    from shared.ana_veri import kategori_anahtar
+    return kategori_anahtar(ad).translate(_HARFSIZ)
+
+
 def kategori_yazimi(ad, mevcut_yazimlar):
-    """Uygulamada aynı anahtarlı kategori varsa onun yazımı ('MONİTÖR' → 'monitör'), yoksa Türkçe küçük harf."""
+    """Uygulamada aynı anahtarlı kategori varsa onun yazımı ('MONİTÖR' → 'monitör'), yoksa Türkçe küçük harf.
+    Mikro grup adlarını Türkçe harfsiz yazıyor ('MONITOR', 'SOGUTUCU'; 22.10.2026): tam anahtar uymazsa harfsiz
+    karşılaştırılır, tek bir uygulama yazımı uyarsa o kullanılır ('MONITOR' → 'monitör'; eskiden 'monıtor')."""
     from shared.ana_veri import kayit_degeri
     from shared.utils import tr_kucuk
-    return kayit_degeri(ad, mevcut_yazimlar, bicim=tr_kucuk) if _s(ad) else ""
+    if not _s(ad):
+        return ""
+    y = kayit_degeri(ad, mevcut_yazimlar, bicim=tr_kucuk)
+    if any(_s(m) == y for m in mevcut_yazimlar or ()):
+        return y
+    uyan = {_s(m) for m in mevcut_yazimlar or () if _s(m) and _harfsiz(m) == _harfsiz(ad)}
+    return uyan.pop() if len(uyan) == 1 else y
 
 
 def marka_yazimi(ad, mevcut_yazimlar):
@@ -272,23 +291,26 @@ def _cli():
 
 
 def veri_oku():
-    """Sıralı ve kopyasız okuma (aynı anahtar iki kez gelirse OkumaTutarsiz: tur atlanır)."""
-    from satis.mikro_esitle import kopyasiz
+    """Sıralı, kopyasız ve sayfalı okuma (satis.mikro_esitle.sayfali_oku; aynı anahtar iki kez gelirse
+    OkumaTutarsiz: tur atlanır). Fiyat listesi kapalıyken (FIYAT_LISTESI) fiyat tabloları okunmaz."""
+    from satis.mikro_esitle import sayfali_oku
     cli = _cli()
-    return {
-        "kart": kopyasiz(cli.table("mikro_stok_kart").select("*").order("sto_kod").execute().data or [], "sto_kod"),
-        "barkod": kopyasiz(cli.table("mikro_stok_barkod").select("bar_guid,bar_kodu,bar_stokkodu,bar_master")
-                           .order("bar_guid").execute().data or [], "bar_guid"),
-        "fiyat": kopyasiz(cli.table("mikro_satis_fiyat").select("*").order("sfiyat_guid").execute().data or [],
-                          "sfiyat_guid"),
-        "liste": kopyasiz(cli.table("mikro_fiyat_liste").select("*").order("sfl_sirano").execute().data or [],
-                          "sfl_sirano"),
-        "cari": [_s(c.get("cari_unvan1")) for c in
-                 (cli.table("mikro_cari_kart").select("cari_kod,cari_unvan1").order("cari_kod").execute().data or [])
-                 if _s(c.get("cari_unvan1"))],
-        "urunler": kopyasiz(cli.table("urunler").select("sku,urun_adi,kategori,marka,barkod,satis_fiyat_listesi")
-                            .order("sku").execute().data or [], "sku"),
+    v = {
+        "kart": sayfali_oku(lambda: cli.table("mikro_stok_kart").select("*").order("sto_kod"), "sto_kod"),
+        "barkod": sayfali_oku(lambda: cli.table("mikro_stok_barkod").select("bar_guid,bar_kodu,bar_stokkodu,bar_master")
+                              .order("bar_guid"), "bar_guid"),
+        "fiyat": [], "liste": [], "cari": [],
+        "urunler": sayfali_oku(lambda: cli.table("urunler").select("sku,urun_adi,kategori,marka,barkod,"
+                                                                   "satis_fiyat_listesi").order("sku"), "sku"),
     }
+    if FIYAT_LISTESI:
+        v["fiyat"] = sayfali_oku(lambda: cli.table("mikro_satis_fiyat").select("*").order("sfiyat_guid"),
+                                 "sfiyat_guid")
+        v["liste"] = sayfali_oku(lambda: cli.table("mikro_fiyat_liste").select("*").order("sfl_sirano"), "sfl_sirano")
+        v["cari"] = [_s(c.get("cari_unvan1")) for c in
+                     sayfali_oku(lambda: cli.table("mikro_cari_kart").select("cari_kod,cari_unvan1").order("cari_kod"),
+                                 "cari_kod") if _s(c.get("cari_unvan1"))]
+    return v
 
 
 def hesapla(v):
@@ -367,7 +389,8 @@ def durum():
 
 
 def acik_mi():
-    return bool(durum().get("acik"))
+    """Varsayılan AÇIK (kullanıcı 22.10.2026: "ürün kartlarını bağla"); yalnız {"acik": false} kapatır."""
+    return durum().get("acik", True) is not False
 
 
 def ac(kullanici):
@@ -392,7 +415,7 @@ def otomatik():
     try:
         from kayranacc.database import set_ayar
         d = durum()
-        if not d.get("acik"):
+        if not acik_mi():
             return None
         son = son_aktarim()
         if not son or (d.get("son_calisma") and str(d.get("son_calisma")) >= son):

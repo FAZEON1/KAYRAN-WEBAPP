@@ -21,10 +21,10 @@ def _fiyat(v):
 
 def ilk_onay_kutusu():
     from shared.kar_gizle import kar_gorunur
-    d = M.durum()
-    if d.get("acik"):
-        # Açıkken yalnız kaynak notu; aşağıdaki onay dalı yedek (eşitleme kapanırsa geri gelir)
-        st.caption("Ürün kartları ve fiyat listeleri Mikro'dan gelir; dolu alanlar değişmez.")
+    if M.acik_mi():
+        # Açıkken (varsayılan, 22.10.2026) yalnız kaynak notu; aşağıdaki onay dalı yedek ({"acik": false})
+        st.caption("Ürün kartları Mikro'dan gelir: Mikro'da açılan yeni ürün buraya da açılır, boş ad / kategori / "
+                   "marka / barkod dolar; dolu alanlar değişmez.")
         return
     if not kar_gorunur():
         return

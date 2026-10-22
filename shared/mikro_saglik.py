@@ -17,6 +17,15 @@ from datetime import datetime, timedelta, timezone
 
 AKTARICI_GECIKME_DK = 45        # aktarıcı 15 dakikada bir yazar; 3 tur kaçarsa durmuş sayılır
 SATIS_BEKLEME_DK = 30           # Mikro'dan gelmiş ama satışa yazılmamış veri bu kadar beklerse uyarı
+TABLO_GECIKME_DK = 90           # aktarıcı çalışıyor ama bir tablo en yeni tablodan bu kadar gerideyse uyarı
+TABLO_AD = {                    # uyarıda okunur ad (yoksa tablo adı)
+    "mikro_cari_hareket": "cari hareketler", "mikro_cari_kart": "cari kartlar", "mikro_fatura": "faturalar",
+    "mikro_fatura_satir": "fatura satırları", "mikro_satis_satir": "satış satırları", "mikro_siparis": "siparişler",
+    "mikro_stok_miktar": "depo stokları", "mikro_depo_hareket": "depo hareketleri", "mikro_stok_kart": "ürün kartları",
+    "mikro_muhasebe_ay": "muhasebe toplamları", "mikro_muhasebe_ay_tur": "muhasebe (fiş türlü)",
+    "mikro_banka_kart": "banka kartları", "mikro_cek": "çekler", "mikro_ithalat": "ithalat",
+    "mikro_ithalat_dosya": "ithalat dosyaları", "mikro_masraf": "masraflar", "mikro_alim_satir": "alımlar",
+}
 TEKRAR_SAAT = 6                 # aynı sorun sürerken hatırlatma aralığı
 GUNLUK_GUN = 14                 # eşitleme günlüğü bu kadar gün tutulur
 BILDIRIM_ANAHTAR = "mikro_saglik_bildirim"
@@ -85,6 +94,17 @@ def sorunlar(senk, son_tur, satis, simdi):
             out.append({"kod": "aktarici_durdu", "seviye": KRITIK,
                         "metin": f"Aktarıcı son kez {sure_metni(dk)} önce yazdı; Mikro'dan veri gelmiyor "
                                  "(sunucu 10.0.1.11)."})
+        # Aktarıcı çalışıyor ama bazı tablolar gelmiyor (kullanıcı 22.10.2026: "hangi tablo ne zamandır gelmiyor")
+        cekim = {str(r.get("tablo")): zaman(r.get("son_cekim")) for r in senk or []}
+        en_yeni = max((t for t in cekim.values() if t), default=None)
+        geride = sorted(((tb, int((en_yeni - t).total_seconds() // 60)) for tb, t in cekim.items()
+                         if t and en_yeni and en_yeni - t >= timedelta(minutes=TABLO_GECIKME_DK)),
+                        key=lambda x: (-x[1], x[0]))
+        if geride:
+            out.append({"kod": "tablo_geride:" + ",".join(sorted(tb for tb, _ in geride)), "seviye": UYARI,
+                        "metin": "Aktarıcı çalışıyor ama şu tablolar güncellenmiyor: "
+                                 + ", ".join(f"{TABLO_AD.get(tb, tb)} ({sure_metni(dakika_once(cekim[tb], simdi))}"
+                                             " önce)" for tb, _ in geride) + "."})
     hatali = sorted(str(r.get("tablo")) for r in senk or [] if str(r.get("son_hata") or "").strip())
     if hatali:
         out.append({"kod": "aktarici_hata", "seviye": UYARI,
