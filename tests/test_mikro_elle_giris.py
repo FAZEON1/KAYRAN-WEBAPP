@@ -135,3 +135,24 @@ def test_kart_sil_yurtici_stok_ts_iade_fiyati():
     t = _oku("teknikservis/main.py")
     i = t.index("if _iade_mikro:")
     assert 'with st.popover("İade faturası fiyatını gir / düzelt"' in t[i:i + 400]
+
+
+# ── İkinci tur (22.10.2026): "Yurt içi alış tamamen kaldırılsın; Ref No'daki alınan destek 'Yeni kayıt'
+#    kaldırılsın; teknik servis toplu satış formu kalksın." ─────────
+def test_yurtici_alis_menuden_kalkti():
+    from shared.gezinme import hedef, secenekler
+    assert "💵  Yurt İçi Alış" not in secenekler("kayranpm") and not hedef("kayranpm/maliyet")
+    assert '"💵  Yurt İçi Alış"' not in _oku("kayranpm/main.py")
+
+
+def test_alinan_destek_yeni_kayit_yok():
+    r = _oku("kayranpm/ref_ekran.py")
+    assert 'key="ad2_yeni"' not in r and r.count("_ad_yeni_dialog(") == 1          # yalnız tanım, çağıran yok
+
+
+def test_ts_toplu_satis_yok():
+    from teknikservis import ts_masasi as M
+    v = M.depo_masa_verisi([], [], [], date(2026, 10, 22), lambda k: "")
+    assert "sat" not in {i["k"] for i in v["islemler"]}
+    t = _oku("teknikservis/main.py")
+    assert "_toplu_satis_formu(_satilabilir, st.rerun)" not in t and "_dlg_toplu_satis([" not in t

@@ -31,11 +31,4 @@ def test_yeni_ithalat_turkce_fob_kayda_gider(monkeypatch):
     assert float(dos[0].get("fatura_indirim") or 0) == 1000.0
 
 
-def test_yurtici_alis_ozet_ve_turkce_masraf(monkeypatch):
-    at, _db = _ac(monkeypatch, "kayranpm", "pm_sayfa", "💵  Yurt İçi Alış")
-    assert not _sorunlar(at), _sorunlar(at)
-    nak = [t for t in at.text_input if t.key and t.key.startswith("yi_yeni_m_")][0]
-    nak.input("1.250,75").run()
-    assert not _sorunlar(at), _sorunlar(at)
-    oz = " ".join(str(m.value) for m in at.markdown if "Alım özeti" in str(m.value))
-    assert "Alım özeti" in oz and "1.250,75" in oz, oz[:400]
+# Yurt içi alış sayfası kaldırıldı (kullanıcı, 22.10.2026: tüm alımlar Mikro'dan).

@@ -104,8 +104,8 @@ def kart_bolumu(sku):
             {"label": Y.KAYITSIZ, "value": tr_sayi(oz["kapsanmayan"])},
         ])
         if oz["kapsanmayan"] > 0:
-            st.warning(f"{tr_sayi(oz['kapsanmayan'])} adedin giriş kaydı yok; yaşı hesaplanmadı. Yurt içinden "
-                       "alındıysa Ürün Yönetimi › Yurt içi alış sayfasından alımı gir.")
+            st.warning(f"{tr_sayi(oz['kapsanmayan'])} adedin giriş kaydı yok; yaşı hesaplanmadı. Alım Mikro'ya "
+                       "girilince giriş kaydı gelir.")
         _grup_tablosu(oz, key=f"sy_k_grup_{k}")
         _parti_tablosu(kal, bugun, key=f"sy_k_parti_{k}")
     st.markdown("**Müşterilerdeki stok** · son rapor · yaş bizim fatura tarihimizden, FIFO")
@@ -205,7 +205,7 @@ def goster():
                     tablo(g_rows, key=f"sy_grup_urun_{grup}", arama=True, dosya_adi="stok_yasi_grup")
             if top["kapsanmayan"] > 0:
                 st.caption(f"{tr_sayi(top['kapsanmayan'])} adedin giriş kaydı yok (yurt içinden alınmış olabilir); "
-                           "Yurt içi alış sayfasından alımı girince yaşı hesaplanır.")
+                           "alım Mikro'ya girilince yaşı hesaplanır.")
             st.markdown("**Tüm ürünler**")
             if STOK_YASI_MASASI_YENI:
                 from shared.masa import calistir

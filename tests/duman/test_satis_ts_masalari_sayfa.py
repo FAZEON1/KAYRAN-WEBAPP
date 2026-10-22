@@ -127,16 +127,9 @@ def test_depolar_masasi(monkeypatch):
     assert veri, "depolar masası çizilmedi"
     v = veri[0]
     assert len(v["satirlar"]) >= 5 and {k["k"] for k in v["ozet"]} == {"bugun", "hafta", "ay", "aktif", "toplam"}
-    assert {i["k"] for i in v["islemler"]} == {"ac", "sat", "excel"}
+    assert {i["k"] for i in v["islemler"]} == {"ac", "excel"}            # Toplu sat kalktı (22.10.2026)
     a = _anahtarlar(at)
     assert "depo_excel" in a and "depo_filtre_coklu" in a and "ts_toplu_btn" not in a
 
 
-def test_depolar_toplu_sat_penceresi(monkeypatch):
-    """Masadaki 'Toplu sat…' isteği formu seçilenlerle açar: bugünkü Toplu Satış formu (aynı düğme anahtarı)."""
-    from teknikservis.ts_masasi import toplu_etiket
-    k = {"servis_form_no": "G5F00904", "stok_kodu": "FZ-MON-4", "stok_adi": "Fazeon monitör 4", "seri_no": "SNX0004",
-         "depo": "outlet"}
-    at = _ac(monkeypatch, "teknikservis", "ts_sayfa", "📦  Depolar", ts=True,
-             ek={"_ts_toplu_ac": True, "ts_toplu_sec": [toplu_etiket(k)]})
-    assert "ts_toplu_btn" in _anahtarlar(at), "toplu satış formu açılmadı"
+# Toplu Satış kaldırıldı (kullanıcı, 22.10.2026: satış Mikro'daki faturadan).

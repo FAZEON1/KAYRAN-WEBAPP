@@ -102,13 +102,7 @@ def test_ref_no_alinan_destekler_masasi(monkeypatch):
     assert len(m) == 1 and len(m[0]["satirlar"]) >= 3 and [i["k"] for i in m[0]["islemler"]] == ["sil"]
 
 
-def test_yurtici_kayitli_alimlar_masasi(monkeypatch):
-    at = _ac(monkeypatch, "💵  Yurt İçi Alış")
-    m = _masalar(at)
-    assert len(m) == 1 and len(m[0]["satirlar"]) == 3
-    assert {i["k"] for i in m[0]["islemler"]} == {"duzenle", "sil"}
-    at2 = _ac(monkeypatch, "💵  Yurt İçi Alış", yi_masa_sec=20)       # Düzenle → bugünkü form masanın altında
-    assert at2.button(key="yi_duz_20_kaydet") is not None
+# Yurt içi alış sayfası kaldırıldı (kullanıcı, 22.10.2026: tüm alımlar Mikro'dan).
 
 
 def test_stok_yasi_masasi(monkeypatch):

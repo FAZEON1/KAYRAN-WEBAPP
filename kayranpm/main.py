@@ -550,7 +550,6 @@ def run():
             "📊  Dashboard": lambda: _sayfa_dashboard(),
             "📋  Tüm Ürünler": lambda: _sayfa_tum_urunler(),
             "Stok Yaşı": lambda: _sayfa_stok_yasi(),
-            "💵  Yurt İçi Alış": lambda: _sayfa_yurt_ici_alis(),
             "📈  Müşteri Satışları": lambda: _sayfa_musteri_satislari(),
             "🎯  Kampanya Takip": lambda: _sayfa_kampanya_takip(),
             "📦  Sipariş Önerisi": lambda: _sayfa_siparis_onerisi(),
@@ -1022,6 +1021,8 @@ def _sayfa_stok_yasi():
 
 
 def _sayfa_yurt_ici_alis():
+    # Menüden kaldırıldı (kullanıcı, 22.10.2026: "Yurt içi alış tamamen kaldırılsın; zaten tüm alımlar Mikro'dan
+    # yansıyacak"). Kayıtlı alımlar (ithalat_dosyalari, alim_turu yurt içi) paçalda okunmaya devam eder.
     st.markdown(_sb("💵 Ürün Yönetimi", "Yurt içi alış",
                     aciklama="yurt içi satın alma · ithalat gibi girilir · paçal, stok kartı ve stok yaşı buradan beslenir"), unsafe_allow_html=True)
     # Yedek maliyet sekmesi (kart alış fiyatı düzenleyicisi) kullanıcı isteğiyle kaldırıldı (Ekim 2026);

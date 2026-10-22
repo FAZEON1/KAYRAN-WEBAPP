@@ -105,8 +105,8 @@ def test_ayrintida_dugmeler_kapali_kurala_bagli():
     d = s[s.index("def _depo_detay(k):"):s.index("        with st.container(border=True):", s.index("def _depo_detay(k):"))]
     assert "_kapali = satis_disi_neden(k)" in d
     assert d.count("if not _kapali:") == 2 and "if not satildi:" not in d       # Satışa Hazır + Satıldı
-    assert "_dlg_toplu_satis([k for k in goster if not satis_disi_neden(k)])" in s
-    assert '_satilabilir = [k for k in goster if not satis_disi_neden(k)]' in s
+    # Toplu Satış kaldırıldı (kullanıcı, 22.10.2026): satış Mikro'daki faturadan gelir
+    assert "_dlg_toplu_satis([" not in s and "_toplu_satis_formu(_satilabilir, st.rerun)" not in s
 
 
 # ── 3. Depo adları Depo modülündeki gibi ─────────────────────────────

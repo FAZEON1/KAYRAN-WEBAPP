@@ -2315,15 +2315,7 @@ def _depolar():
     # sistem hem ts_kayitlar'ı 'satıldı' yapar, hem stoktan düşer, hem de diğer
     # satışlar gibi seçilen CARİ adına tek sipariş olarak satış kaydı açar (Ekim 2026;
     # "TEKNİK SERVİS / 2.EL" işareti artık satış notunun başında).
-    _satilabilir = [k for k in goster if not satis_disi_neden(k)]
-    if _satilabilir:
-        with st.expander(f"💰 Toplu Satış — birden fazla ürünü tek seferde sat "
-                         f"({len(_satilabilir)} uygun ürün)"):
-            st.caption("Fatura/irsaliye kesilen ürünleri işaretle. Stoktan düşer ve "
-                       "Satışlar'da seçilen cari adına tek sipariş olarak görünür; "
-                       "notunda TEKNİK SERVİS / 2.EL yazar.")
-
-            _toplu_satis_formu(_satilabilir, st.rerun)
+    # Toplu Satış formu kaldırıldı (kullanıcı, 22.10.2026): satış Mikro'daki faturadan gelir.
 
     E.depo_listesi(goster, DEPOLAR, "ts_depo")
 
@@ -2438,8 +2430,7 @@ def _depolar_masa(kayitlar):
                  and not (k.get("depo") or "").strip()]
         donemsel = [k for k in tum or [] if _transfer_gunu(k) is not None and _transfer_gunu(k) >= bas]
         _ozet_kirilim(donemsel, aktif, donem)
-    if st.session_state.pop(_TM.TOPLU_AC, False):
-        _dlg_toplu_satis([k for k in goster if not satis_disi_neden(k)])
+    st.session_state.pop(_TM.TOPLU_AC, None)        # Toplu Satış kaldırıldı (22.10.2026)
 
 
 def _iade_belgesi_dugmesi(kayit, gecmis, anahtar):

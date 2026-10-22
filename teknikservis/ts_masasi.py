@@ -317,9 +317,8 @@ def depo_masa_verisi(goster, tum, depo_sirasi, bugun, giris_fn, salt=False, grup
         "grup": {"alan": "depo_ad", "birim": "ürün",
                  "toplamlar": [{"alan": "hazir", "ondalik": 0, "son": " satışa hazır"}]},
         "satirlar": satirlar,
+        # "Toplu sat" kaldırıldı (kullanıcı, 22.10.2026): satış Mikro'daki faturadan gelir.
         "islemler": [{"k": "ac", "ad": "Ürünü aç", "okuma": True},
-                     {"k": "sat", "ad": "Toplu sat", "yalniz_toplu": True, "birincil": True,
-                      "f": [["satilabilir", "eq", True]], "toplu": {"ad": "Toplu sat…", "alanlar": []}},
                      {"k": "excel", "ad": "Excel'e aktar", "okuma": True, "yalniz_toplu": True,
                       "toplu": {"ad": "Seçilenleri Excel'e aktar", "alanlar": []}}],
         "tik": "ac",
