@@ -79,7 +79,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "bt_olcum.py", "bt_ekran.py", "mikro_esitle.py", "mikro_esitle_ekran.py", "mikro_muhasebe.py", "mikro_muhasebe_ekran.py", "mikro_gider.py", "mikro_gider_ekran.py", "mikro_odeme.py", "mikro_odeme_ekran.py", "mikro_odeme_oto.py", "mikro_stok.py", "mikro_stok_ekran.py", "mikro_stok_degeri.py", "mikro_stok_degeri_ekran.py", "mikro_depo.py", "mikro_depo_ekran.py", "mikro_sevk.py", "mikro_saglik.py", "mikro_saglik_ekran.py", "mikro_urun.py", "mikro_urun_ekran.py", "mikro_ithalat.py", "mikro_ithalat_ekran.py", "mikro_aktif.py", "mikro_aktif_ekran.py", "mikro_alinan.py", "mikro_yil_sonu.py", "mikro_tahsilat.py", "tahsilat_ekran.py", "mikro_kilit.py", "mikro_multikod.py", "sirket_belge_hesap.py", "sirket_belge.py", "sirket_belge_ekran.py",
                "asistan_hesap.py", "asistan.py", "asistan_ekran.py", "ofis.py", "ofis_ekran.py",
                "bugun.py", "masa.py", "masa_liste.py", "form.py", "ikon.py", "kisayol.py", "pwa.py", "gumruk_ekran.py", "kar_gizle.py", "claude_talep.py",
-               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_belge.py", "urun_notlari.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "bekleyen_ekran.py", "urun_masasi.py", "kampanya_masasi.py", "siparis_masasi.py", "ref_masasi.py", "yurtici_masasi.py", "stok_yasi_masasi.py", "masa_ortak.py", "urunler_ekran.py", "muhasebe_masalari.py", "cek_ekran.py", "banka_ekran.py", "sol_menu.py", "stok_karti_yeni.py", "hm_hesap.py", "bilesen.py",
+               "tatil.py", "izin_hesap.py", "izin.py", "izin_ekran.py", "izin_belge.py", "ts_hesap.py", "iade_belge.py", "urun_notlari.py", "iade_fatura.py", "canli_pacal.py", "odeme_hesap.py", "odeme_masasi.py", "satis_masasi.py", "ts_masasi.py", "ithalat_masasi.py", "depo_masasi.py", "depo_hesap.py", "bekleyen_ekran.py", "urun_masasi.py", "kampanya_masasi.py", "siparis_masasi.py", "ref_masasi.py", "yurtici_masasi.py", "stok_yasi_masasi.py", "masa_ortak.py", "urunler_ekran.py", "muhasebe_masalari.py", "cek_ekran.py", "banka_ekran.py", "sol_menu.py", "stok_karti_yeni.py", "hm_hesap.py", "bilesen.py",
                "mikro_serino.py",      # seri no → Mikro (teknik servis, Eki 2026)
                "yedek_tablolari.py",   # gece yedeği tablo listesi + sayfalı okuma (Eki 2026)
                "sirket_ayar.py", "kur.py",
@@ -140,7 +140,7 @@ def test_kirik_import_yok():
 KRITIK_FONKSIYONLAR = {
     "veritabani.uygula": ["dosyalari_bul", "dosya_sha", "oneri_mi", "plan_yap", "canli_mi",
                           "gecmisi_oku", "uygula", "main"],   # kayıtlı şema değişikliği (Eki 2026)
-    "kayranpm.database": ["eol_isaretle", "_kampanya_cache_temizle",
+    "kayranpm.database": ["eol_isaretle", "get_tum_depo_stok", "_kampanya_cache_temizle",
         "get_yurtici_kategoriler", "set_yurtici_kategoriler",   # 04.08'de silinmişti
         "get_satis_depolari", "depo_kanonik", "stok_hareket_coklu",
         "get_talepler", "get_talepler_kullanici", "acik_talep_sayisi", "ekle_talep",
@@ -223,7 +223,7 @@ KRITIK_FONKSIYONLAR = {
     "teknikservis.ariza_orani": ["tahmin", "sonuc", "sonuc_zorunlu", "servis_ozeti", "satis_toplami",
                                  "musteri_stogu", "alim_toplami", "oran", "satirlar", "grup_ozeti",
                                  "depo_gruplari", "mikro_sorunlu"],
-    "kayranpm.kampanya_hesap": ["durum", "urun_hesap", "kampanya_ozet", "musteri_satisi"],
+    "kayranpm.kampanya_hesap": ["durum", "urun_hesap", "kampanya_ozet", "musteri_satisi", "rapor_haftalari"],
     "teknikservis.ariza_ekran": ["goster"],
     "shared.tarih": ["hizli_tarih_araligi", "donem_coz", "donem_etiketi", "kisa_aralik"],
     "satis.stok_tamamla": ["eksikler", "dagit", "uygula"],
@@ -363,6 +363,7 @@ KRITIK_FONKSIYONLAR = {
                           "_iade_belgesi_dugmesi", "_tek_arama", "_tek_arama_ac", "_diger_firma", "_dp_ad"],
     "ithalat.ithalat_masasi": ["masa_verisi", "islem_uygula", "yurutucu", "masraf_masa_verisi", "varis_metni"],
     "depo.depo_masasi": ["stok_masa_verisi", "bekleyen_masa_verisi", "bekleyen_uygula"],
+    "depo.depo_hesap": ["sevk_sonucu", "bekleyen_ozet", "barkoddan_sku", "tum_depo_stok"],
     "depo.bekleyen_ekran": ["sevk_dus_kaydet", "takip_sil", "render"],
     "depo.mikro_sevk": ["kayit_serbest", "sevk_satirlari", "eski_uygulama_kayitlari", "ozet", "sevk_oku",
                         "sevk_gecmisi", "ekran"],   # depolar arası sevk Mikro'dan (Eki 2026)

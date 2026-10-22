@@ -443,23 +443,39 @@ def _detay_dialog(kid):
 
 
 def _musteri_satisi(kamp):
-    """Açık kampanyada ürün başına müşteri raporundaki satış {sku_anahtar: adet} ya da None (kapalı / DİĞER /
-    okunamadı). Yalnız gösterim — kayda yazılmaz (kampanya_hesap.musteri_satisi)."""
+    """Açık kampanyada ürün başına müşteri raporundaki satış: ({sku_anahtar: adet}, rapor_haftalari) ya da
+    (None, None) (kapalı / DİĞER / okunamadı). Yalnız gösterim — kayda yazılmaz (kampanya_hesap.musteri_satisi)."""
     if H.durum(kamp, tr_today()) == "kapali":
-        return None
+        return None, None
     try:
         from .database import get_musteri_haftalik_satis, kanal_kod_haritasi
         rows = get_musteri_haftalik_satis(kamp.get("baslangic_tarihi"), kamp.get("bitis_tarihi")) or []
-        return H.musteri_satisi(kamp, rows, tr_today(), kanal_kod_haritasi())
+        oto = H.musteri_satisi(kamp, rows, tr_today(), kanal_kod_haritasi())
+        return oto, (H.rapor_haftalari(kamp, rows, tr_today()) if oto is not None else None)
     except Exception as e:  # noqa: BLE001
         sessiz("kayranpm.kampanya._musteri_satisi", e)
-        return None
+        return None, None
+
+
+def _hafta_notu(hf):
+    """Müşteri satışı sütununun altındaki not: hangi haftalar sayıldı, hangileri eksik, yarım hafta."""
+    if not hf:
+        return ""
+    if not hf["var"]:
+        return " Müşteri satışı: bu tarihlerde müşterinin haftalık raporu yok (rakam boş)."
+    m = (f" Müşteri satışı: {', '.join(_tarih_kisa(g) for g in hf['var'])} haftalarının raporundan"
+         " — yalnız bilgi, Satılan'a yazılmaz.")
+    if hf["eksik"]:
+        m += f" Eksik rapor: {', '.join(_tarih_kisa(g) for g in hf['eksik'])} haftası yüklenmemiş, rakam eksik olabilir."
+    if hf["yarim"]:
+        m += " Kampanya hafta ortasında başlıyor ya da bitiyor: o haftanın satışı bütün sayıldı."
+    return m
 
 
 def _sekme_urunler(kamp, urunler_k, pacal, urunler, o):
     kid = kamp["id"]
     if urunler_k:
-        oto = _musteri_satisi(kamp)
+        oto, haftalar = _musteri_satisi(kamp)
         satirlar = []
         for u in urunler_k:
             h = H.urun_hesap(u, pacal.get(sku_anahtar(u.get("sku")), 0))
@@ -467,7 +483,7 @@ def _sekme_urunler(kamp, urunler_k, pacal, urunler, o):
                  "Paçal": h["pacal"] or None, "Satış": h["satis"], "Firma desteği": h["fd"],
                  "Ek destek": h["ed"], "Satılan": h["adet"]}
             if oto is not None:
-                s["Müşteri satışı"] = oto.get(sku_anahtar(u.get("sku")), 0)
+                s["Müşteri satışı"] = oto.get(sku_anahtar(u.get("sku")), 0) if haftalar["var"] else None
             s.update({"Net kâr/adet": h["net_kar"], "Net marj %": h["marj"],
                       "Toplam net": h["t_net"] if h["net_kar"] is not None else None,
                       "Not": u.get("notlar") or "", "Sil": False})
@@ -499,9 +515,7 @@ def _sekme_urunler(kamp, urunler_k, pacal, urunler, o):
                                                        help="İşaretle ve kaydet: ürün kampanyadan çıkar"),
             })
         st.caption("Satış, destek, adet ve notu tabloda düzenle; hesaplı sütunlar kaydedince güncellenir."
-                   + (" Müşteri satışı: müşterinin haftalık raporundan, kampanya tarihleri içinde "
-                      f"(toplam {tr_sayi(sum(df['Müşteri satışı']))} adet) — yalnız bilgi, Satılan'a yazılmaz."
-                      if "Müşteri satışı" in df.columns else ""))
+                   + _hafta_notu(haftalar))
         _degisen, _silinen = [], []
         for rid, yeni in duz.iterrows():
             eski = df.loc[rid]
