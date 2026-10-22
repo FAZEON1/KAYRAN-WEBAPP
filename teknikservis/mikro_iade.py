@@ -166,9 +166,9 @@ def veri_oku():
     from ithalat.mikro_ithalat import _sayfali
     from shared.utils import sku_anahtar
     cli = _cli()
-    satir = [r for r in (cli.table("mikro_alim_satir").select("*").eq("sth_normal_iade", 1)
-                         .gte("sth_tarih", BASLANGIC).like("sth_cari_kodu", MUSTERI + "%")
-                         .limit(5000).execute().data or [])]
+    from .database import sayfali
+    satir = sayfali(lambda: cli.table("mikro_alim_satir").select("*").eq("sth_normal_iade", 1)
+                    .gte("sth_tarih", BASLANGIC).like("sth_cari_kodu", MUSTERI + "%").order("sth_guid"))
     kartlar = {}
     for u in _sayfali("urunler", "sku,urun_adi", "sku"):
         kartlar.setdefault(sku_anahtar(u.get("sku")), u)
@@ -180,7 +180,7 @@ def veri_oku():
             for d in cli.table("mikro_depo_kart").select("dep_no,dep_adi").execute().data or []}
     bl = birimler(satir, BASLANGIC, lambda k: (kartlar.get(sku_anahtar(k)) or {}).get("sku") or k, unvan, depo)
     adlar = {sku_anahtar(k): (u.get("urun_adi") or "") for k, u in kartlar.items()}
-    kayitlar = cli.table("ts_kayitlar").select("id,servis_form_no,mikro_iade_anahtar").execute().data or []
+    kayitlar = sayfali(lambda: cli.table("ts_kayitlar").select("id,servis_form_no,mikro_iade_anahtar").order("id"))
     return bl, kayitlar, adlar
 
 
@@ -235,7 +235,7 @@ def acik_mi():
     return durum().get("acik", True) is not False
 
 
-BILDIRIM_ALICILARI = ("ibrahim",)       # durum["bildirim_alicilari"] ile değiştirilebilir
+BILDIRIM_ALICILARI = ("ibrahim", "berkay")   # kullanıcı 22.10.2026; durum["bildirim_alicilari"] ile değişir
 
 
 def gecikme_mesaji(kayitlar, bugun):
@@ -257,8 +257,10 @@ def gecikme_bildirimi(bugun=None):
     d = durum()
     if d.get("son_bildirim_gunu") == bugun.isoformat():
         return None
-    rows = (_cli().table("ts_kayitlar").select("servis_form_no,mevcut_durum,iade_fatura_tarihi,olusturma_tarihi")
-            .eq("mevcut_durum", FATURA_ISLENDI).execute().data or [])
+    from .database import sayfali
+    rows = sayfali(lambda: _cli().table("ts_kayitlar")
+                   .select("servis_form_no,mevcut_durum,iade_fatura_tarihi,olusturma_tarihi")
+                   .eq("mevcut_durum", FATURA_ISLENDI).order("id"))
     msg = gecikme_mesaji(rows, bugun)
     if not msg:
         return None

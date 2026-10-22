@@ -6,7 +6,15 @@ name: Mikro eşitleme
 # üzerinden (repository_dispatch: mikro_esitle). Aktarıcı durursa Supabase zamanlayıcısı (pg_cron, 30 dk)
 # aynı yoldan tetikler; tur sonunda sağlık denetimi Telegram'a yazar. GitHub'ın kendi zamanlayıcısı bu depoda
 # saatlerce gecikiyor (02:00'lık gece yedeği 06:51–08:48'de); aşağıdaki cron yalnız 6 saatte bir yedek.
+# Kod birleşince de hemen çalışır (22.10.2026): #258 birleştikten sonra yeni aktarıcı ve yurt içi eşitlemesi
+# saatlerce bekledi (sıradaki tetik gelene kadar). Eşitleme ya da aktarıcı kodu main'e girince tur hemen döner.
 on:
+  push:
+    branches: [main]
+    paths:
+      - "araclar/mikro_aktarici/**"
+      - "otonom/mikro_esitle.py"
+      - "**/mikro_*.py"
   repository_dispatch:
     types: [mikro_esitle]
   schedule:

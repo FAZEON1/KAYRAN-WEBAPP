@@ -1814,6 +1814,12 @@ def _sayfa_kar_pnl(*, _kar_ok, _sb, kpi_serit, sayi):
         if top["destek"] > 0.005:
             _adim += _mrd("Destek (satır bazlı)", "− " + _usd(top["destek"]), "−", "eksi")
         _adim += _mrd("Maliyet (COGS)", "− " + _usd(top["maliyet"]), "−", "eksi")
+        _bekleme = float(_P.get("bekleme") or 0)
+        if _bekleme > 0.5:
+            # Antrepo / liman bekleme masrafı (demuraj, ardiye): ürünün değil antrepo kararının maliyeti; COGS'un
+            # içindedir, ayrıca düşülmez (kayranpm.mikro_maliyet, 22.10.2026)
+            _adim += _mrd("içinde antrepo / liman bekleme maliyeti (tahmini)", _usd(_bekleme), "•", "normal",
+                          (_bekleme / top["maliyet"] * 100) if top["maliyet"] else None)
         _adim += _mrd("Brüt kâr", _usd(_net_kar), "=", "ara", _brut_marj)
         if _ref_g:
             _adim += _mrd(

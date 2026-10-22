@@ -207,7 +207,7 @@ def seri_kayitlari(seri):
 def tum_seriler():
     """Kayıtlı tüm seri numaraları (BÜYÜK harf küme) — toplu Excel mükerrer kontrolü."""
     try:
-        rows = _rows(get_client().table("ts_kayitlar").select("seri_no").order("id").execute())
+        rows = sayfali(lambda: get_client().table("ts_kayitlar").select("seri_no").order("id"))
         return {str(r.get("seri_no") or "").strip().upper()
                 for r in rows if str(r.get("seri_no") or "").strip()}
     except Exception:
@@ -249,6 +249,22 @@ def _cache_temizle():
 
 def _rows(resp):
     return resp.data if resp.data else []
+
+
+SAYFA = 1000      # Supabase tek sorguda en fazla 1000 satır döndürür
+
+
+def sayfali(sorgu):
+    """Bütün satırlar, sayfa sayfa. sorgu: her çağrıda YENİ ve sıralı bir sorgu döndüren fonksiyon
+    (lambda: tablo.select(...).order("id")). ts_kayitlar 1000'i geçince listeler, sayılar, G5F no ve otomatik
+    satıldı sessizce eksik çalışıyordu (Mikro iadesi her adet için ayrı kayıt açar; 22.10.2026 791 kayıt)."""
+    out, bas = [], 0
+    while True:
+        parca = _rows(sorgu().range(bas, bas + SAYFA - 1).execute())
+        out += parca
+        if len(parca) < SAYFA:
+            return out
+        bas += SAYFA
 
 
 def _row(resp):
@@ -423,10 +439,10 @@ def fatura_kayitlari(fatura_no):
 
 def get_kayitlar(arayuz=None, depolu=None):
     try:
-        q = get_client().table("ts_kayitlar").select("*").order("id", desc=True)
-        if arayuz:
-            q = q.eq("arayuz", arayuz)
-        rows = _rows(q.execute())
+        def _q():
+            q = get_client().table("ts_kayitlar").select("*").order("id", desc=True)
+            return q.eq("arayuz", arayuz) if arayuz else q
+        rows = sayfali(_q)
         if depolu is True:
             rows = [r for r in rows if (r.get("depo") or "").strip()]
         elif depolu is False:
@@ -456,7 +472,7 @@ def _sonraki_form_no():
     """
     import re
     try:
-        rows = _rows(get_client().table("ts_kayitlar").select("servis_form_no").execute())
+        rows = sayfali(lambda: get_client().table("ts_kayitlar").select("servis_form_no").order("id"))
         mx = 0
         for r in rows:
             s = str(r.get("servis_form_no", "") or "").strip().upper()

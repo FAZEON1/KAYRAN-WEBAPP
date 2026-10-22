@@ -82,10 +82,10 @@ _SERINO_KOLON = ("chz_guid,chz_serino,seri_anahtar,chz_stok_kodu,chz_iptal,chz_a
 
 def veri_oku():
     from teknikservis import mikro_serino as MS
-    from teknikservis.database import get_client
+    from teknikservis.database import get_client, sayfali
     cli = get_client()
-    kayitlar = [k for k in (cli.table("ts_kayitlar").select(
-        "id,servis_form_no,stok_kodu,seri_no,depo,mevcut_durum,depo_tarihi,mal_kabul_tarihi").execute().data or [])
+    kayitlar = [k for k in sayfali(lambda: cli.table("ts_kayitlar").select(
+        "id,servis_form_no,stok_kodu,seri_no,depo,mevcut_durum,depo_tarihi,mal_kabul_tarihi").order("id"))
         if aday_mi(k)]
     anahtarlar = sorted({MS.seri_anahtar(k.get("seri_no")) for k in kayitlar} - {""})
     serino = {}
