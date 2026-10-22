@@ -300,6 +300,7 @@ export default function(component){
                                                          ana:Object.assign({}, B0.ana || {}), q:B0.q || "", sira:B0.sira || null, secim:new Set(),
                                                          acik:null, sekme:null, odak:0, sonBildirim:null, form:{}, sinir:200});
   const durumYaz = () => { try { sessionStorage.setItem(DK, JSON.stringify({gor:S.gor, q:S.q, sec:S.sec, ana:S.ana, sira:S.sira})); } catch (_) {} };
+  if (D.baslangic) durumYaz();          // verilen ilk durum, tarayıcıdaki eski durumun yerine geçer
   if (S.gor && !GOR.some(g => g.k === S.gor)) S.gor = (GOR[0]||{}).k || "";
   let kok = parentElement.querySelector(".ms");
   if (!kok){ kok = document.createElement("div"); kok.className = "ms"; parentElement.appendChild(kok); }

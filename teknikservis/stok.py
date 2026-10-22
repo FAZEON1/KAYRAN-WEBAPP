@@ -83,6 +83,12 @@ def _sku_ad(kayit, degisim=False):
             str(k.get("stok_adi") or "").strip())
 
 
+def mikro_yonetir():
+    """Depo stoğu Mikro'dan mı (kayranpm.mikro_stok açık): teknik servis hareketi Kayran stoğuna yazılmaz."""
+    from kayranpm.database import _mikro_stok_yonetir
+    return _mikro_stok_yonetir()
+
+
 def _uygula(sku, ad, depo, delta):
     """Tek kalemlik stok hareketi. Döner: (ok, mesaj).
     Ürün kartı yoksa otomatik boş kart açar (kart_ac=True) — hiçbir hareket
@@ -91,6 +97,10 @@ def _uygula(sku, ad, depo, delta):
     if not sku:
         return False, "stok kodu boş — stok işlenmedi"
     if not delta:
+        return True, ""
+    if mikro_yonetir():
+        # Kullanıcı (22.10.2026): teknik servis depo hareketleri Kayran stoğuna işlenmez; transferi Depolar'daki
+        # "Mikro'ya transfer listesi" Excel'iyle Mikro'da yapar, stok oradan gelir.
         return True, ""
     try:
         from kayranpm.database import stok_hareket_coklu

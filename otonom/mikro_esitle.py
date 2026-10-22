@@ -34,6 +34,8 @@ ISLER = (
     ("Ürün kartları / fiyat listeleri", "kayranpm.mikro_urun", "otomatik"),
     ("İthalat dosyaları / masraflar", "ithalat.mikro_ithalat", "otomatik"),
     ("Yurt içi alışlar", "kayranpm.mikro_yurtici", "otomatik"),
+    ("İade faturaları → teknik servis", "teknikservis.mikro_iade", "otomatik"),
+    ("Teknik servis satıldı", "teknikservis.mikro_satis", "otomatik"),            # seri no ile satış
 )
 
 

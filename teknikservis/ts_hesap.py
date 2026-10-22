@@ -84,8 +84,45 @@ def merkezde_mi(k):
 
 def gorunen_durum(k):
     """Depolar'da gösterilen durum: merkeze aktarılan ürün 'gönderildi' / 'satışa hazır' yerine
-    'merkeze aktarıldı' (Ekim 2026, teknik servis isteği). Kayıtlı durum değişmez."""
+    'merkeze aktarıldı' (Ekim 2026, teknik servis isteği). Kayıtlı durum değişmez. Mikro'da iade faturası işlenip
+    ürünü henüz gelmeyen kayıt 'mal kabul bekleniyor' (hasarlıysa ek açıklamayla)."""
+    if bekleyen_mi(k):
+        return bekleyen_etiket(k)
     return MERKEZ_DURUM if merkezde_mi(k) else (k.get("mevcut_durum") or "").strip()
+
+
+# ── Mikro iade faturası → mal kabul bekleniyor (22.10.2026) ──────────
+# Kullanıcı: "İlk durumda açıkça ayırt edebileceğim şekilde 'mal kabul bekleniyor' ibaresi olmalı … 1 ayı geçen
+# mal kabul bekleniyor ürünleri olduğunda beni uyaran bildirim sistemi olmalı." Kaynak: teknikservis/mikro_iade.py.
+FATURA_ISLENDI = "iade faturası işlendi"          # database.FATURA_ISLENDI ile aynı (döngüsel içe aktarma yok)
+BEKLENIYOR = "mal kabul bekleniyor"
+HASARLI_ETIKET = "mal kabul bekleniyor (teslim alınmayan hasarlı ürünler)"
+UYARI_GUN = 30
+
+
+def bekleyen_mi(k):
+    return (k.get("mevcut_durum") or "").strip() == FATURA_ISLENDI
+
+
+def bekleyen_etiket(k):
+    return HASARLI_ETIKET if k.get("hasarli_teslim") else BEKLENIYOR
+
+
+def bekleme_gunu(k, bugun):
+    """İade faturasından bu yana takvim günü (fatura tarihi yoksa kayıt tarihi)."""
+    from datetime import date
+    s = str(k.get("iade_fatura_tarihi") or k.get("olusturma_tarihi") or "")[:10]
+    try:
+        return max(0, (bugun - date.fromisoformat(s)).days)
+    except ValueError:
+        return 0
+
+
+def bekleyen_ozet(kayitlar, bugun):
+    """İade arayüzünün üst bandı: {bekleyen, hasarli, gecikmis (UYARI_GUN günü geçen)}."""
+    b = [k for k in kayitlar or [] if bekleyen_mi(k)]
+    return {"bekleyen": len(b), "hasarli": sum(1 for k in b if k.get("hasarli_teslim")),
+            "gecikmis": sum(1 for k in b if bekleme_gunu(k, bugun) > UYARI_GUN)}
 
 
 def satis_disi_neden(k):
@@ -127,3 +164,24 @@ def excel_bayt(satirlar, sayfa_adi):
     with pd.ExcelWriter(buf, engine="openpyxl") as w:
         pd.DataFrame(satirlar).to_excel(w, index=False, sheet_name=str(sayfa_adi)[:28] or "Sayfa")
     return buf.getvalue()
+
+
+def transfer_listesi(kayitlar, bas, bit, kaynak_fn, hedef_fn):
+    """Mikro'ya transfer listesi (kullanıcı, 22.10.2026: "Kayran'daki teknik servis depo hareketleri gerçek stoğa
+    işlenmesin; teknik servis depolarından aldığım Excel ile transferi Mikro'da yaparım"). Depoya transfer tarihi
+    [bas, bit] aralığındaki kayıtlar, transfer sırasıyla. kaynak_fn / hedef_fn: kayıt → Mikro depo adı."""
+    bas, bit = str(bas)[:10], str(bit)[:10]
+    out = []
+    for k in kayitlar or []:
+        gun = str(k.get("depo_tarihi") or "").strip()[:10]
+        if not (k.get("depo") or "").strip() or not gun or not (bas <= gun <= bit):
+            continue
+        out.append({"Transfer tarihi": f"{gun[8:10]}.{gun[5:7]}.{gun[0:4]}",
+                    "Servis no": k.get("servis_form_no") or "", "Stok kodu": k.get("stok_kodu") or "",
+                    "Stok adı": k.get("stok_adi") or "", "Seri no": k.get("seri_no") or "", "Adet": 1,
+                    "Kaynak depo": kaynak_fn(k) or "", "Hedef depo": hedef_fn(k.get("depo")) or "",
+                    "_sira": (gun, str(k.get("servis_form_no") or ""))})
+    out.sort(key=lambda r: r["_sira"])
+    for r in out:
+        r.pop("_sira")
+    return out

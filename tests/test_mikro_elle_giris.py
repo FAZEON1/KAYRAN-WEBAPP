@@ -133,7 +133,7 @@ def test_kart_sil_yurtici_stok_ts_iade_fiyati():
     y = _oku("kayranpm/yurtici_ekran.py")
     assert 'if mikro_kapsar("g5f_sayim"):' in y and "stok = H.STOK_VAR" in y
     t = _oku("teknikservis/main.py")
-    i = t.index("if _iade_mikro:")
+    i = t.index('if _iade_mikro or kayit.get("mikro_iade_anahtar"):')
     assert 'with st.popover("İade faturası fiyatını gir / düzelt"' in t[i:i + 400]
 
 

@@ -124,15 +124,9 @@ def test_birim_kaydi_stok_ve_iade_satiri(monkeypatch):
 
 
 # ── Ekran ──────────────────────────────────────────────────────────────
-def test_ekran_fatura_sekmesi():
+def test_ekran_mal_kabul_yalniz_teknik_servis():
+    # Kullanıcı (22.10.2026): "Mal kabulde iade seçeneğini tamamen kaldıralım" — iade Mikro'daki faturadan gelir
     m = _oku("teknikservis/main.py")
-    d = m[m.index("def _mal_kabul_dialog("):]
-    assert '"Fatura ile (çok kalem)"' in d and "_fatura_iade_formu()" in d
-    f = m[m.index("def _fatura_iade_formu("):m.index("def _mal_kabul_dialog(")]
-    assert "satis_sku_listesi(urun_map, get_pacal_map())" in f           # stok kartlarımızdan
-    assert "_IF.fiyat_onerisi(sku, firma, harita" in f and "format_func=_etiket" in f
-    assert f.index("ekle_kayit(_veri") < f.index("mal_kabul_girisi(_veri)") < f.index("iade_kaydi_yaz(_veri)")
-    assert '_YKayit("toplu_mal_kabul"' in f and "_yk.stok()" in f       # geri alınabilir
-    assert "fatura_kayitlari(fatura_no)" in f                            # aynı fatura iki kez girilmesin
-    # tek ürün formunda tek birim fiyat alanı yok (bir faturada birçok model olur)
+    d = m[m.index("def _mal_kabul_dialog("):m.index("# ── Liste (Teknik Servis / İade)")]
+    assert '"↩️ İade"' not in d and "_fatura_iade_formu" not in m and 'arayuz = "teknik"' in d
     assert 'key="mk_iade_net"' not in m and 'key="mk_iade_pb"' not in m

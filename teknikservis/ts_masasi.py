@@ -20,7 +20,8 @@ Geri almak için: teknikservis/main.py → TS_MASASI_YENI = False / DEPO_MASASI_
 from datetime import date, timedelta
 
 from .database import ARAYUZ_ETIKET, BITMIS_DURUMLAR, DURUMLAR
-from .ts_hesap import sla_kademe, sla_gruplari, depo_gruplari, konum, satis_disi_neden, gorunen_durum
+from .ts_hesap import (sla_kademe, sla_gruplari, depo_gruplari, konum, satis_disi_neden, gorunen_durum,
+                      bekleyen_mi, bekleyen_etiket, bekleme_gunu, bekleyen_ozet, UYARI_GUN, FATURA_ISLENDI)
 
 AKTIF = "Aktif (bitmemiş)"
 TUMU = "Tümü"
@@ -129,14 +130,27 @@ def _ortak_metin(k):
 
 
 # ── Teknik Servis / İade listesi ────────────────────────────────────
-def kayit_masa_verisi(kayitlar, gunler, salt=False):
+BEKLEYEN_GRUP = "Mal kabul bekleniyor"
+HASARLI_GRUP = "Teslim alınmayan hasarlı ürünler"
+
+
+def kayit_masa_verisi(kayitlar, gunler, salt=False, bugun=None):
     """kayitlar: get_kayitlar sırası (yeni → eski); gunler: {id: SLA iş günü} (sla_is_gunu + tek sorguluk harita).
-    Görünüm 'Aktif (bitmemiş)' varsayılan; yalnız kaydı olan durumlar çip olur."""
+    Görünüm 'Aktif (bitmemiş)' varsayılan; yalnız kaydı olan durumlar çip olur.
+    Mikro'da iade faturası işlenen ama ürünü gelmeyen kayıtlar (iade faturası işlendi) en üstte iki grupta:
+    "Mal kabul bekleniyor" ve "Teslim alınmayan hasarlı ürünler"; SLA yerine faturadan bu yana gün (30 günü geçen
+    kırmızı). Mikro faturasından gelip mal kabul edilen kayıt mor renkle ayrılır (22.10.2026)."""
     from shared.tasarim import tr_sayi
+    bugun = bugun or date.today()
     gun_of = lambda k: gunler.get(k.get("id"), 0)                       # noqa: E731
     bitmis_of = lambda k: k.get("mevcut_durum") in BITMIS_DURUMLAR       # noqa: E731
+    bekl = [k for k in kayitlar or [] if bekleyen_mi(k)]
+    gruplar = [(BEKLEYEN_GRUP, [k for k in bekl if not k.get("hasarli_teslim")]),
+               (HASARLI_GRUP, [k for k in bekl if k.get("hasarli_teslim")])]
+    gruplar = [g for g in gruplar if g[1]] + sla_gruplari([k for k in kayitlar or [] if not bekleyen_mi(k)],
+                                                         gun_of, bitmis_of)
     satirlar = []
-    for grup_ad, grup in sla_gruplari(kayitlar or [], gun_of, bitmis_of):
+    for grup_ad, grup in gruplar:
         for k in grup:
             gun, bitmis = int(gun_of(k) or 0), bitmis_of(k)
             _ad, renk, _s = sla_kademe(gun, bitmis)
@@ -144,6 +158,7 @@ def kayit_masa_verisi(kayitlar, gunler, salt=False):
             sonuc = (k.get("sonuc_durumu") or "").strip() if durum == "gönderildi" else ""
             fv = fatura_var(k)
             firma = (k.get("firma_bilgisi") or "").strip()
+            bekliyor = bekleyen_mi(k)
             r = dict(_ortak_metin(k))
             r.update({
                 "id": k.get("id"), "sfn": str(k.get("servis_form_no") or "") or "—",
@@ -158,15 +173,47 @@ def kayit_masa_verisi(kayitlar, gunler, salt=False):
                 "fatura": "Mevcut" if fv else "Yok", "fatura_etk": "" if fv else "fatura yok",
                 "sla": "tamamlandı" if bitmis else f"{tr_sayi(gun)} iş günü", "sla__s": gun, "sla_grup": grup_ad,
                 "_durum": {"ad": "tamamlandı" if bitmis else f"{tr_sayi(gun)} iş günü", "renk": SLA_RENK.get(renk, "silik")},
+                "bekleyen": bekliyor, "hasarli": bool(bekliyor and k.get("hasarli_teslim")),
             })
+            if bekliyor:
+                g = bekleme_gunu(k, bugun)
+                ack = _kisa(k.get("iade_aciklama"), 60)
+                r.update({
+                    "kabul_m": "fatura " + _gun_metni(k.get("iade_fatura_tarihi")),
+                    "kabul_m__s": str(k.get("iade_fatura_tarihi") or ""),
+                    "urun_alt": " · ".join(x for x in (str(k.get("stok_kodu") or "").strip(),
+                                                       f"fatura {k.get('iade_fatura_no')}" if k.get("iade_fatura_no") else "",
+                                                       f"açıklama: {ack}" if ack else "açıklama yok") if x),
+                    "durum_m": bekleyen_etiket(k), "fatura": "Mevcut", "fatura_etk": "",
+                    "sla": f"faturadan {tr_sayi(g)} gün", "sla__s": g,
+                    "_durum": {"ad": f"faturadan {tr_sayi(g)} gün",
+                               "renk": "kirmizi" if g > UYARI_GUN else "amber"},
+                })
+            elif (k.get("mikro_iade_anahtar") or "").strip() and not bitmis:
+                # Mikro faturasından gelip mal kabul edilen: bekleyenlerden kolay ayrılsın (mor)
+                r["_durum"] = {"ad": f"mal kabul edildi · {tr_sayi(gun)} iş günü", "renk": "mor"}
             for i, d in enumerate(DURUMLAR):
-                if durum_uyar(k, d):
+                if d != FATURA_ISLENDI and durum_uyar(k, d):
                     r[f"d{i}"] = True
             satirlar.append(r)
     gor = [{"k": "aktif", "ad": AKTIF, "f": [["aktif", "eq", True]]}, {"k": "tum", "ad": TUMU, "f": []}]
+    if bekl:
+        gor += [{"k": "bekl", "ad": "Mal kabul bekleniyor", "f": [["bekleyen", "eq", True]]}]
+    if any(k.get("hasarli_teslim") for k in bekl):
+        gor += [{"k": "hasar", "ad": "Hasarlı (teslim alınmayan)", "f": [["hasarli", "eq", True]]}]
     gor += [{"k": f"d{i}", "ad": d, "f": [[f"d{i}", "eq", True]]}
             for i, d in enumerate(DURUMLAR) if any(s.get(f"d{i}") for s in satirlar)]
+    oz = bekleyen_ozet(kayitlar, bugun)
+    ozet = ([{"k": "bekleyen", "et": "Mal kabul bekleniyor", "dg": tr_sayi(oz["bekleyen"]), "renk": "amber",
+              "suz": "bekl", "al": "iade faturası işlendi, ürün gelmedi"},
+             {"k": "hasarli", "et": "Hasarlı (teslim alınmayan)", "dg": tr_sayi(oz["hasarli"]),
+              "renk": "kirmizi" if oz["hasarli"] else "silik", "suz": "hasar" if oz["hasarli"] else None,
+              "al": "açıklamasız ya da 'hasar' yazan iade"},
+             {"k": "gecikmis", "et": f"{UYARI_GUN} günü geçen", "dg": tr_sayi(oz["gecikmis"]),
+              "renk": "kirmizi" if oz["gecikmis"] else "yesil", "al": "fatura geldi, ürün gelmedi"}]
+             if oz["bekleyen"] else [])
     return {
+        "ozet": ozet,
         "gorunumler": gor,
         "secimler": [{"alan": "fatura", "ad": "Fatura: tümü", "secenekler": [{"k": "Mevcut", "ad": "Fatura mevcut"},
                                                                              {"k": "Yok", "ad": "Fatura yok"}]},

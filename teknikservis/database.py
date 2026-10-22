@@ -27,8 +27,11 @@ def _simdi():
 ARAYUZLER = ["teknik", "iade"]
 ARAYUZ_ETIKET = {"teknik": "🔧 Teknik Servis", "iade": "↩️ İade"}
 
+# "iade faturası işlendi" (Ekim 2026): Mikro'da iade faturası işlenen, ürünü henüz fiziksel gelmeyen iade
+# (teknikservis/mikro_iade.py). Listede "mal kabul bekleniyor" diye görünür (ts_hesap.gorunen_durum).
+FATURA_ISLENDI = "iade faturası işlendi"
 DURUMLAR = [
-    "mal kabül", "teknisyende", "tamir edildi", "ürün değişimi",
+    FATURA_ISLENDI, "mal kabül", "teknisyende", "tamir edildi", "ürün değişimi",
     "sorunsuz", "iade alındı", "gönderildi", "hurda",
     "satışa hazır", "satıldı", "iptal",
 ]
@@ -36,6 +39,7 @@ DURUMLAR = [
 BITMIS_DURUMLAR = {"gönderildi", "hurda", "satıldı", "iptal", "satışa hazır", "sorunsuz"}
 
 DURUM_RENK = {
+    FATURA_ISLENDI: "#F59E0B",
     "mal kabül": "#38BDF8", "teknisyende": "#A78BFA", "tamir edildi": "#34D399",
     "ürün değişimi": "#FBBF24", "sorunsuz": "#34D399",
     "iade alındı": "#F472B6", "gönderildi": "#22D3EE", "hurda": "#F87171",
@@ -76,7 +80,10 @@ _YENI_KOLONLAR = ("fatura_mevcut", "depo_aciklama", "eksik_icerik",
                   # Ekim 2026: mal kabulde seçilen giriş deposu (kanonik ad) ve iade net tutarı (USD)
                   "giris_depo", "iade_net",
                   # Ekim 2026: iade faturası birim fiyatı (asıl para birimiyle), kur ve bağlı iadeler satırı
-                  "iade_fiyat", "iade_pb", "iade_kur", "iade_id")
+                  "iade_fiyat", "iade_pb", "iade_kur", "iade_id",
+                  # Ekim 2026 (veritabani/55): Mikro iade faturası, hasarlı teslim, son kullanıcı, satış faturası
+                  "mikro_iade_anahtar", "iade_fatura_no", "iade_fatura_tarihi", "iade_aciklama", "iade_cari_kodu",
+                  "hasarli_teslim", "son_kullanici", "satis_fatura_no")
 
 
 @st.cache_resource
@@ -107,6 +114,21 @@ def ts_firmalar_tam():
                if f.upper() not in {x.upper() for x in TS_FIRMALAR}]
     _lst = [f for f in TS_FIRMALAR if f != "DİĞER"] + sorted(_manuel, key=str.lower)
     return _lst + ["DİĞER"]
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def mikro_cariler():
+    """Mal kabulde firma listesi Mikro'daki müşteri carilerinden (120 hesapları, kullanıcı 22.10.2026: "cari seçme
+    durumunu direkt Mikro'dan çekelim"). Tam unvan, alfabetik. Okunamazsa / boşsa eski liste (ts_firmalar_tam)."""
+    try:
+        rows = _rows(get_client().table("mikro_cari_kart").select("cari_kod,cari_unvan1")
+                     .like("cari_kod", "120.%").execute())
+        adlar = sorted({" ".join(str(r.get("cari_unvan1") or "").split()) for r in rows} - {""}, key=str.lower)
+        if adlar:
+            return adlar
+    except Exception as _e:  # noqa: BLE001
+        sessiz("teknikservis.database.mikro_cariler", _e, "debug")
+    return [f for f in ts_firmalar_tam() if f not in ("SON KULLANICI", "DİĞER")]
 
 
 def ekle_ts_firma(ad):
