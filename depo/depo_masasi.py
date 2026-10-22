@@ -26,16 +26,24 @@ def _tr(v, ondalik=0):
 
 # ── Depo stok (salt-okur) ───────────────────────────────────────────
 def stok_masa_verisi(depo, liste, ham_sayisi=None, ara=""):
-    """liste: liste_hazirla çıktısı [{sku, urun_adi, adet}] — sırası korunur (ekrandaki = kâğıttaki)."""
+    """liste: liste_hazirla çıktısı [{sku, urun_adi, adet, depolar?}] — sırası korunur (ekrandaki = kâğıttaki).
+    depolar (Tüm depolar, talep #43): [(depo, adet)] — "Depolar" sütunu ve yan panelde depo depo stok."""
+    tum = any("depolar" in u for u in liste or [])
     satirlar = []
     for n, u in enumerate(liste or []):
         adet = int(u.get("adet") or 0)
-        satirlar.append({
+        s = {
             "id": n + 1, "sku": str(u.get("sku") or ""), "urun": str(u.get("urun_adi") or ""),
             "adet": adet, "adet_m": _tr(adet), "adet_m__s": adet,
             "_baslik": str(u.get("sku") or ""), "_alt": str(u.get("urun_adi") or ""),
             "_buyuk": f"{_tr(adet)} adet", "_buyuk_alt": str(depo or ""),
-        })
+        }
+        if tum:
+            dp = u.get("depolar") or []
+            s["depo_m"] = " · ".join(f"{d} {_tr(a)}" for d, a in dp)
+            s["_buyuk_alt"] = f"{len(dp)} depoda"
+            s["_detay"] = [[d, f"{_tr(a)} adet"] for d, a in dp]
+        satirlar.append(s)
     toplam = sum(s["adet"] for s in satirlar)
     al = f"{ham_sayisi} çeşitten aramaya uyanlar" if str(ara or "").strip() and ham_sayisi is not None else ""
     return {
@@ -47,7 +55,8 @@ def stok_masa_verisi(depo, liste, ham_sayisi=None, ara=""):
         "sutunlar": [
             {"alan": "sku", "ad": "SKU", "tip": "metin", "gen": "170px", "dar": "alt"},
             {"alan": "urun", "ad": "Ürün", "tip": "ana"},
-            {"alan": "adet_m", "ad": "Adet", "sag": True, "gen": "100px", "dar": "sag"},
+            *([{"alan": "depo_m", "ad": "Depolar", "tip": "metin", "dar": "alt"}] if tum else []),
+            {"alan": "adet_m", "ad": "Adet" if not tum else "Toplam adet", "sag": True, "gen": "110px", "dar": "sag"},
         ],
         "satirlar": satirlar,
         "islemler": [],

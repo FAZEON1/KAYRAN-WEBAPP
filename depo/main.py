@@ -8,10 +8,10 @@ import streamlit as st
 import pandas as pd
 from datetime import date
 
-from kayranpm.database import (get_depo_ozet, get_depo_listesi, get_depo_stok,
+from kayranpm.database import (get_depo_ozet, get_depo_listesi, get_depo_stok, get_tum_depo_stok,
                                depo_sevk, get_depo_sevk_gecmisi, get_client)
 from shared import bilesen as B
-from depo.depo_hesap import sevk_sonucu, tarih_tr
+from depo.depo_hesap import TUM_DEPOLAR, sevk_sonucu, tarih_tr
 from shared.kayit import sessiz
 
 # Ortak liste masası (Ekim 2026; tanım depo/depo_masasi.py). False → eski tablo aynen.
@@ -78,11 +78,14 @@ def _sayfa_stok():
     from depo.depo_hesap import barkoddan_sku
     barkod_okuyucu("dpo_ara", etiket="Barkodu kamerayla okut")
     c1, c2, c3, c4 = st.columns([2.2, 2.4, 1.6, 1.25], vertical_alignment="bottom")
-    _di_depo = c1.selectbox("Depo seç", _depolar, key="dpo_icerik_depo")
+    # Talep #43: varsayılan "Tüm depolar" — ürünün toplam stoğu; tıklayınca yan panelde depo depo.
+    _di_depo = c1.selectbox("Depo seç", [TUM_DEPOLAR] + list(_depolar), key="dpo_icerik_depo")
     _ara = c2.text_input("Ara", key="dpo_ara", placeholder="SKU, ürün adı ya da barkod…")
     _sira = c3.selectbox("Sıralama", list(SIRALAMALAR), format_func=SIRALAMALAR.get, key="dpo_sira")
-    _ham = get_depo_stok(_di_depo) if _di_depo else []
-    _liste = liste_hazirla([{"sku": _tb(u["sku"]), "urun_adi": _tb(u["urun_adi"]), "adet": u["adet"]}
+    _tum = _di_depo == TUM_DEPOLAR
+    _ham = get_tum_depo_stok() if _tum else (get_depo_stok(_di_depo) if _di_depo else [])
+    _liste = liste_hazirla([{"sku": _tb(u["sku"]), "urun_adi": _tb(u["urun_adi"]), "adet": u["adet"],
+                             **({"depolar": u["depolar"]} if _tum else {})}
                             for u in _ham], barkoddan_sku(_ara, get_barkod_map()), _sira)
 
     # ── Yazdır: seçenekler + PDF (yalnız tıklanınca üretilir) ──

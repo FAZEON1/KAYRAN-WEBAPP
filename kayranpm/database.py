@@ -1675,6 +1675,14 @@ def get_depo_ozet():
 
 
 @st.cache_data(ttl=120, show_spinner=False)
+def get_tum_depo_stok():
+    """Depo Stok › Tüm depolar: [{sku, urun_adi, adet, depolar: [(depo, adet)]}] (depo.depo_hesap.tum_depo_stok).
+    Kaynak get_depo_stok ile aynı: ürün kartındaki depo_kirilim."""
+    from depo.depo_hesap import tum_depo_stok
+    return tum_depo_stok(_hepsi("urunler", "sku, urun_adi, depo_kirilim"), depo_dagilimi)
+
+
+@st.cache_data(ttl=120, show_spinner=False)
 def get_depo_stok(depo):
     """Belirli depodaki ürünler [{sku, urun_adi, adet}] (adet>0), adet azalan sıralı.
     TEK kaynak: ürün kartındaki depo_kirilim (Stok Kartı ile birebir aynı)."""

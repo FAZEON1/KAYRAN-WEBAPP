@@ -127,3 +127,22 @@ def test_musteri_satisi_kayda_ve_hesaba_girmez():
     assert "Müşteri satışı" not in k
     u = {"satis_fiyati": 100, "birim_firma_destek": 5, "satilan_adet": 0, "pacal_maliyet": 80}
     assert H.urun_hesap(dict(u, **{"Müşteri satışı": 50}))["adet"] == 0
+
+
+def test_rapor_haftalari_eksik_ve_yarim_hafta():
+    # Canlı (22.10.2026): Eylül'de 6 ve 20 Eylül haftalarının raporu hiçbir müşteri için yüklenmemiş;
+    # 14–21 Eylül kampanyası tam eksik haftaya düştüğü için 0 görünüyordu.
+    rap = [_rap("HB", "X", "2026-09-13", 5), _rap("HB", "X", "2026-09-27", 5), _rap("VATAN", "X", "2026-09-20", 5)]
+    kamp = {"firma": "HB", "baslangic_tarihi": "2026-09-01", "bitis_tarihi": "2026-09-30"}
+    h = H.rapor_haftalari(kamp, rap, date(2026, 10, 22))
+    assert h == {"var": ["2026-09-13", "2026-09-27"], "eksik": ["2026-09-06", "2026-09-20"], "yarim": True}
+    h = H.rapor_haftalari(dict(kamp, baslangic_tarihi="2026-09-14", bitis_tarihi="2026-09-20"), rap, date(2026, 10, 22))
+    assert h == {"var": [], "eksik": ["2026-09-20"], "yarim": False}
+    h = H.rapor_haftalari(dict(kamp, baslangic_tarihi="2026-10-01", bitis_tarihi="2026-10-31"), rap, date(2026, 10, 12))
+    assert h["eksik"] == ["2026-10-04", "2026-10-11"]                       # bugünden sonraki pazarlar beklenmez
+
+
+def test_rapor_yoksa_sutun_bos_ve_not():
+    s = (KOK / "kayranpm" / "kampanya.py").read_text(encoding="utf-8")
+    assert 'oto.get(sku_anahtar(u.get("sku")), 0) if haftalar["var"] else None' in s
+    assert "_hafta_notu(haftalar)" in s and "Eksik rapor:" in s

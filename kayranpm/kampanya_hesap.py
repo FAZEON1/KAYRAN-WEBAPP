@@ -166,6 +166,28 @@ def musteri_satisi(kamp, rapor_satirlari, bugun, harita=None):
     return out
 
 
+def rapor_haftalari(kamp, rapor_satirlari, bugun):
+    """Müşteri satışı sütununun dayandığı haftalar (talep #42): {"var": [rapor günü], "eksik": [beklenen ama
+    yüklenmemiş rapor günü], "yarim": bool}. Haftalık rapor pazar günü tarihlidir ve pazartesi–pazar 7 günü
+    kapsar: kampanya aralığındaki (bugüne kadar) her pazar için o firmanın raporu beklenir. yarim: kampanya
+    pazartesi başlamıyor ya da pazar bitmiyorsa uçtaki hafta kampanya dışı günleri de içerir (hafta bütün sayılır)."""
+    from datetime import timedelta
+    from shared.utils import firma_kanonik
+    bas, bit = _tarih(kamp.get("baslangic_tarihi")), _tarih(kamp.get("bitis_tarihi"))
+    if not bas or not bit:
+        return {"var": [], "eksik": [], "yarim": False}
+    fk = firma_kanonik(kamp.get("firma"))
+    var = sorted({str(r.get("yukleme_tarihi") or "")[:10] for r in rapor_satirlari or []
+                  if firma_kanonik(r.get("firma")) == fk
+                  and bas.isoformat() <= str(r.get("yukleme_tarihi") or "")[:10] <= bit.isoformat()})
+    eksik, g = [], bas + timedelta(days=(6 - bas.weekday()) % 7)        # aralıktaki ilk pazar
+    while g <= min(bit, bugun):
+        if g.isoformat() not in var:
+            eksik.append(g.isoformat())
+        g += timedelta(days=7)
+    return {"var": var, "eksik": eksik, "yarim": bas.weekday() != 0 or bit.weekday() != 6}
+
+
 def filtrele(kampanyalar, bugun, durum_sec="tumu", firma="Tümü", kategori="Tümü",
              yil="Tümü", ara=""):
     """Ekrandaki filtre çubuğunun tamamı (saf)."""
