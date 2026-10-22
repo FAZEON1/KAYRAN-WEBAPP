@@ -2369,12 +2369,16 @@ def _veri_guncelligi(aktif_kullanici, yetkiler):
                        "kaynağı için \"bu dönem veri yok\" işaretleyebilir.")
             import pandas as _pd
             _ay = _yt._ayar(_yt.AYAR_ANAHTAR, {})
+            # Verisi Mikro'dan gelen kaynaklar listelenmez (eşitleme kapanırsa geri gelir); ayarları korunur
+            _yt_kaynak, _yt_mikro = _yt.ayar_kaynaklari()
+            if _yt_mikro:
+                st.caption("Mikro'dan otomatik gelen, takip gerekmeyen kaynaklar: " + ", ".join(_yt_mikro) + ".")
             _df = _pd.DataFrame([{
                 "anahtar": k["anahtar"], "Kaynak": k["ad"],
                 "Sıklık": _yt.SIKLIKLAR[_yt.kaynak_ayari(k["anahtar"], _ay)["siklik"]],
                 "Son gün": int(_yt.kaynak_ayari(k["anahtar"], _ay)["son_gun"]),
                 "Sorumlu": _yt.kaynak_ayari(k["anahtar"], _ay)["sorumlu"],
-                "Takipte": _yt.kaynak_ayari(k["anahtar"], _ay)["aktif"]} for k in _yt.KAYNAKLAR])
+                "Takipte": _yt.kaynak_ayari(k["anahtar"], _ay)["aktif"]} for k in _yt_kaynak])
             _ed = st.data_editor(
                 _df, hide_index=True, key="yt_ayar_editor", use_container_width=True,
                 column_order=["Kaynak", "Sıklık", "Son gün", "Sorumlu", "Takipte"],
@@ -2387,10 +2391,10 @@ def _veri_guncelligi(aktif_kullanici, yetkiler):
                     "Takipte": st.column_config.CheckboxColumn()})
             if st.button("Kaydet", key="yt_ayar_kaydet", type="primary", icon=":material/save:"):
                 _ters = {v: k for k, v in _yt.SIKLIKLAR.items()}
-                _yt.ayar_kaydet({r["anahtar"]: {"siklik": _ters.get(r["Sıklık"], "aylik"),
-                                                "son_gun": int(r["Son gün"] or 0), "aktif": bool(r["Takipte"]),
-                                                "sorumlu": str(r["Sorumlu"] or "").strip().lower()}
-                                 for _, r in _ed.iterrows()})
+                _yt.ayar_kaydet({**(_ay if isinstance(_ay, dict) else {}), **{r["anahtar"]: {"siklik": _ters.get(r["Sıklık"], "aylik"),
+                                                          "son_gun": int(r["Son gün"] or 0), "aktif": bool(r["Takipte"]),
+                                                          "sorumlu": str(r["Sorumlu"] or "").strip().lower()}
+                                           for _, r in _ed.iterrows()}})
                 st.toast("Takvim ayarları kaydedildi")
                 st.rerun()
 

@@ -157,6 +157,10 @@ def upsert_urun(sku, urun_adi, kategori="", marka="", satis_fiyati=0.0,
         }
     if eol is not None:
         _payload["eol"] = bool(eol)
+    if _mikro_stok_yonetir():
+        # Depo stoğu Mikro'dan gelir (kayranpm.mikro_stok, 15 dakikada bir): elle / dosyadan stok yazılmaz,
+        # diğer alanlar yazılır (kullanıcı kararı 22.10.2026)
+        _payload.pop("bizim_stok", None)
     try:
         sb.table("urunler").upsert(_payload, on_conflict="sku").execute()
     except Exception:

@@ -28,6 +28,7 @@ from shared.dosya_tani import tani, KESIN
 _ACIK, _DOSYALAR, _AKTIF, _SONUC, _SURUM = ("_kapi_acik", "_kapi_dosyalar", "_kapi_aktif",
                                             "_kapi_sonuc", "_kapi_surum")
 _ATLANAN = "_kapi_atlanan"
+_MIKRO_NOT = "_kapi_mikro_not"
 # Kapı açılırken kapanan diğer pencerelerin bayrakları (bir çalışmada tek pencere). Sayfaların
 # pencere bayrakları "_<ad>_ac" kalıbındadır (shared.bilesen.detay_ac, _talep_ac, _mk_dialog_ac,
 # _ms_dialog_ac, _mlyt_ac …): hepsi temizlenir — tek tek sayılınca Kâr / P&L'nin _mlyt_ac'ı unutulmuştu.
@@ -93,6 +94,61 @@ SABLONLAR = [
 ]
 
 
+# Mikro'nun karşıladığı türler (kullanıcı kararı 22.10.2026): ilgili eşitleme AÇIKKEN tür listede, tür seçiminde,
+# otomatik tanımada ve boş şablonlarda görünmez; tanınan böyle bir dosya bırakılırsa tek bilgi notu çıkar, kayıt
+# yapılmaz. Kod silinmez: eşitleme kapanırsa tür geri gelir. Gövdeler de aynı eşitlemeye bakıp kaydetmez (yedek).
+# Happy Life KALIR: stok ve giriş tarihi Mikro'dan (kayranpm.mikro_depo) gelse de palet etiketi Mikro'da yok.
+MIKRO_ESITLEME = {
+    "siparis_vatan": "satis.mikro_esitle", "siparis_itopya": "satis.mikro_esitle",
+    "mikro_fatura": "satis.mikro_esitle", "iade_excel": "satis.mikro_esitle",
+    "ithalat_rapor": "ithalat.mikro_ithalat",
+    "g5f_sayim": "kayranpm.mikro_stok",
+    "gider_tablosu": "kayranacc.mikro_gider",
+    "aktif_stok": "kayranacc.mikro_stok_degeri",
+    "aktif_ithalat": "kayranacc.mikro_muhasebe", "aktif_cari": "kayranacc.mikro_muhasebe",
+    "cek_listesi": "kayranacc.mikro_muhasebe",
+}
+MIKRO_NOTU = "Bu dosyanın verisi artık Mikro'dan geliyor; yüklemeye gerek yok."
+# Durumu okunamazsa "açık" sayan eşitlemeler (varsayılan açık): okuma hatasında kapı açık kalsın diye önce
+# ayarın okunabildiği denenir
+_VARSAYILAN_ACIK = {"ithalat.mikro_ithalat"}
+# Şablon → türü (şablon da türüyle birlikte gizlenir)
+_SABLON_TUR = {"satis.main:sablon_siparis_vatan": "siparis_vatan",
+               "satis.main:sablon_siparis_itopya": "siparis_itopya",
+               "ithalat.main:sablon_ithalat": "ithalat_rapor"}
+
+
+def esitleme_acik(modul):
+    """modul ("satis.mikro_esitle" …) eşitlemesi açık mı. Okuma / içe aktarma hatasında False (yükleme açık kalır)."""
+    import importlib
+    try:
+        m = importlib.import_module(modul)
+        anahtar = getattr(m, "DURUM_ANAHTAR", None)
+        if modul in _VARSAYILAN_ACIK and anahtar:
+            from kayranacc.database import _ayar_ham
+            _ayar_ham(anahtar)              # okunamazsa hata: durum() {} döner, acik_mi "açık" sanardı
+        return bool(m.acik_mi())
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def mikro_kapsar(tur):
+    """Bu dosya türünün verisi Mikro'dan mı geliyor (ilgili eşitleme açık mı). Okuma hatasında False."""
+    modul = MIKRO_ESITLEME.get(tur)
+    return bool(modul) and esitleme_acik(modul)
+
+
+def mikro_turleri(turler=None):
+    """Verilen türlerden (varsayılan: hepsi) Mikro'nun karşıladıkları; her eşitleme bir kez okunur."""
+    acik = {}
+    out = set()
+    for t in (TURLER if turler is None else turler):
+        m = MIKRO_ESITLEME.get(t)
+        if m and acik.setdefault(m, esitleme_acik(m)):
+            out.add(t)
+    return out
+
+
 def _fonksiyon(yol):
     import importlib
     mod, ad = yol.split(":")
@@ -115,6 +171,14 @@ def izinli(tur, yetkiler):
 
 def izinli_turler(yetkiler):
     return [t for t in TURLER if izinli(t, yetkiler)]
+
+
+def secilebilir_turler(yetkiler, mikro=None):
+    """Kapının tür seçiminde görünen türler: yetkili olunan ve verisi Mikro'dan GELMEYEN türler.
+    mikro: mikro_turleri() sonucu (verilmezse okunur)."""
+    izin = izinli_turler(yetkiler)
+    mikro = mikro_turleri(izin) if mikro is None else mikro
+    return [t for t in izin if t not in mikro]
 
 
 class KapiDosyasi(BytesIO):
@@ -183,7 +247,7 @@ def acik():
 
 def kapat():
     ss = st.session_state
-    for k in (_ACIK, _DOSYALAR, _AKTIF, _SONUC, _ATLANAN):
+    for k in (_ACIK, _DOSYALAR, _AKTIF, _SONUC, _ATLANAN, _MIKRO_NOT):
         ss.pop(k, None)
 
 
@@ -341,14 +405,17 @@ def _liste_ciz(yetkiler):
     if yeni:
         dosyalari_ekle(yeni, yetkiler)
         _yenile()
+    for m in ss.pop(_MIKRO_NOT, None) or []:
+        st.info(m)
     for m in ss.pop(_ATLANAN, None) or []:
         st.warning(m)
 
-    izin = izinli_turler(yetkiler)
+    mikro = mikro_turleri()                  # her eşitleme bir kez okunur
+    izin = secilebilir_turler(yetkiler, mikro)
     for d in list(ss[_DOSYALAR]):
         _dosya_satiri(d, izin, yetkiler)
     if not ss[_DOSYALAR]:
-        _sablonlar(yetkiler)
+        _sablonlar(yetkiler, mikro)
     _kapat_dugmesi()
 
 
@@ -357,7 +424,7 @@ def dosyalari_ekle(dosyalar, yetkiler):
     ss = st.session_state
     ss.setdefault(_DOSYALAR, [])
     ss[_SURUM] = ss.get(_SURUM, 0) + 1          # yükleme kutusu boşalsın; dosyalar listede
-    atlanan = []
+    atlanan, mikro_not = [], []
     for f in dosyalar:
         veri = f.getvalue()
         ozet = hashlib.sha1(veri).hexdigest()
@@ -372,10 +439,18 @@ def dosyalari_ekle(dosyalar, yetkiler):
             atlanan.append(f"{f.name}: listede en çok {EN_COK_DOSYA} dosya olabilir; önce bekleyenleri kaydet.")
             continue
         adaylar = [a for a in tani(f.name, veri) if a.get("tur")]
+        # Verisi Mikro'dan gelen türler aday olmaz; dosya yalnız onlara uyuyorsa listeye girmez (kayıt yok)
+        mikro = mikro_turleri({a["tur"] for a in adaylar})
+        if adaylar and all(a["tur"] in mikro for a in adaylar):
+            mikro_not.append(f"{f.name}: {MIKRO_NOTU}")
+            continue
+        adaylar = [a for a in adaylar if a["tur"] not in mikro]
         ss[_DOSYALAR].append({"id": uuid.uuid4().hex[:8], "ad": f.name, "veri": veri, "ozet": ozet,
                               "adaylar": adaylar, "secim": adaylar[0]["tur"] if adaylar else None})
     if atlanan:
         ss[_ATLANAN] = atlanan
+    if mikro_not:
+        ss[_MIKRO_NOT] = mikro_not
     if len(ss[_DOSYALAR]) == 1 and _tek_kesin(ss[_DOSYALAR][0], yetkiler):
         ss[_AKTIF] = ss[_DOSYALAR][0]["id"]     # tek ve kesin tanınan dosya: doğrudan aç
 
@@ -445,8 +520,15 @@ def _dosya_satiri(d, izin, yetkiler):
                 _yenile()
 
 
-def _sablonlar(yetkiler):
-    liste = [s for s in SABLONLAR if yetkiler.get(s[1])]
+def gorunen_sablonlar(yetkiler, mikro=None):
+    """Boş şablonlar: yetkili olunan modülün ve türü Mikro'dan gelmeyenler."""
+    if mikro is None:
+        mikro = mikro_turleri(set(_SABLON_TUR.values()))
+    return [s for s in SABLONLAR if yetkiler.get(s[1]) and _SABLON_TUR.get(s[2]) not in mikro]
+
+
+def _sablonlar(yetkiler, mikro=None):
+    liste = gorunen_sablonlar(yetkiler, mikro)
     if not liste:
         return
     with st.expander("Boş şablonlar"):
