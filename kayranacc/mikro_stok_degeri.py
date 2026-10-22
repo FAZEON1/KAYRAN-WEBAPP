@@ -63,9 +63,11 @@ ALICI = "SIDDIK BAYRAKTAR"
 
 
 def depo_turu(ad):
-    """Depo adı (uygulama ya da Mikro) → 'hurda' | 'ikinci_el' | 'outlet' | None."""
+    """Depo adı (uygulama ya da Mikro) → 'hurda' | 'ikinci_el' | 'outlet' | 'iade' | None."""
     from shared.utils import tr_buyuk
     a = " ".join(tr_buyuk(str(ad or "")).replace(".", " ").split())
+    if "IADE" in a.replace("İ", "I"):
+        return "iade"
     if "OUTLET" in a:
         return "outlet"
     if "IKINCI EL" in a or "2 EL" in a:
@@ -97,6 +99,26 @@ def oranlar(satirlar):
         out[t] = {"ort": round(min(max(s / m, 0.0), 1.0), 4), "adet": n,
                   "sku": {k: round(min(max(v[0] / v[1], 0.0), 1.0), 4) for (tt, k), v in sku.items() if tt == t}}
     return out
+
+
+def iade_orani(sevkler, orn):
+    """İade deposu (kullanıcı 22.10.2026: "oran uygulansın"). Sıddık'a iade deposundan satış yok; iade deposu ara
+    depodur, mal kontrolden sonra başka depoya sevk edilir. Oran = iade deposundan çıkan sevklerin gittiği deponun
+    oranıyla ağırlıklı ortalaması (Merkez / Happy Life gibi satılabilir depo 1,0; hurda / outlet / ikinci el kendi
+    ortalama oranı). Canlı 22.10.2026: Merkez 3.330, servis 23, outlet 16, Happy Life 8, ikinci el 7 adet → %99,4.
+    sevkler: [{giris (gittiği depo), adet}]. Sevk yoksa None (iade deposu tam paçalla kalır)."""
+    top = adet = 0.0
+    for h in sevkler or []:
+        a = _f(h.get("adet"))
+        if a <= 0:
+            continue
+        t = depo_turu(h.get("giris"))
+        o = 1.0 if not t or t == "iade" else (orn or {}).get(t, {}).get("ort", 1.0)
+        top += a * o
+        adet += a
+    if adet <= 0:
+        return None
+    return {"ort": round(min(max(top / adet, 0.0), 1.0), 4), "sku": {}, "adet": int(round(adet)), "kaynak": "sevk"}
 
 
 def oran_bul(orn, depo, sku):
@@ -231,6 +253,14 @@ def alici_satislari():
     return out
 
 
+def iade_sevkleri():
+    """İade deposundan başka depoya sevkler (Mikro depo hareketleri, kayranpm.mikro_depo): [{giris, adet}]."""
+    from kayranpm import mikro_depo as MD
+    har, adlar, _stok = MD.veri_oku()
+    return [{"giris": h["giris"], "adet": h["adet"]} for h in MD.hareketler(har, adlar)
+            if h["tur"] == "sevk" and depo_turu(h["cikis"]) == "iade"]
+
+
 def plan_hazirla():
     from kayranacc.mikro_muhasebe import _aktif_veri
     urunler, kanal, pacal = veri_oku()
@@ -240,6 +270,13 @@ def plan_hazirla():
         from shared.kayit import sessiz
         sessiz("kayranacc.mikro_stok_degeri.oranlar", e)
         orn = {}
+    try:
+        io = iade_orani(iade_sevkleri(), orn)
+        if io:
+            orn["iade"] = io
+    except Exception as e:  # noqa: BLE001
+        from shared.kayit import sessiz
+        sessiz("kayranacc.mikro_stok_degeri.iade_orani", e)
     return plan_yap(urunler, kanal, pacal, _aktif_veri("stok"), orn)
 
 

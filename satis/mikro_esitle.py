@@ -393,6 +393,7 @@ def plan_yap(mikro_satirlar, satislar, iadeler, baslangic=BASLANGIC, pacal_fn=No
            "iade_belgeler": iade_belgeler, "ekle_iade": ekle_iade}
     return {"yuk": yuk, "ozet": ozet, "hizmet_faturalari": hizmet, "atlanan": mk["atlanan"],
             "silinecek_satir": len(silinen_fatura_satir) + len(sil_satis), "mevcut_satir": len(satislar),
+            "silinecek_iade": len(silinen_iade), "mevcut_iade": len(iadeler),
             "degisiklik_var": bool(yuk["sil_satis_id"] or fatura_nolar or ekle_satis
                                    or yuk["sil_iade_id"] or iade_belgeler or ekle_iade),
             "sil_satis_kanal": _kanal_sayim(sil_satis),
@@ -454,11 +455,13 @@ def aktarim_suruyor():
 
 
 def otomatik_guvenli_mi(plan):
-    """Otomatik turda plan, mevcut satış satırlarının büyük kısmını silmek istiyorsa yazılmaz (okuma hatası
-    belirtisi). İlk onay (kullanıcı karşılaştırmayı görüyor) bu kontrolden geçmez."""
-    sil = int(plan.get("silinecek_satir") or 0)
-    mevcut = int(plan.get("mevcut_satir") or 0)
-    return sil <= max(OTOMATIK_SILME_TABAN, OTOMATIK_SILME_SINIRI * mevcut)
+    """Otomatik turda plan, mevcut satış ya da iade satırlarının büyük kısmını silmek istiyorsa yazılmaz (okuma
+    hatası belirtisi). İlk onay (kullanıcı karşılaştırmayı görüyor) bu kontrolden geçmez. İadeler 22.10.2026'dan
+    beri aynı sınırda: eskiden Mikro'dan eksik okunan bir turda iade satırları toplu silinebilirdi."""
+    def _sinirda(sil, mevcut):
+        return int(sil or 0) <= max(OTOMATIK_SILME_TABAN, OTOMATIK_SILME_SINIRI * int(mevcut or 0))
+    return (_sinirda(plan.get("silinecek_satir"), plan.get("mevcut_satir"))
+            and _sinirda(plan.get("silinecek_iade"), plan.get("mevcut_iade")))
 
 
 def _seri_onek(nolar):
@@ -644,7 +647,8 @@ def otomatik():
         if not otomatik_guvenli_mi(plan):
             from shared.kayit import sessiz
             sessiz("satis.mikro_esitle.otomatik", RuntimeError(
-                f"plan {plan.get('silinecek_satir')} / {plan.get('mevcut_satir')} satır silmek istedi; yazılmadı"))
+                f"plan {plan.get('silinecek_satir')} / {plan.get('mevcut_satir')} satış, "
+                f"{plan.get('silinecek_iade')} / {plan.get('mevcut_iade')} iade satırı silmek istedi; yazılmadı"))
             return None
         ok, _m, sonuc = uygula(plan)
         return sonuc if ok else None
