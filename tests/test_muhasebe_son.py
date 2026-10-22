@@ -31,13 +31,6 @@ def test_gecmis_silmeler_onayli_ve_st_stop_yok():
     assert 'if st.button("Sil", key=f"sil_{h[\'id\']}"' not in m
 
 
-def test_toplam_aktif_eksik_dosyada_panoya_yazilmaz():
-    m = _oku("kayranacc/main.py")
-    assert "if _snap_eksik:" in m and 'raise RuntimeError("eksik dosya: "' in m
-    assert "_snap_ok = True if _snap_ayni else set_ayar(" in m       # aynıysa tekrar yazmaz
-    assert "Veriler işlendi ve kaydedildi. Yönetim Panosu'na da yansıdı" not in m
-
-
 def test_cift_baslik_ve_kategori_adi():
     c = _oku("kayranacc/cari_ekstre.py")
     assert "🧾 Cari Ekstre & Vade Yaşlandırma" not in c and "_KAT_AD.get(" in c

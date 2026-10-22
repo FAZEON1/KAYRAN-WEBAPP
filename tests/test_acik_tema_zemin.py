@@ -96,4 +96,5 @@ def test_toplam_aktifler_karti_ortak_kart():
     acc = _oku("kayranacc/main.py")
     assert "💎 TOPLAM AKTİFLER (GENEL TOPLAM)" not in acc
     assert "linear-gradient(135deg,#1D4ED8,#3730A3,#4F46E5)" not in acc
-    assert '"etiket": "Toplam aktifler" + (" (eksik hesap)" if _snap_eksik else "")' in acc
+    # Muhasebe › Toplam Aktifler sayfası 22.10.2026'da kalktı: toplam Yönetim panosunda (yonetim._toplam_aktif_html)
+    assert "def _sayfa_toplam_aktifler" not in acc

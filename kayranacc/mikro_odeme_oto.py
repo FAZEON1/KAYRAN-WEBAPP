@@ -168,6 +168,20 @@ def mikro_haftasi(hafta_id, d=None):
     return str(hafta_id) in ((d if d is not None else durum()).get("haftalar") or {})
 
 
+def mikro_idleri(hafta_id, d=None):
+    """Haftanın Mikro'dan gelen ödeme satırlarının kimlikleri (eşleme kaydı). Bu satırların ödendi / bekliyor
+    durumu Mikro'dan gelir (fatura kapanınca ödendi olur); ekranda elle "Öde" seçeneği yoktur (kullanıcı,
+    22.10.2026: "ödemeler Mikro'dan geleceği için ödeme yapıldı vs. seçenekleri olmasın")."""
+    kayit = ((d if d is not None else durum()).get("haftalar") or {}).get(str(hafta_id)) or {}
+    out = set()
+    for e in (kayit.get("esleme") or {}).values():
+        try:
+            out.add(int(e.get("id")))
+        except (TypeError, ValueError, AttributeError):
+            continue
+    return out
+
+
 # ── Veritabanı ─────────────────────────────────────────────────────
 def _cli():
     from kayranacc.database import get_client

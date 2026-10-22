@@ -30,6 +30,7 @@ ISLER = (
     ("Depo stoğu", "kayranpm.mikro_stok", "otomatik"),
     ("Toplam Aktifler stok değeri", "kayranacc.mikro_stok_degeri", "otomatik"),   # depo stoğundan SONRA
     ("Toplam Aktifler defter kalemleri", "kayranacc.mikro_aktif", "otomatik"),
+    ("Toplam Aktifler sonucu", "kayranacc.toplam_aktif", "otomatik"),            # bütün kalemlerden SONRA
     ("Ürün kartları / fiyat listeleri", "kayranpm.mikro_urun", "otomatik"),
     ("İthalat dosyaları / masraflar", "ithalat.mikro_ithalat", "otomatik"),
 )

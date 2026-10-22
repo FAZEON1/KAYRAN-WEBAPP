@@ -170,10 +170,34 @@ def donem_sonu_virmansiz(hareketler, bugun=None, gun=VIRMAN_GERI_GUN):
     return [h for h in hareketler if id(h) not in at] if at else hareketler
 
 
-def ithalat_odenen(cari_bak, kartlar):
-    """Yurt dışı tedarikçilere verilen avans ($): 320.50 USD hesaplarının pozitif bakiyeleri."""
+ITHALAT_IRSALIYE = 13          # sth_evraktip: ithalat irsaliyesi (mal teslim alındı)
+BOS_UID = ("", "00000000-0000-0000-0000-000000000000")
+
+
+def faturasiz_teslimler(alim_satirlari):
+    """Teslim alınmış ama tedarikçi faturası Mikro'ya girilmemiş ithalat ($): {320.50 cari: tutar}.
+    Kullanıcı (22.10.2026, "A olsun"): INNOVISION-017 20.10'da irsaliyeyle girdi ve EERA'ya satıldı, faturası
+    girilmediği için 260.800 $ ödeme 320.50.101'de avans olarak kaldı; malın maliyeti hem avans hem satış olarak
+    aktifte sayılıyordu. Satır: ithalat irsaliyesi (evrak 13), iade değil, faturaya bağlanmamış (sth_fat_uid boş),
+    dövizi USD (tutar hareket dövizinde)."""
+    out = defaultdict(float)
+    for s in alim_satirlari or []:
+        kod = _s(s.get("sth_cari_kodu"))
+        if (_i(s.get("sth_evraktip"), -1) != ITHALAT_IRSALIYE or not kod.startswith(ITHALAT_ONEK)
+                or _i(s.get("sth_normal_iade")) == 1 or _s(s.get("sth_fat_uid")).lower() not in BOS_UID
+                or _i(s.get("sth_har_doviz_cinsi"), -1) != 1):
+            continue
+        out[kod] += _f(s.get("sth_tutar")) - _f(s.get("sth_iskonto"))
+    return {k: round(v, 2) for k, v in out.items() if v > KURUS}
+
+
+def ithalat_odenen(cari_bak, kartlar, faturasiz=None):
+    """Yurt dışı tedarikçilere verilen avans ($): 320.50 USD hesaplarının pozitif bakiyeleri; teslim alınmış ama
+    faturası girilmemiş mal (faturasiz_teslimler) avanstan düşülür — bakiyeyi aşmadan (mal o tedarikçiden geldi,
+    avans karşılığını buldu; stokta ya da satışta zaten sayılıyor)."""
     dov = {_s(k.get("cari_kod")): _i(k.get("cari_doviz_cinsi")) for k in kartlar}
-    return round(sum(b for kod, b in cari_bak.items()
+    faturasiz = faturasiz or {}
+    return round(sum(max(b - faturasiz.get(kod, 0.0), 0.0) for kod, b in cari_bak.items()
                      if kod.startswith(ITHALAT_ONEK) and dov.get(kod) == 1 and b > KURUS), 2)
 
 
@@ -304,8 +328,10 @@ def plan_yap(veri, bankalar, mevcut_cekler, mevcut_cari, mevcut_ithalat):
     cad = {_s(k.get("cari_kod")): _s(k.get("cari_unvan1")) for k in ck}
     cek = cek_satirlari(veri["cek"], hareket, cad, bad)
     cari = cari_ozeti(cb, ck)
-    ith = ithalat_odenen(cari_bakiyeleri(donem_sonu_virmansiz(hareket), ck), ck)
+    fts = faturasiz_teslimler(veri.get("alim"))
+    ith = ithalat_odenen(cari_bakiyeleri(donem_sonu_virmansiz(hareket), ck), ck, fts)
     return {
+        "faturasiz_teslim": fts,
         "banka": banka, "banka_disarida": disarida,
         "cek": cek, "cek_degisir": cek_imzasi(cek) != cek_imzasi(mevcut_cekler),
         "cek_eski_id": [c.get("id") for c in mevcut_cekler if c.get("id") is not None],
@@ -344,6 +370,11 @@ def veri_oku():
         "cari_kart": sayfali_oku(lambda: cli.table("mikro_cari_kart").select("cari_kod,cari_unvan1,cari_doviz_cinsi")
                                  .order("cari_kod"), "cari_kod"),
         "cek": sayfali_oku(lambda: cli.table("mikro_cek").select("*").order("sck_guid"), "sck_guid"),
+        "alim": sayfali_oku(lambda: cli.table("mikro_alim_satir")
+                            .select("sth_guid,sth_evraktip,sth_cari_kodu,sth_normal_iade,sth_fat_uid,"
+                                    "sth_har_doviz_cinsi,sth_tutar,sth_iskonto")
+                            .eq("sth_evraktip", ITHALAT_IRSALIYE).like("sth_cari_kodu", f"{ITHALAT_ONEK}%")
+                            .order("sth_guid"), "sth_guid"),
     }
 
 
@@ -452,9 +483,10 @@ def ac(kullanici):
 
 
 def son_aktarim():
-    r = (_cli().table("mikro_senk_durum").select("son_cekim").eq("tablo", "mikro_cari_hareket").execute().data
-         or [])
-    return str((r[0] if r else {}).get("son_cekim") or "")
+    """Cari hareketin ya da alım satırının (faturasız teslim, 22.10.2026) en son çekim zamanı."""
+    r = (_cli().table("mikro_senk_durum").select("son_cekim")
+         .in_("tablo", ["mikro_cari_hareket", "mikro_alim_satir"]).execute().data or [])
+    return max((str(x.get("son_cekim") or "") for x in r), default="")
 
 
 def otomatik():

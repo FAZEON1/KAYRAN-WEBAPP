@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Sayfa testi · Mikro eşitlemeleri açıkken Toplam Aktifler sadeleşir (kullanıcı kararı 22.10.2026).
-
-Açıkken: Excel durum kartları ("Yüklenmedi · üst menü › Dosya") ve "Yüklenen verileri temizle" düğmesi yok,
-yerine tek satır kaynak notu. Kapalıyken: eski kartlar ve düğme. Yalnız gerçek Streamlit kuruluyken."""
+"""Sayfa testi · Mikro eşitlemeleri açıkken Muhasebe sayfaları açılır. Toplam Aktifler sayfası 22.10.2026'da
+Muhasebe'den kalktı (toplam eşitleme turunda hesaplanır, Yönetim panosunda; tests/duman/test_mikro_aktif_sayfa.py).
+Yalnız gerçek Streamlit kuruluyken."""
 import os
 
 import pytest
@@ -12,10 +11,9 @@ pytest.importorskip("streamlit.testing.v1")
 from test_sayfalar import BETIK, SURE  # noqa: E402
 from test_stok_yasi_veri import _metin  # noqa: E402
 
-NOT = "Stok, ithalat ödenen ve cari Mikro'dan, 15 dakikada bir."
 
 
-def _ac(acik, sayfa="💰 Toplam Aktifler"):
+def _ac(acik, sayfa="🏦 Banka Bakiyeleri"):
     import sahte_db
     from streamlit.testing.v1 import AppTest
     os.environ["DUMAN_ONBELLEK_TEMIZLE"] = "1"
@@ -41,22 +39,11 @@ def _dugmeler(at):
     return [b.label for b in at.button]
 
 
-def test_toplam_aktifler_mikro_acikken_kart_ve_temizle_yok():
+def test_toplam_aktifler_muhasebede_yok():
     at = _ac(True)
     assert not [e for e in at.exception], [e.value for e in at.exception]
-    metin = _metin(at)
-    assert NOT in metin
-    assert "Yüklenmedi · üst menü › Dosya" not in metin and "Henüz hesaplanmadı" not in metin
-    assert "Stok değeri uygulamadan otomatik gelir" not in metin           # ikinci (tekrar) not yok
-    assert "Yüklenen verileri temizle" not in _dugmeler(at)
-
-
-def test_toplam_aktifler_mikro_kapaliyken_eski_ekran():
-    at = _ac(False)
-    assert not [e for e in at.exception], [e.value for e in at.exception]
-    metin = _metin(at)
-    assert NOT not in metin and "Yüklenmedi · üst menü › Dosya" in metin
-    assert "Yüklenen verileri temizle" in _dugmeler(at)
+    from shared.gezinme import secenekler
+    assert "💰 Toplam Aktifler" not in secenekler("kayranacc")
 
 
 def test_banka_bakiyeleri_mikro_acikken_acilir():

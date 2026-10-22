@@ -47,6 +47,25 @@ def _yuzde(v):
     return "" if v is None else f"%{tr_sayi(v, 1)}"
 
 
+MARJ_SINIR = 999.9
+
+
+def marj_metni(marj, net_satis):
+    """Satırın marj alt yazısı. Bedelsiz çıkış (net satış < 1 sent): "bedelsiz" (yüzde anlamsız; eskiden
+    "%-26.069.604,0" görünüyordu, kullanıcı 22.10.2026). Çok küçük satışta ±%999,9'u aşan marj sınırda kesilir:
+    "%-999,9'dan düşük"."""
+    from .satis_hesap import MARJ_ESIK
+    if float(net_satis or 0) < MARJ_ESIK:
+        return "bedelsiz" if abs(float(net_satis or 0)) < MARJ_ESIK else ""
+    if marj is None:
+        return ""
+    if marj < -MARJ_SINIR:
+        return "%-999,9'dan düşük"
+    if marj > MARJ_SINIR:
+        return "%999,9'dan yüksek"
+    return _yuzde(marj)
+
+
 def _firma(kanal):
     from shared.utils import firma_kisa_ad
     return firma_kisa_ad(kanal)
@@ -88,7 +107,7 @@ def siparis_satirlari(siparisler, kar_ok, bugun=None):
              "ciro": round(float(o["ciro"]), 2), "ciro_m": usd_tam(o["ciro"]), "ciro_m__s": float(o["ciro"]),
              "adet": int(o["adet"]), "maliyetsiz": int(o["maliyetsiz"])}
         if kar_ok:
-            r.update({"kar_m": usd_tam(o["net_kar"]), "kar_m__s": float(o["net_kar"]), "marj_m": _yuzde(o["marj"]),
+            r.update({"kar_m": usd_tam(o["net_kar"]), "kar_m__s": float(o["net_kar"]), "marj_m": marj_metni(o["marj"], o["ciro"] - o["destek"]),
                       "kar_renk": "yesil" if o["net_kar"] >= 0 else "kirmizi"})
             if o["maliyetsiz"]:
                 r["_durum"] = {"ad": f"{o['maliyetsiz']} maliyetsiz", "renk": "amber"}
@@ -147,7 +166,7 @@ def kalem_masa_verisi(kalemler, katmap, kar_ok, satir_kar):
         if kar_ok:
             r.update({"bmal_m": f"maliyet {usd_birim(s.get('birim_maliyet'))}",
                       "kar_m": usd_tam(k["net_kar"]), "kar_m__s": round(float(k["net_kar"]), 2),
-                      "marj_m": _yuzde(round(k["marj"], 1)), "kar_renk": "yesil" if k["net_kar"] >= 0 else "kirmizi"})
+                      "marj_m": marj_metni(round(k["marj"], 1), k["net_satis"]), "kar_renk": "yesil" if k["net_kar"] >= 0 else "kirmizi"})
         satirlar.append(r)
     sut = [{"alan": "tarih_m", "ad": "Tarih", "tip": "metin", "alt": "sno", "gen": "132px", "dar": "alt"},
            {"alan": "urun", "ad": "Ürün", "tip": "ana", "alt": "urun_alt"},

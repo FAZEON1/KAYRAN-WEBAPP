@@ -110,7 +110,7 @@ def test_sus_kirmizisi_notr():
     T = _t()
     assert "k-kotu" not in T.kart_hucresi({"etiket": "Paçal", "deger": "$0", "renk": "kirmizi", "anlam": "notr"})
     for d, metin in (("kayranpm/stok_karti.py", '"Paçal Maliyet"'), ("kayranpm/ref_no.py", '"Toplam Harcama"'),
-                     ("kayranacc/main.py", '"label": "Borç"'), ("kayranacc/cari_ekstre.py", '"📤 Açık Borç (TL)"'),
+                     ("kayranacc/cari_ekstre.py", '"📤 Açık Borç (TL)"'),
                      ("kayranacc/odeme_ekran.py", '"En çok ertelenen"')):
         src = (KOK / d).read_text(encoding="utf-8")
         i = src.index(metin)

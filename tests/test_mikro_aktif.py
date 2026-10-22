@@ -113,16 +113,6 @@ def test_ayni_kalem_elle_de_girildiyse_iki_kez_sayilmaz():
     assert M.cakisan_etki(manuel, c, 49.6) == pytest.approx(-100 - 300)
 
 
-def test_toplam_aktifler_mikro_kalemlerini_ve_cakisani_hesaba_katar():
-    """Sayfanın toplamı: + defter artı − defter eksi − satış maliyeti; Mikro'dan da gelen manuel kalem atlanır."""
-    kaynak = (KOK / "kayranacc" / "main.py").read_text(encoding="utf-8")
-    govde = kaynak.split("def _sayfa_toplam_aktifler", 1)[1].split("\ndef ", 1)[0]
-    formul = govde.split("toplam_aktif = (", 1)[1].split(")", 1)[0]
-    assert '+ _ma["arti"]' in formul and '- _ma["eksi"]' in formul and '- _ma["satis_maliyeti_usd"]' in formul
-    assert "in _ma_cak:" in govde.split("manuel_ekle_toplam = 0.0", 1)[1].split("toplam_aktif = (", 1)[0]
-    assert '"satis_maliyeti"' in govde                        # Yönetim panosuna giden kayıtta da
-
-
 @_M_gerek
 def test_otomatik_kapaliyken_yazmaz_acikken_bir_kez_yazar(monkeypatch):
     import kayranacc.database as db
@@ -159,11 +149,3 @@ def test_yonetim_panosu_yeni_kalemleri_gosterir():
     json.dumps(h)
 
 
-def test_defter_acikken_stok_maliyetle_kdv_ayri():
-    """Kullanıcı (21.10): gümrükte ödenen %20 KDV görünmeli — Mikro'da 191'de, defterin KDV kaleminde mahsuplu.
-    Açıkken stok × 1,00 (× 1,20 ile KDV iki kez girerdi); kapalıyken eski × 1,20."""
-    kaynak = (KOK / "kayranacc" / "main.py").read_text(encoding="utf-8")
-    govde = kaynak.split("def _sayfa_toplam_aktifler", 1)[1].split("\ndef ", 1)[0]
-    assert "stok_marjli = usd_stok * _stok_carpan" in govde and "usd_stok * 1.20" not in govde
-    if M is not None:
-        assert M.stok_carpani(True) == 1.0 and M.stok_carpani(False) == pytest.approx(1.2)

@@ -176,24 +176,6 @@ def test_formul_metni_mikro_acik_ve_kapali():
     assert "**49.6 TL/USD**" in acik
 
 
-def test_toplam_aktifler_sayfasi_mikro_parcalarini_kosullu_gosterir():
-    govde = _govde(MAIN, "def _sayfa_toplam_aktifler")
-    # a) kartlar excel_kartlari ile süzülür, kaynak notu tek satır
-    assert "_excel_kartlari(_stok_uygulamadan, _muhasebe_acik_v)" in govde
-    assert "st.caption(_kaynak_notu(_stok_uygulamadan, _muhasebe_acik_v))" in govde
-    assert "col1, col2, col3 = st.columns(3)" not in govde
-    # b) temizle düğmesi yalnız eşitlemeler kapalıyken
-    temizle = govde.split("_temizle_gorunur(_stok_uygulamadan, _muhasebe_acik_v, _ma_acik_v):", 1)
-    assert len(temizle) == 2 and 'key="btn_acc_temizle"' in temizle[1] and "btn_acc_temizle" not in temizle[0]
-    # c) formül metni gerçek durumdan
-    assert "_formul_metni(_stok_uygulamadan, _muhasebe_acik_v, _ma_acik_v, _stok_carpan, kur)" in govde
-    assert "Stok Değeri × 1.20" not in govde
-    # d) stok kartı gerçek çarpanı gösterir
-    assert "× 1.20" not in govde and "_ham_v * 1.20" not in govde and "_ham_v * _stok_carpan" in govde
-    # e) ölü eksikler listesi yok
-    assert "eksikler = []" not in govde and "eksikler.append" not in govde
-
-
 def test_stok_degeri_onay_kutusu_acikken_tekrar_not_yazmaz(monkeypatch):
     """Açıkken kaynak notu Toplam Aktifler'in tek satırında; onay kutusu ikinci not yazmaz. Kapalıyken onay akışı
     yerinde (kod yedek)."""

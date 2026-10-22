@@ -51,12 +51,12 @@ def test_pnl_karti_alt_satiri_tek_satir():
 
 
 def test_toplam_aktifler_emojisiz():
-    s = _oku("kayranacc/main.py")
-    blok = s[s.index("_dk = ["):s.index("_chips = ")]
+    """Toplam aktifler dökümü (Yönetim panosu; Muhasebe sayfası 22.10.2026'da kalktı) emojisiz."""
+    s = _oku("yonetim.py")
+    blok = s[s.index("def _toplam_aktif_html"):s.index("def _veri_durumu")]
     assert not re.search("[\U0001F300-\U0001FAFF☀-➿]", blok), blok
-    assert '("Banka (USD)", banka_usd_eqv, "+")' in blok and '("Çekler", cek_toplam_usd, "−")' in blok
-    assert 'return f"{kim} · {zaman}"' in s and "✅ Yüklendi" not in s
-    assert s.count('st.caption("Yüklenmedi · üst menü › Dosya")') == 3
+    assert '("Banka (USD eşd.)", snap.get("banka", 0), "+")' in blok and '("Çekler", snap.get("cek", 0), "−")' in blok
+    assert not re.search("[\U0001F300-\U0001FAFF☀-➿]", _oku("kayranacc/toplam_aktif_ekran.py"))
 
 
 def test_pm_kategori_ozeti_yarim_sutuna_sigar():
