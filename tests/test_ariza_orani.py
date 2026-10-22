@@ -99,6 +99,55 @@ def test_satirlar_ulasan_ve_oran():
                     "Arıza oranı (%)": 5.0}
 
 
+# ── Mikro iadeleri (22.10.2026) ──────────────────────────────────────
+def _ih(sku, tarih, adet=1, depo=3, tip=3, iade=1, iptal=False):
+    return {"sth_stok_kod": sku, "sth_tarih": tarih + "T00:00:00", "sth_miktar": adet, "sth_giris_depo_no": depo,
+            "sth_evraktip": tip, "sth_normal_iade": iade, "sth_iptal": iptal}
+
+
+DEPOLAR = [{"dep_no": 1, "dep_adi": "Merkez depo"}, {"dep_no": 3, "dep_adi": "SERVİS DEPO"},
+           {"dep_no": 9, "dep_adi": "İADE DEPO "}, {"dep_no": 6, "dep_adi": "İKİNCİ EL DEPO"}]
+
+
+def test_mikro_tekli_iadeler_toplu_ve_kayit_sonrasi_ayri():
+    dep = A.iade_depolari(DEPOLAR)
+    assert dep == {3, 9}
+    h = [_ih("Fazeon X24", "2025-06-01"), _ih("X24", "2026-03-01", 2),
+         _ih("X24", "2026-02-01", 3120),                 # SND toplu stok iadesi: arıza değil
+         _ih("X24", "2026-02-02", depo=1),               # merkeze giren: iade deposu değil
+         _ih("X24", "2026-02-03", tip=1),                # satış satırı
+         _ih("X24", "2026-02-04", iptal=True),
+         _ih("X24", "2026-07-01", depo=9)]               # ilk servis kaydından sonra
+    assert A.mikro_iadeleri(h, sku_anahtar, dep) == {"X24": 4.0}
+    assert A.mikro_iadeleri(h, sku_anahtar, dep, once="2026-06-23") == {"X24": 3.0}
+    assert A.mikro_iadeleri(h, sku_anahtar, dep, "2026-01-01", None, "2026-06-23") == {"X24": 2.0}
+
+
+def test_iade_arizali_payi_kategoriden_az_ornekte_genel():
+    kay = [dict(_k(arayuz="iade", ariza="ölü piksel"), id=i, stok_kodu="M1", seri_no=f"S{i}") for i in range(8)] + \
+          [dict(_k(arayuz="iade", ariza="cayma"), id=10 + i, stok_kodu="M1", seri_no=f"C{i}") for i in range(12)] + \
+          [dict(_k(arayuz="iade", ariza="koli hasarlı"), id=40 + i, stok_kodu="K1", seri_no=f"K{i}") for i in range(5)] + \
+          [dict(_k(ariza="ölü piksel"), id=60, stok_kodu="K1", seri_no="T1")]       # teknik kayıt: paya girmez
+    paylar, genel = A.iade_arizali_payi(kay, sku_anahtar, {"M1": "Monitör", "K1": "Kasa"}.get)
+    assert paylar == {"Monitör": 0.4} and genel == 8 / 25
+    assert A.pay_bul(paylar, genel, "Monitör") == 0.4 and A.pay_bul(paylar, genel, "Kasa") == 8 / 25
+
+
+def test_satirlar_mikro_tahmin_ve_iade_orani_kesin_orani_degistirmez():
+    kart = {"X24": {"sku": "Fazeon X24", "kategori": "Monitör"}, "K1": {"sku": "K1", "kategori": "Kasa"}}
+    servis = {"X24": {"gelen": 3, "arizali": 2, "tahmini": 0, "sonuclar": {}}}
+    mikro = {"once": {"X24": 10.0, "K1": 5.0}, "iade": {"X24": 14.0, "K1": 5.0},
+             "paylar": {"Monitör": 0.4}, "genel_pay": 0.2}
+    r = {s["_id"]: s for s in A.satirlar(kart, {}, {"X24": 1000.0, "K1": 500.0}, {}, servis, mikro)}
+    x, k = r["X24"], r["K1"]
+    assert x["Arıza oranı (%)"] == 0.2                                   # kesin: 2 ÷ 1000
+    assert x["Arızalı tahmini (Mikro iade)"] == 4.0 and x["Arıza oranı tahmini dahil (%)"] == 0.6
+    assert x["İade oranı (%)"] == 1.4 and k["Arızalı tahmini (Mikro iade)"] == 1.0   # Kasa: genel pay
+    g = {o["Kategori"]: o for o in A.grup_ozeti(list(r.values()), "Kategori")}
+    assert g["Monitör"]["Arıza oranı tahmini dahil (%)"] == 0.6 and g["Kasa"]["İade oranı (%)"] == 1.0
+    assert "Arızalı tahmini (Mikro iade)" not in A.satirlar(kart, {}, {"X24": 1.0}, {}, servis)[0]
+
+
 def test_ekran_paydasi_butun_satis_gecmisi():
     e = (KOK / "teknikservis" / "ariza_ekran.py").read_text(encoding="utf-8")
     assert "get_satislar_yalin(None, bit)" in e and "A.servis_ozeti(kayitlar, sku_anahtar, bas, bit)" in e
