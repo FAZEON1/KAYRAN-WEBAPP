@@ -51,8 +51,8 @@ _MIKRO_YENILE = {"etiket": "Mikro'dan yenile", "key": "btn_acc_mikro_yenile", "i
 _MIKRO_VADE = {"etiket": "Firma vadeleri", "key": "btn_acc_mikro_vade", "icon": ":material/event:",
                "help": "Mikro'da vadesi girilmemiş faturalar için firmanın ödeme günü (geçmiş listelerden öğrenildi); "
                        "düzeltmen sonraki pazartesiden geçerli."}
-_BOS_MIKRO = ("Liste her pazartesi Mikro'dan kendiliğinden açılır. Beklemeden açmak için 'Mikro'dan yenile'; "
-              "Mikro'da olmayan ödemeyi 'Manuel ödeme' ile ekle.")
+_BOS_MIKRO = ("Liste her pazartesi Mikro'dan kendiliğinden açılır ve 15 dakikada bir güncellenir; ödemeyi Mikro'ya "
+              "gir, burada kendiliğinden görünür.")
 
 
 def _mikro_liste_acik():
@@ -76,8 +76,17 @@ def _mikro_idler(hafta):
 
 def _mikro_eylemler():
     if _mikro_liste_acik():
-        return [dict(_MIKRO_YENILE, disabled=_salt()), dict(_MIKRO_VADE, disabled=_salt())]
+        # Liste 15 dakikada bir kendiliğinden güncellenir: "Mikro'dan yenile" yok (kullanıcı, 22.10.2026)
+        return [dict(_MIKRO_VADE, disabled=_salt())]
     return [dict(_MIKRO_EYLEM, disabled=_salt())]
+
+
+def _baslik_eylemleri():
+    """Başlık düğmeleri. Liste Mikro'dan geliyorsa "Manuel ödeme" yok: ödemeler Mikro'ya girilir (kullanıcı,
+    22.10.2026: "manuel ödeme ve Mikro'dan yenile kısmına ihtiyaç yok"). Kapalıyken eski düğmeler."""
+    manuel = [] if _mikro_liste_acik() else [{"etiket": "Manuel ödeme", "key": "btn_acc_manuel",
+                                              "icon": ":material/add:", "birincil": True, "disabled": _salt()}]
+    return manuel + _mikro_eylemler()
 
 
 def _mikro_eylem_isle(ey, kategoriler, hafta):
@@ -179,8 +188,7 @@ def render_bu_hafta(kategoriler, export_excel, kur):
     bankalar = get_bankalar() or []
     ey = B.baslik_eylem("💳 Muhasebe", "Bu Hafta",
                         aciklama=H.hafta_etiketi((hafta or {}).get("hafta_adi")) or "Aktif hafta yok",
-                        eylemler=[{"etiket": "Manuel ödeme", "key": "btn_acc_manuel", "icon": ":material/add:",
-                                   "birincil": True, "disabled": _salt()}] + _mikro_eylemler())
+                        eylemler=_baslik_eylemleri())
     if ey.get("btn_acc_manuel"):
         _manuel_dialog(kategoriler, hafta)
     _mikro_eylem_isle(ey, kategoriler, hafta)
@@ -278,8 +286,7 @@ def _render_masa(kategoriler, export_excel, kur):
     bankalar = get_bankalar() or []
     ey = B.baslik_eylem(":material/credit_card: Muhasebe", "Bu Hafta",
                         aciklama=H.hafta_etiketi((hafta or {}).get("hafta_adi")) or "Aktif hafta yok",
-                        eylemler=[{"etiket": "Manuel ödeme", "key": "btn_acc_manuel", "icon": ":material/add:",
-                                   "birincil": True, "disabled": _salt()}] + _mikro_eylemler())
+                        eylemler=_baslik_eylemleri())
     if ey.get("btn_acc_manuel"):
         _manuel_dialog(kategoriler, hafta)
     _mikro_eylem_isle(ey, kategoriler, hafta)

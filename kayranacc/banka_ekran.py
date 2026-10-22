@@ -5,7 +5,7 @@
   banka_kartlari()      Her hesap tıklanır kart: bakiye KESİLMEDEN (eskiden
                         "₺1.845.230…"), para birimi, hafta sonu tahmini
   banka_yeni_dialog()   Yeni hesap (eskiden sayfada sürekli açık form)
-  banka_detay_kontrol() Karta tıklanınca: düzenle · son tahsilatlar · ONAYLI sil
+  banka_detay_kontrol() Karta tıklanınca: Mikro hareketleri (bağlı hesapta) · düzenle · son tahsilatlar · ONAYLI sil
                         (eskiden "Sil" düğmesi hesabı onaysız siliyordu)
 
 Hafta sonu tahmini TOPLAM üzerinden gösterilir (Genel Bakış / Bu Hafta ile aynı):
@@ -157,13 +157,46 @@ def banka_detay_kontrol(kur):
             _banka_dialog(b, kur)
 
 
+def _mikro_hareketleri(b, pb):
+    """Hesabın Mikro'daki hareketleri (kayranacc/mikro_banka_hareket.py): giriş / çıkış ve satır sonrası bakiye."""
+    from shared.utils import tr_today
+    from .mikro_banka_hareket import GUN, oku
+    try:
+        satir, kod = oku(b, tr_today())
+    except Exception as e:  # noqa: BLE001
+        st.warning(f"Mikro hareketleri okunamadı: {type(e).__name__}")
+        return
+    if not kod:
+        st.caption("Bu hesap Mikro'daki bir banka hesabıyla eşleşmedi.")
+        return
+    st.caption(f"Mikro {kod} · son {GUN} gün · Mikro'ya girilen hareket 15 dakika içinde burada görünür.")
+    if not satir:
+        st.caption("Bu dönemde hareket yok.")
+        return
+    for r in satir[:60]:
+        tutar = (f'<b style="font-family:var(--k-mono);color:var(--k-yesil)">+{_para(r["giris"], pb)}</b>' if r["giris"]
+                 else f'<b style="font-family:var(--k-mono);color:var(--k-kirmizi)">−{_para(r["cikis"], pb)}</b>')
+        st.markdown(f'<div style="display:flex;gap:12px;padding:6px 0;border-bottom:1px solid var(--k-kenar);font-size:13px">'
+                    f'<span style="width:84px;color:var(--k-silik)">{r["tarih"][8:10]}.{r["tarih"][5:7]}.{r["tarih"][:4]}</span>'
+                    f'<span style="flex:1;min-width:0">{_h.escape(r["karsi"] or "—")}'
+                    f'<span style="color:var(--k-silik)"> · {_h.escape(r["aciklama"])}</span></span>'
+                    f'<span style="text-align:right">{tutar}<br><small style="color:var(--k-silik);font-family:var(--k-mono)">'
+                    f'{_para(r["bakiye"], pb)}</small></span></div>', unsafe_allow_html=True)
+
+
 @st.dialog("Banka hesabı", width="large")
 def _banka_dialog(b, kur):
     pb = b.get("para_birimi") or "TL"
     st.markdown(f'<div style="font-size:19px;font-weight:650">{_h.escape(str(b.get("hesap_adi") or ""))}</div>'
                 f'<div style="font-family:var(--k-mono);font-size:24px;font-weight:600;margin:4px 0 14px">'
                 f'{_para(b.get("bakiye"), pb)}</div>', unsafe_allow_html=True)
-    t1, t2, t3 = st.tabs(["Son girişler", "Düzenle", "Sil"])
+    mikro = bakiye_mikrodan(b["id"])
+    if mikro:
+        t0, t1, t2, t3 = st.tabs(["Hareketler", "Son girişler", "Düzenle", "Sil"])
+        with t0:
+            _mikro_hareketleri(b, pb)
+    else:
+        t1, t2, t3 = st.tabs(["Son girişler", "Düzenle", "Sil"])
     with t1:
         son = [t for t in (get_tahsilatlar(limit=200) or []) if t.get("banka_id") == b["id"]][:12]
         if not son:

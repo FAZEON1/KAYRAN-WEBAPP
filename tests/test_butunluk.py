@@ -87,6 +87,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "stok_hesap.py", "musteri_ekran.py",   # kanal stoğu kod eşleşmesi karşılaştırması (Eki 2026)
                "satis_hesap.py",                      # elle siparişte mükerrer uyarısı (Eki 2026)
                "toplam_aktif.py", "toplam_aktif_ekran.py",   # Toplam Aktifler eşitleme turunda (22.10.2026)
+               "mikro_banka_hareket.py", "banka_ekran.py",   # banka penceresinde Mikro hareketleri (22.10.2026)
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -284,6 +285,7 @@ KRITIK_FONKSIYONLAR = {
     "kayranacc.toplam_aktif": ["stok_degeri", "cari_usd", "banka_usd", "hesapla", "kayit", "yazilmali_mi", "veri_oku",
                                "guncelle", "otomatik"],
     "kayranacc.toplam_aktif_ekran": ["ayrinti", "yetkili_mi"],
+    "kayranacc.mikro_banka_hareket": ["hareket_listesi", "hesap_kodu", "oku"],   # banka penceresi (22.10.2026)
     "kayranpm.mikro_depo": ["hareket_turu", "hareketler", "depo_partileri", "havuz_partileri", "depo_yaslari",
                             "depo_ozet_satirlari", "depo_parti_satirlari", "toplam", "excel_karsilastir",
                             "yas_karsilastir", "veri_oku", "hesapla", "havuz_partileri_oku", "depo_partileri_oku",

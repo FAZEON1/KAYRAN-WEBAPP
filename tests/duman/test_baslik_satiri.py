@@ -65,6 +65,7 @@ def test_baslik_seciciyle_ayni_satirda_solda(sayfa, ad):
 def test_bu_hafta_basligi_ve_eylem_dugmesi_ust_satirda():
     at = _ac("💳 Bu Hafta")
     sira, i_bas, i_kur = _baslik_ve_secici(at, "Bu hafta")
-    i_manuel = next((i for i, (t, m) in enumerate(sira) if t == "btn" and m == "Manuel ödeme"), -1)
-    assert i_bas < i_manuel < i_kur, sira[:14]
+    # Liste Mikro'dan: "Manuel ödeme" yok (22.10.2026); başlık eylemi "Firma vadeleri"
+    i_dugme = next((i for i, (t, m) in enumerate(sira) if t == "btn" and m == "Firma vadeleri"), -1)
+    assert i_bas < i_dugme < i_kur, sira[:14]
     assert "12.10.2026 güncel ödeme listesi" in sira[i_bas][1]

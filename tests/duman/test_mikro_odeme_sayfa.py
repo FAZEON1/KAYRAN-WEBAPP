@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """Sayfa testi · Bu Hafta: ödeme listesi Mikro'dan her pazartesi (kullanıcı kararı 22.10.2026).
 
-Açıkken (varsayılan): "Mikro'dan yenile" ve "Firma vadeleri" düğmeleri, "Mikro'dan öneri" yok; iki düğme de
-boş veritabanında çökmeden çalışır. Kapalıyken eski "Mikro'dan öneri". Yalnız gerçek Streamlit kuruluyken."""
+Açıkken (varsayılan): yalnız "Firma vadeleri"; "Manuel ödeme", "Mikro'dan yenile" ve "Mikro'dan öneri" yok
+(kullanıcı 22.10.2026: "manuel ödeme ve Mikro'dan yenile kısmına ihtiyaç yok"); düğme boş veritabanında çökmeden
+çalışır. Kapalıyken eski "Manuel ödeme" ve "Mikro'dan öneri". Yalnız gerçek Streamlit kuruluyken."""
 import os
 
 import pytest
@@ -37,15 +38,14 @@ def _hatasiz(at):
     assert not [e for e in at.exception], [e.value for e in at.exception]
 
 
-def test_mikro_acikken_yenile_ve_firma_vadeleri():
+def test_mikro_acikken_yalniz_firma_vadeleri():
     try:
         at = _ac()
         _hatasiz(at)
-        assert _dugme(at, "Mikro'dan yenile") and _dugme(at, "Firma vadeleri")
-        assert not _dugme(at, "Mikro'dan öneri")
+        assert _dugme(at, "Firma vadeleri")
+        assert not _dugme(at, "Mikro'dan öneri") and not _dugme(at, "Mikro'dan yenile")
+        assert not _dugme(at, "Manuel ödeme")
         _dugme(at, "Firma vadeleri")[0].click().run()
-        _hatasiz(at)
-        _dugme(at, "Mikro'dan yenile")[0].click().run()
         _hatasiz(at)
     finally:
         os.environ.pop("DUMAN_ONBELLEK_TEMIZLE", None)
@@ -56,5 +56,6 @@ def test_mikro_kapaliyken_eski_oneri_dugmesi():
         at = _ac(kapali=True)
         _hatasiz(at)
         assert _dugme(at, "Mikro'dan öneri") and not _dugme(at, "Mikro'dan yenile")
+        assert _dugme(at, "Manuel ödeme")
     finally:
         os.environ.pop("DUMAN_ONBELLEK_TEMIZLE", None)
