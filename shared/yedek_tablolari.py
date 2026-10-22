@@ -95,6 +95,7 @@ HARIC = {
     "mikro_satis_fiyat":     "Mikro aktarıcısının kopyası (satış fiyat listesi satırları)",
     "mikro_fiyat_liste":     "Mikro aktarıcısının kopyası (satış fiyat listesi tanımları)",
     "mikro_multikod":        "Mikro aktarıcısının kopyası (müşteri ürün kodları; her turda tam çekilir)",
+    "mikro_stok_maliyet":    "Mikro aktarıcısının kopyası (stok maliyet özeti; her turda tam çekilir)",
     "mikro_aktarici_surum":  "aktarıcının kodu; depodan yayınlanır",
     "oturumlar":             "açık oturum özetleri (geçici; geri yüklenmez)",
     "sema_gecmisi":          "kurulan SQL dosyalarının kaydı (veritabani/uygula.py)",
