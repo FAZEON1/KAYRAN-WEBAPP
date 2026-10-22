@@ -91,12 +91,15 @@ def _mikrodan_geliyor(ne, tip="cari"):
     cari / ithalat: kayranacc.mikro_muhasebe; stok: kayranacc.mikro_stok_degeri (depo stoğu × paçal)."""
     if tip == "stok":
         from kayranacc.mikro_stok_degeri import acik_mi
+    elif tip == "odeme":
+        from kayranacc.mikro_odeme_oto import acik_mi
     else:
         from kayranacc.mikro_muhasebe import acik_mi
     if not acik_mi():
         return False
-    st.info(f"{ne} artık Mikro'dan otomatik geliyor (15 dakikada bir); dosya yüklemeye gerek yok. "
-            "Bu dosya kaydedilmez.")
+    st.info(f"{ne} artık Mikro'dan otomatik geliyor ("
+            + ("her pazartesi açılır, hafta boyunca güncellenir" if tip == "odeme" else "15 dakikada bir")
+            + "); dosya yüklemeye gerek yok. Bu dosya kaydedilmez.")
     return True
 
 
@@ -152,7 +155,10 @@ def kapi_aktif_cari(dosya, kapi):
 
 
 def kapi_odeme_listesi(dosya, kapi):
-    """Haftalık ödeme listesi → yeni hafta + ödemeler; hafta aktif yapılır."""
+    """Haftalık ödeme listesi → yeni hafta + ödemeler; hafta aktif yapılır. Mikro listesi açıkken yüklenmez
+    (kayranacc/mikro_odeme_oto: her pazartesi Mikro'dan)."""
+    if _mikrodan_geliyor("Haftalık ödeme listesi", "odeme"):
+        return
     from shared.yukleme_takvimi import serit as _yt_serit
     from .excel_islemler import ayni_hafta
     _yt_serit("odeme_listesi")

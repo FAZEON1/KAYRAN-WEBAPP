@@ -21,8 +21,9 @@ BEKLENEN = {
     "gider_tablosu": "kayranacc.mikro_gider", "aktif_stok": "kayranacc.mikro_stok_degeri",
     "aktif_ithalat": "kayranacc.mikro_muhasebe", "aktif_cari": "kayranacc.mikro_muhasebe",
     "cek_listesi": "kayranacc.mikro_muhasebe",
+    "odeme_listesi": "kayranacc.mikro_odeme_oto",          # 22.10.2026: her pazartesi Mikro'dan
 }
-KALACAK = ["musteri_haftalik", "kampanya_sablon", "ref_excel", "odeme_listesi", "toplu_mal_kabul", "happylife",
+KALACAK = ["musteri_haftalik", "kampanya_sablon", "ref_excel", "toplu_mal_kabul", "happylife",
            "alinan_destek"]
 MODULLER = sorted(set(BEKLENEN.values()) | {"kayranpm.mikro_depo"})
 TAM_YETKI = {"satis": True, "kayranacc": True, "kayranpm": True, "ithalat": True, "depo": True,
@@ -158,9 +159,9 @@ def test_takvim_mikro_kaynaklari_tek_kaynaktan(monkeypatch):
     assert kaynak == Y.KAYNAKLAR and mikro == []
     _esitleme(monkeypatch, acik=set(MODULLER))
     assert Y._mikro_kapsadigi() == {"aktif_cari", "aktif_ithalat", "aktif_stok", "gider_tablosu", "g5f_sayim",
-                                    "satis_dokumu", "happylife"}
+                                    "satis_dokumu", "happylife", "odeme_listesi"}
     kaynak, mikro = Y.ayar_kaynaklari()
-    assert [k["anahtar"] for k in kaynak] == ["musteri_haftalik", "odeme_listesi"]
+    assert [k["anahtar"] for k in kaynak] == ["musteri_haftalik"]
     assert "G5F stok sayımı" in mikro and "Aylık gider tablosu" in mikro
 
 

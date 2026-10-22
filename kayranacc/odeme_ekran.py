@@ -43,6 +43,55 @@ ERTELENEN_MASASI_YENI = True
 _MIKRO_EYLEM = {"etiket": "Mikro'dan öneri", "key": "btn_acc_mikro_oneri", "icon": ":material/auto_awesome:",
                 "help": "Mikro'daki vadeli cari borçlardan ve firma çeklerinden haftanın ödeme listesini hazırlar; "
                         "satırları düzeltip yeni hafta olarak kaydedersin."}
+# Liste her pazartesi Mikro'dan kendiliğinden açılıyorsa (kayranacc/mikro_odeme_oto, kullanıcı kararı 22.10.2026)
+# öneri penceresi yerine: şimdi yenile + firma vadeleri. Kapalıyken öneri penceresi aynen.
+_MIKRO_YENILE = {"etiket": "Mikro'dan yenile", "key": "btn_acc_mikro_yenile", "icon": ":material/sync:",
+                 "help": "Liste her pazartesi Mikro'dan açılır, hafta boyunca 15 dakikada bir güncellenir; bu düğme "
+                         "beklemeden şimdi günceller."}
+_MIKRO_VADE = {"etiket": "Firma vadeleri", "key": "btn_acc_mikro_vade", "icon": ":material/event:",
+               "help": "Mikro'da vadesi girilmemiş faturalar için firmanın ödeme günü (geçmiş listelerden öğrenildi); "
+                       "düzeltmen sonraki pazartesiden geçerli."}
+_BOS_MIKRO = ("Liste her pazartesi Mikro'dan kendiliğinden açılır. Beklemeden açmak için 'Mikro'dan yenile'; "
+              "Mikro'da olmayan ödemeyi 'Manuel ödeme' ile ekle.")
+
+
+def _mikro_liste_acik():
+    try:
+        from .mikro_odeme_oto import acik_mi
+        return acik_mi()
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _mikro_eylemler():
+    if _mikro_liste_acik():
+        return [dict(_MIKRO_YENILE, disabled=_salt()), dict(_MIKRO_VADE, disabled=_salt())]
+    return [dict(_MIKRO_EYLEM, disabled=_salt())]
+
+
+def _mikro_eylem_isle(ey, kategoriler, hafta):
+    if ey.get(_MIKRO_EYLEM["key"]):
+        from .mikro_odeme_ekran import oneri_penceresi
+        oneri_penceresi(kategoriler)
+    if ey.get(_MIKRO_YENILE["key"]):
+        from .mikro_odeme_oto import elle_yenile
+        with st.spinner("Mikro'dan güncelleniyor…"):
+            try:
+                tamam, msg = elle_yenile(st.session_state.get("aktif_kullanici", ""))
+            except Exception as e:  # noqa: BLE001
+                tamam, msg = False, f"Güncellenemedi: {type(e).__name__}: {str(e)[:160]}"
+        if tamam:
+            B.yenile(msg)
+        else:
+            st.warning(msg)
+    if ey.get(_MIKRO_VADE["key"]):
+        from .mikro_odeme_ekran import vade_penceresi
+        vade_penceresi()
+    if hafta and _mikro_liste_acik():
+        from .mikro_odeme_oto import mikro_haftasi
+        if mikro_haftasi(hafta.get("id")):
+            st.caption("Bu liste Mikro'dan açıldı: Mikro'da kapanan fatura 'ödendi' olur, yeni fatura ve çek "
+                       "kendiliğinden eklenir. Elle eklediğin ya da düzelttiğin satıra dokunulmaz.")
 
 
 def _tl(v):
@@ -120,14 +169,13 @@ def render_bu_hafta(kategoriler, export_excel, kur):
     ey = B.baslik_eylem("💳 Muhasebe", "Bu Hafta",
                         aciklama=H.hafta_etiketi((hafta or {}).get("hafta_adi")) or "Aktif hafta yok",
                         eylemler=[{"etiket": "Manuel ödeme", "key": "btn_acc_manuel", "icon": ":material/add:",
-                                   "birincil": True, "disabled": _salt()}, dict(_MIKRO_EYLEM, disabled=_salt())])
+                                   "birincil": True, "disabled": _salt()}] + _mikro_eylemler())
     if ey.get("btn_acc_manuel"):
         _manuel_dialog(kategoriler, hafta)
-    if ey.get(_MIKRO_EYLEM["key"]):
-        from .mikro_odeme_ekran import oneri_penceresi
-        oneri_penceresi(kategoriler)
+    _mikro_eylem_isle(ey, kategoriler, hafta)
     if not odemeler:
-        st.markdown(bos_durum("Bu hafta ödeme yok", "Haftanın Excel'ini üst menüdeki Dosya düğmesinden yükle, "
+        st.markdown(bos_durum("Bu hafta ödeme yok", _BOS_MIKRO if _mikro_liste_acik() else
+                              "Haftanın Excel'ini üst menüdeki Dosya düğmesinden yükle, "
                               "'Mikro'dan öneri' ile hazırla ya da 'Manuel ödeme' ile tek tek ekle.", "payments"),
                     unsafe_allow_html=True)
         return
@@ -220,14 +268,13 @@ def _render_masa(kategoriler, export_excel, kur):
     ey = B.baslik_eylem(":material/credit_card: Muhasebe", "Bu Hafta",
                         aciklama=H.hafta_etiketi((hafta or {}).get("hafta_adi")) or "Aktif hafta yok",
                         eylemler=[{"etiket": "Manuel ödeme", "key": "btn_acc_manuel", "icon": ":material/add:",
-                                   "birincil": True, "disabled": _salt()}, dict(_MIKRO_EYLEM, disabled=_salt())])
+                                   "birincil": True, "disabled": _salt()}] + _mikro_eylemler())
     if ey.get("btn_acc_manuel"):
         _manuel_dialog(kategoriler, hafta)
-    if ey.get(_MIKRO_EYLEM["key"]):
-        from .mikro_odeme_ekran import oneri_penceresi
-        oneri_penceresi(kategoriler)
+    _mikro_eylem_isle(ey, kategoriler, hafta)
     if not odemeler:
-        st.markdown(bos_durum("Bu hafta ödeme yok", "Haftanın Excel'ini üst menüdeki Dosya düğmesinden yükle, "
+        st.markdown(bos_durum("Bu hafta ödeme yok", _BOS_MIKRO if _mikro_liste_acik() else
+                              "Haftanın Excel'ini üst menüdeki Dosya düğmesinden yükle, "
                               "'Mikro'dan öneri' ile hazırla ya da 'Manuel ödeme' ile tek tek ekle.", "payments"),
                     unsafe_allow_html=True)
         return

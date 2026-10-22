@@ -107,15 +107,17 @@ MIKRO_ESITLEME = {
     "aktif_stok": "kayranacc.mikro_stok_degeri",
     "aktif_ithalat": "kayranacc.mikro_muhasebe", "aktif_cari": "kayranacc.mikro_muhasebe",
     "cek_listesi": "kayranacc.mikro_muhasebe",
+    "odeme_listesi": "kayranacc.mikro_odeme_oto",      # 22.10.2026: her pazartesi Mikro'dan kendiliğinden
 }
 MIKRO_NOTU = "Bu dosyanın verisi artık Mikro'dan geliyor; yüklemeye gerek yok."
 # Durumu okunamazsa "açık" sayan eşitlemeler (varsayılan açık): okuma hatasında kapı açık kalsın diye önce
 # ayarın okunabildiği denenir
-_VARSAYILAN_ACIK = {"ithalat.mikro_ithalat"}
+_VARSAYILAN_ACIK = {"ithalat.mikro_ithalat", "kayranacc.mikro_odeme_oto"}
 # Şablon → türü (şablon da türüyle birlikte gizlenir)
 _SABLON_TUR = {"satis.main:sablon_siparis_vatan": "siparis_vatan",
                "satis.main:sablon_siparis_itopya": "siparis_itopya",
-               "ithalat.main:sablon_ithalat": "ithalat_rapor"}
+               "ithalat.main:sablon_ithalat": "ithalat_rapor",
+               "kayranacc.main:sablon_odeme_listesi": "odeme_listesi"}
 
 
 def esitleme_acik(modul):

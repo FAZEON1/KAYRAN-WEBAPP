@@ -79,16 +79,19 @@ def hafta_sil(hafta_id):
     _cache_temizle()
 
 
-def hafta_olustur(hafta_adi, odemeler):
+def hafta_olustur(hafta_adi, odemeler, idler=None):
     """Yeni hafta + ödemeleri; hafta EN SON aktif yapılır. Ödeme listesi Excel'inin (main.kapi_odeme_listesi)
     yaptığıyla aynı fonksiyonlar, aynı sıra; Mikro önerisi (kayranacc/mikro_odeme_ekran) bunu kullanır.
     Yazım yarıda kalırsa yarım hafta silinir ve eski aktif hafta yerinde kalır (hata yeniden fırlatılır).
+    idler: liste verilirse eklenen ödemelerin id'leri girdi sırasıyla eklenir (Mikro otomatik haftası).
     Döner: hafta id; hafta oluşturulamadıysa None (hiçbir şey değişmez)."""
     hafta_id = hafta_ekle(hafta_adi)
     if hafta_id is None:
         return None
     try:
-        odeme_ekle_bulk(hafta_id, odemeler)
+        _idler = odeme_ekle_bulk(hafta_id, odemeler)
+        if idler is not None:
+            idler.extend(_idler or [])
     except Exception:
         try:
             hafta_sil(hafta_id)
@@ -171,6 +174,8 @@ def _vade(v):
 
 
 def odeme_ekle_bulk(hafta_id, odemeler):
+    """Döner: eklenen satırların id'leri (girdi sırasıyla; tutarsız satır atlanır). Mikro'dan otomatik açılan
+    haftada (kayranacc/mikro_odeme_oto) satır ↔ Mikro kalemi eşlemesi bu id'lerle tutulur."""
     sb = get_client()
     rows = []
     for o in odemeler:
@@ -191,9 +196,39 @@ def odeme_ekle_bulk(hafta_id, odemeler):
             "durum": "bekliyor",
         })
     BATCH = 25
+    idler = []
     for i in range(0, len(rows), BATCH):
-        sb.table("odemeler").insert(rows[i:i+BATCH]).execute()
+        res = sb.table("odemeler").insert(rows[i:i+BATCH]).execute()
+        idler += [r.get("id") for r in (res.data or [])]
         _cache_temizle()
+    return idler
+
+
+def odeme_mikro_kapandi(odeme_id, bugun_iso=None, not_metni=" · Mikro'da kapandı"):
+    """Mikro'da kapanan kalemin ödemesi 'odendi' olur — YALNIZ durum; banka bakiyesine dokunmaz (bakiye Mikro'dan
+    gelir, ödeme orada zaten düşüldü). Yalnız 'bekliyor' satırı değişir (elle işaretlenmiş olana dokunulmaz).
+    Döner: değişti mi."""
+    sb = get_client()
+    r = (sb.table("odemeler").select("durum,aciklama").eq("id", odeme_id).execute().data or [None])[0]
+    if not r or r.get("durum") != "bekliyor":
+        return False
+    acik = _str(r.get("aciklama"))
+    sb.table("odemeler").update({"durum": "odendi", "odendi_tarih": bugun_iso or tr_today_iso(),
+                                 "aciklama": acik if not_metni in acik else (acik + not_metni)[:500]}) \
+        .eq("id", odeme_id).eq("durum", "bekliyor").execute()
+    _cache_temizle()
+    return True
+
+
+def odeme_mikro_guncelle(odeme_id, alanlar):
+    """Mikro'dan açılan satırın tutar / açıklama / vadesini Mikro'daki son duruma getirir (yalnız 'bekliyor').
+    alanlar: {tutar_tl, tutar_usd, aciklama, vade} alt kümesi."""
+    izinli = {k: v for k, v in (alanlar or {}).items() if k in ("tutar_tl", "tutar_usd", "aciklama", "vade")}
+    if not izinli:
+        return False
+    get_client().table("odemeler").update(izinli).eq("id", odeme_id).eq("durum", "bekliyor").execute()
+    _cache_temizle()
+    return True
 
 
 def odeme_ekle_manuel(hafta_id, firma, aciklama, cari_banka, vade, tutar_tl, tutar_usd, kategori):

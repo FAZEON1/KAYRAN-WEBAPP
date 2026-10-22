@@ -67,6 +67,61 @@ def _geri_cevir(df, kat_anahtar):
     return out
 
 
+def vade_tablosu(kartlar, ogrenilen, elle, hepsi=False):
+    """Firma vadeleri penceresinin satırları: öğrenilen ya da elle günü olan cariler (hepsi=True: tüm borç carileri)."""
+    out = []
+    for k in sorted(kartlar, key=lambda x: str(x.get("cari_unvan1") or "")):
+        kod = str(k.get("cari_kod") or "")
+        if not kod.startswith(O.BORC_ONEK):
+            continue
+        og, el = ogrenilen.get(kod), elle.get(kod)
+        if og is None and el is None and not hepsi:
+            continue
+        out.append({"Cari": kod, "Ünvan": str(k.get("cari_unvan1") or ""), "Öğrenilen gün": og, "Gün (elle)": el})
+    return out
+
+
+@st.dialog("Firma vadeleri", width="large")
+def vade_penceresi():
+    """Mikro'da vadesi girilmemiş faturalarda kullanılan firma ödeme günü. Elle gün öğrenileni geçer; boş bırakılırsa
+    öğrenilen kullanılır. Değişiklik sonraki pazartesi açılan listeden geçerli (bu haftanın satırları kaymasın)."""
+    from . import mikro_odeme_oto as OT
+    from .database import get_aktif_hafta
+    d = OT.durum()
+    hafta = get_aktif_hafta() or {}
+    ogrenilen = ((d.get("haftalar") or {}).get(str(hafta.get("id"))) or {}).get("gunler") or {}
+    elle = {k: int(v) for k, v in (d.get("vade_elle") or {}).items()}
+    try:
+        kartlar = _veri()["cari_kart"]
+    except Exception as e:  # noqa: BLE001
+        st.error(f"Mikro cari kartları okunamadı: {type(e).__name__}: {str(e)[:160]}")
+        return
+    st.caption("Mikro'da vadesi girilmiş faturada Mikro'nun vadesi kullanılır. Vadesi girilmemişse fatura tarihine "
+               "buradaki gün eklenir; gün geçmiş ödeme listelerinden öğrenildi. 'Gün (elle)' öğrenileni geçer, "
+               "boş bırakırsan öğrenilen kullanılır. Değişiklik sonraki pazartesi açılan listeden geçerli.")
+    hepsi = st.toggle("Tüm borç carilerini göster", value=False, key="mo_vade_hepsi")
+    satir = vade_tablosu(kartlar, ogrenilen, elle, hepsi)
+    if not satir:
+        st.info("Henüz öğrenilmiş firma vadesi yok; ilk Mikro listesi açılınca dolar.")
+        return
+    df = st.data_editor(pd.DataFrame(satir), hide_index=True, use_container_width=True, num_rows="fixed",
+                        key=f"mo_vade_tablo_{int(hepsi)}", height=min(460, 38 + 35 * len(satir)),
+                        column_config={"Gün (elle)": st.column_config.NumberColumn("Gün (elle)", min_value=0,
+                                                                                    max_value=365, step=1)},
+                        disabled=["Cari", "Ünvan", "Öğrenilen gün"])
+    degisen = {}
+    for r in df.to_dict("records"):
+        v = r.get("Gün (elle)")
+        v = None if v is None or v != v else int(v)
+        if v != elle.get(r["Cari"]):
+            degisen[r["Cari"]] = v
+    if st.button("Kaydet", type="primary", icon=":material/check_circle:", use_container_width=True,
+                 disabled=bool(st.session_state.get("salt_okur")) or not degisen, key="mo_vade_kaydet"):
+        OT.firma_vadeleri_kaydet(degisen)
+        from shared import bilesen as B
+        B.yenile(f"{len(degisen)} firmanın vadesi kaydedildi; sonraki pazartesiden geçerli.")
+
+
 @st.dialog("Mikro'dan haftalık ödeme önerisi", width="large")
 def oneri_penceresi(kategoriler):
     from .database import get_aktif_odemeler, get_tum_haftalar, hafta_olustur
