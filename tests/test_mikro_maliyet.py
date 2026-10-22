@@ -6,6 +6,8 @@ gösterildikten sonra "A ile yap": Σ giriş maliyeti (USD) ÷ Σ giren adet; ma
 Canlı örnekler (mikro_stok_maliyet, 22.10.2026): F1M650BBM 39,53 $ (Mikro'nun satış maliyeti 28,37 $ idi),
 Faze3 1,70 $ (yurt içi değer farkı faturalarıyla 1,7045 $).
 """
+from pathlib import Path
+
 import pytest
 
 from kayranpm import mikro_maliyet as M
@@ -51,3 +53,53 @@ def test_get_pacal_map_mikro_once(monkeypatch):
     for f in (sdb.get_pacal_map, getattr(sdb, "_mikro_pacal", None)):
         getattr(f, "clear", lambda: None)()
     assert sdb.get_pacal_map()["F1M650BBM"] == 31.0                # kapatılınca eski hesap
+
+
+# ── Sevkiyat paçalı: antrepodan parça parça çekim (22.10.2026) ─────────
+# Canlı örnek P251031: 3 konteyner, 2'si çekildi (VANEX-015, masraf 29.361 ve 31.180 $; bunun 23.417 ve 24.868 $'ı
+# demuraj + liman / antrepo ardiyesi), 1'i antrepoda. F21E650BWM satışları masrafsız (FOB 37,34 $) kaydedilmişti.
+def _dosya(i, pi, durum, masraf=None):
+    return {"id": i, "pi_no": pi, "dosya_no": pi, "durum": durum, "doviz": "USD", "masraflar": masraf or {}}
+
+
+DOSYA = [_dosya(1, "P251031-29-ST", "Teslim Alındı", {"navlun": 5254.82, "demuraj": 12697.36, "liman_ardiye": 9346.21,
+                                                       "antrepo_ardiye": 1373.5, "diger": 689.11}),
+         _dosya(2, "P251031-30-ST", "Antrepoda"),
+         _dosya(3, "P251031-31-ST", "Teslim Alındı", {"navlun": 5580.4, "demuraj": 13484.08, "liman_ardiye": 9925.3,
+                                                       "antrepo_ardiye": 1458.61, "diger": 732.61}),
+         _dosya(4, "PIFAZ1-1", "Teslim Alındı", {"navlun": 100.0, "demuraj": 50.0})]          # kapalı sevkiyat
+KALEM = [{"dosya_id": 1, "sku": "F21E650BBM", "adet": 1050, "birim_fob": 35.5},
+         {"dosya_id": 2, "sku": "F21E650BBM", "adet": 1050, "birim_fob": 35.5},
+         {"dosya_id": 3, "sku": "F21E650BWM", "adet": 1050, "birim_fob": 37.72},
+         {"dosya_id": 4, "sku": "KAPALI", "adet": 10, "birim_fob": 100}]
+
+
+def test_sevkiyat_pacali_bekleme_antrepodakilere_de_yayilir():
+    dz = M.sevkiyat_duzeltmesi(DOSYA, KALEM)
+    fob_cek, fob_tum = 1050 * 35.5 + 1050 * 37.72, 1050 * 35.5 * 2 + 1050 * 37.72
+    bek = 12697.36 + 9346.21 + 1373.5 + 13484.08 + 9925.3 + 1458.61
+    normal = 5254.82 + 689.11 + 5580.4 + 732.61
+    bwm_yeni = 1050 * 37.72 * (normal / fob_cek + bek / fob_tum)
+    bwm_eski = 5580.4 + 13484.08 + 9925.3 + 1458.61 + 732.61
+    assert dz["F21E650BWM"]["fark"] == pytest.approx(bwm_yeni - bwm_eski)
+    assert dz["F21E650BWM"]["bekleme"] == pytest.approx(1050 * 37.72 * bek / fob_tum)
+    assert dz["KAPALI"] == {"fark": 0.0, "bekleme": 50.0}               # sevkiyat bitti: Mikro'daki dağılım kalır
+    # Mikro: 1060 adet, FOB 39.585 $ + masraf 29.919 $ → 65,57; sevkiyat paçalı ≈ 57,9 $ (bekleme ≈ 15,8 $/adet)
+    mikro = [_r("F21E650BWM", 2026, 12, 1060, 39585.0), _r("F21E650BWM", 2026, 3, 0, 29918.94)]
+    p, b = M.pacal_hesapla_sevkiyatli(mikro, dz)
+    assert M.pacal_hesapla(mikro)["F21E650BWM"] == pytest.approx(65.57, abs=0.01)
+    assert p["F21E650BWM"] == pytest.approx(57.9, abs=0.1) and b["F21E650BWM"] == pytest.approx(15.8, abs=0.1)
+    assert M.sevkiyat_anahtari({"pi_no": "2511S07-4"}) == "2511S07"
+
+
+def test_pnl_bekleme_ayri_satir():
+    import tests.test_satis_pnl as T
+
+    class S(T.Sahte):
+        def bekleme_payi(self):
+            return {"K1": 2.5}
+    r = T._p(S())
+    assert r["bekleme"] == pytest.approx(10 * 2.5)                     # 10 adet K1 × 2,5 $
+    assert T._p()["bekleme"] == 0.0                                     # kaynak bilmiyorsa 0
+    m = (Path(__file__).resolve().parent.parent / "satis" / "main.py").read_text(encoding="utf-8")
+    assert "antrepo / liman bekleme maliyeti" in m

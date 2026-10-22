@@ -163,8 +163,18 @@ def satis_pnl(bas, bit, kanal_f, kat_f, kaynak, satislar=None):
             eksik.append(f"Ref No kategori kırılımı okunamadı ({type(e).__name__}) — kategoriye düşülmedi")
     ref_g = ref_kat if kat_f != "Tümü" else (ref_usd if (ref_usd > 0.005 and not filtreli) else 0.0)
 
+    # Bekleme maliyeti (antrepo / liman: demuraj, ardiye) — COGS'un içindeki payı, ayrı satırda gösterilir
+    # (kullanıcı 22.10.2026). Satış adedi × SKU'nun paçalındaki bekleme payı; okunamazsa 0.
+    bekleme = 0.0
+    try:
+        _bp = getattr(kaynak, "bekleme_payi", lambda: {})() or {}
+        bekleme = sum(float(s.get("adet") or 0) * float(_bp.get(sku_anahtar(s.get("sku")), 0) or 0) for s in sat)
+    except Exception as e:  # noqa: BLE001
+        eksik.append(f"Bekleme maliyeti okunamadı ({type(e).__name__})")
+
     nihai = net_kar - ref_g + alinan_usd + kat_destek
     return {
+        "bekleme": bekleme,
         "bos": False, "top": top, "kanal": kanal, "urun": urun,
         "isat": isat, "itop": itop, "ikan": ikan, "sku_iade": {r["sku"]: r for r in isat},
         "net_ciro": net_ciro, "net_kar": net_kar, "net_satis": net_satis,
@@ -206,6 +216,10 @@ class Kaynak:
     def pacal(self):
         from satis.database import get_pacal_map
         return get_pacal_map()
+
+    def bekleme_payi(self):
+        from satis.database import get_bekleme_payi_map
+        return get_bekleme_payi_map()
 
     def ref_tutarlari(self, bas, bit):
         from kayranpm.ref_no import get_tum_ref_tutarlari

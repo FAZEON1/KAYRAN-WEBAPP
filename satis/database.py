@@ -246,6 +246,17 @@ def _mikro_pacal():
     return pacal_haritasi()
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def get_bekleme_payi_map():
+    """{sku_anahtar: USD/adet} — paçalın içindeki antrepo / liman bekleme masrafı (demuraj, ardiye; kayranpm.
+    mikro_maliyet). Kâr ekranı bunu COGS'un altında ayrı satırda gösterir. Okunamazsa boş."""
+    try:
+        from kayranpm.mikro_maliyet import haritalar
+        return haritalar()[1]
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 @st.cache_data(ttl=3600, show_spinner=False)   # tazelik: shared.veri_surumu (veri değişince temizlenir)
 def get_pacal_map():
     """{KANONİK sku: birim maliyet USD} — TÜM maliyetlerin tek kapısı.

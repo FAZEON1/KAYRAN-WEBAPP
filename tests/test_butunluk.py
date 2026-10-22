@@ -304,7 +304,8 @@ KRITIK_FONKSIYONLAR = {
                             "birlesik_liste", "kart_cipleri_hazirla", "veri_oku", "hesapla", "plan_hazirla", "uygula",
                             "durum", "acik_mi", "ac", "son_aktarim", "otomatik", "kart_cipleri"],
     "kayranpm.mikro_urun_ekran": ["ilk_onay_kutusu"],
-    "kayranpm.mikro_maliyet": ["pacal_hesapla", "durum", "acik_mi", "pacal_haritasi"],   # paçal Mikro'dan (22.10.2026)
+    "kayranpm.mikro_maliyet": ["pacal_hesapla", "durum", "acik_mi", "pacal_haritasi", "sevkiyat_anahtari",
+                               "sevkiyat_duzeltmesi", "pacal_hesapla_sevkiyatli", "haritalar"],   # paçal Mikro'dan (22.10.2026)
     "kayranpm.mikro_yurtici": ["yurtici_satiri_mi", "mikro_alimlari", "plan_yap", "plan_ozeti", "uygula",
                                 "otomatik"],
     "kayranpm.mikro_multikod": ["firma_anahtar", "cari_firma", "harita_kur", "belirsizler", "uygula", "oku",
