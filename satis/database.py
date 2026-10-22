@@ -1792,6 +1792,13 @@ get_iadeler.clear = lambda: (_iadeler_aralik.clear(), _tum_iadeler.clear())
 def sil_iade(iade_id):
     try:
         cli = _get_client()
+        # Mikro esas (22.10.2026): eşitleme açıkken Mikro'dan gelen iade satırı uygulamada silinmez (bir sonraki
+        # turda geri gelir ve arada stok / P&L yanlış görünür). Mikro'da iptal edilmeli.
+        _acik, _bas = mikro_esitleme()
+        if _acik:
+            _k = _rows(cli.table("iadeler").select("kaynak,tarih").eq("id", iade_id).execute())
+            if _k and str(_k[0].get("kaynak") or "") == "mikro" and str(_k[0].get("tarih") or "")[:10] >= _bas:
+                return False
         try:
             _r = _rows(cli.table("iadeler").select("sku,iade_adet,depo").eq("id", iade_id).execute())
         except Exception:

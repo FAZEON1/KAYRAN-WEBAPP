@@ -193,3 +193,31 @@ def test_ilk_onay_kutusu_acikken_yalniz_kaynak_notu(monkeypatch):
     monkeypatch.setitem(sys.modules, "shared.kar_gizle", types.SimpleNamespace(kar_gorunur=lambda: False))
     E.ilk_onay_kutusu()
     assert yazilan == ["Satışlar, iadeler ve siparişler Mikro'dan gelir (15 dakikada bir) · 01.07.2026 sonrası."]
+
+
+def test_mikro_iade_satiri_silinmez(monkeypatch):
+    """Mikro esas (22.10.2026): eşitleme açıkken Mikro'dan gelen iade satırı iade listesinden silinmez."""
+    import types
+    import satis.database as SD
+
+    class _Q:
+        def __init__(self, sil):
+            self.sil = sil
+
+        def select(self, *a, **k):
+            return self
+
+        def eq(self, *a, **k):
+            return self
+
+        def delete(self):
+            self.sil.append(True)
+            return self
+
+        def execute(self):
+            return types.SimpleNamespace(data=[{"kaynak": "mikro", "tarih": "2026-09-10", "sku": "A", "iade_adet": 1}])
+
+    sil = []
+    monkeypatch.setattr(SD, "_get_client", lambda: types.SimpleNamespace(table=lambda t: _Q(sil)))
+    monkeypatch.setattr(SD, "mikro_esitleme", lambda: (True, "2026-07-01"))
+    assert SD.sil_iade(5) is False and sil == []
