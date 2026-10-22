@@ -32,7 +32,7 @@ ADLAR = {"760.03.005": "LOJİSTİK VE NAKLİYE GİDERLERİ", "770.03.018": "KARG
 BUGUN = datetime.date(2026, 10, 21)
 
 
-@pytest.mark.parametrize("kod", ["102.01.001", "103.01", "120.01.005", "340.01.001", "153.01", "159.01.002",
+@pytest.mark.parametrize("kod", ["102.01.001", "103.01", "120.01.005", "340.01.001", "153.01",
                                  "320.50.005", "320.50"])
 @_M_gerek
 def test_toplam_aktiflerin_kendi_hesaplari_defter_kalemine_girmez(kod):
@@ -149,3 +149,10 @@ def test_yonetim_panosu_yeni_kalemleri_gosterir():
     json.dumps(h)
 
 
+
+
+@_M_gerek
+def test_159_antrepodaki_mal_aktife_girer():
+    """22.10.2026: antrepodaki mal (Mikro depo stoğunda yok) 159.02'de; aktiflerden düşmesin."""
+    assert M.kalem_bul("159.02") == "Antrepodaki mal ve sipariş avansları"
+    assert "159" not in M.KAPSANAN

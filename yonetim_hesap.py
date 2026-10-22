@@ -95,6 +95,22 @@ def tl_usd(tutar, doviz, tarih, kmap, yedek):
     return tutar / k if k else None
 
 
+def gider_tahmini(kat, mi, bugun, ay_sayisi=3):
+    """İçinde bulunulan ayın (mi) gider tahmini, TL: önceki ay_sayisi ayın (bu yılın, girilmiş) ortalaması × ayın
+    geçen gün oranı. Önceki ay yoksa 0."""
+    onceki = []
+    for j in range(mi - 1, -1, -1):
+        t = sum(float(((list(kat.get(k) or []) + [0.0] * 12)[j]) or 0) for k in GIDER_KAT)
+        if t:
+            onceki.append(t)
+        if len(onceki) == ay_sayisi:
+            break
+    if not onceki:
+        return 0.0
+    gun = calendar.monthrange(bugun.year, bugun.month)[1]
+    return sum(onceki) / len(onceki) * min(bugun.day / gun, 1.0)
+
+
 def pnl_topla(yil, donem, bas, bit, kaynak, bugun=None, aylar=None):
     """aylar=(i0, i1): gider aylarını açıkça verir (yılbaşından bugüne kıyası: geçen yılın
     yalnız aynı ayları). Verilmezse dönemden çıkar (ay_araligi) — bütün eski çağrılar aynı."""
@@ -170,6 +186,15 @@ def pnl_topla(yil, donem, bas, bit, kaynak, bugun=None, aylar=None):
             girilmemis = []
             for mi in range(i0, i1):
                 ay_tl = sum(float(((list(kat.get(k) or []) + [0.0] * 12)[mi]) or 0) for k in GIDER_KAT)
+                if not ay_tl and (yil, mi + 1) == (bugun.year, bugun.month):
+                    # İçinde bulunulan ay (kullanıcı, 22.10.2026): gider Mikro'dan ay kapanınca gelir; o zamana kadar
+                    # satışın brüt kârı var, gideri yoktu → net kâr bir aylık gider kadar yüksek görünüyordu.
+                    # Tahmin: son 3 ayın ortalaması × geçen gün oranı (satış da ayın bugününe kadar). Ekranda yazar.
+                    ay_tl = gider_tahmini(kat, mi, bugun)
+                    if ay_tl:
+                        r["gider_tahmini_tl"] = ay_tl
+                        eksik.append(f"{GIDER_AYLAR[mi]} gideri tahmini (son 3 ayın ortalaması, ayın "
+                                     f"{bugun.day}. gününe kadar): ay kapanınca Mikro'daki gerçek rakam gelir")
                 if not ay_tl:
                     # yalnız GEÇMİŞ aylar beklenir (içinde bulunulan ve gelecek aylar değil)
                     if (yil, mi + 1) < (bugun.year, bugun.month):
