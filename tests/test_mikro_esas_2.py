@@ -14,7 +14,7 @@ SD = pytest.importorskip("kayranacc.mikro_stok_degeri")
 # ── 11) Depo türü oranları ───────────────────────────────────────
 @pytest.mark.parametrize("ad,tur", [("TEKNİK DEPO", "hurda"), ("SERVİS DEPO", "hurda"), ("İKİNCİ EL DEPO", "ikinci_el"),
                                     ("OUTLET DEPO", "outlet"), ("OUTLET", "outlet"), ("MERKEZ DEPO", None),
-                                    ("İADE DEPO", None), ("HAPPY LIFE", None)])
+                                    ("İADE DEPO", "iade"), ("HAPPY LIFE", None)])   # iade: sevk oranı (22.10.2026)
 def test_depo_turu(ad, tur):
     assert SD.depo_turu(ad) == tur
 

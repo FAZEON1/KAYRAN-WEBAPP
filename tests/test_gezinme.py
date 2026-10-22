@@ -18,7 +18,7 @@ def test_modul_sayfa_listeleri_kayit_defterinden():
     g = _g()
     beklenen = {"kayranpm": ("kayranpm/main.py", 9), "depo": ("depo/main.py", 6),
                 "ithalat": ("ithalat/main.py", 5), "teknikservis": ("teknikservis/main.py", 7),
-                "satis": ("satis/main.py", 4), "kayranacc": ("kayranacc/main.py", 12)}   # İçe aktar ve Veri yükleme
+                "satis": ("satis/main.py", 4), "kayranacc": ("kayranacc/main.py", 13)}   # İçe aktar ve Veri yükleme
     # sayfaları Ekim 2026'da kalktı: yüklemeler üst menüdeki Dosya kapısında (shared/dosya_kapisi)
     for mod, (dosya, n) in beklenen.items():
         assert len(g.secenekler(mod)) == n, mod
@@ -239,7 +239,7 @@ def test_yetkisiz_sayfa_gruptan_duser():
     g = _g()
     sec = [s for s in g.secenekler("kayranacc") if s != "💰 Toplam Aktifler"]
     y = dict(g.grup_yapisi("kayranacc", sec))
-    assert "💰 Toplam Aktifler" not in y["Nakit"] and len(y["Nakit"]) == 3
+    assert "💰 Toplam Aktifler" not in y["Nakit"] and len(y["Nakit"]) == 4      # + Tahsilat (22.10.2026)
 
 
 def test_bos_grup_gosterilmez():

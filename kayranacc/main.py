@@ -1542,6 +1542,7 @@ def run():
                 _Byuva=_Byuva, fmt=fmt, fmt_tarih=fmt_tarih, vade_durumu=vade_durumu),
             "🕐 Ödenenler & Geçmiş": lambda: _sayfa_odenenler_gecmis(),
             "💵 Gelenler Geçmişi": lambda: _sayfa_gelenler_gecmisi(),
+            "📥 Tahsilat": lambda: _sayfa_tahsilat(),
             "📚 e-Defter": lambda: _sayfa_e_defter(_Byuva=_Byuva),
             "📄 Raporlar & Bildirim": lambda: _sayfa_raporlar_bildirim(
                 _Byuva=_Byuva, fmt=fmt, get_aktif_odemeler=get_aktif_odemeler, get_kur=get_kur),
@@ -2395,6 +2396,12 @@ def _sayfa_odenenler_gecmis():
 # ════════════════════════════════════════════════════════════════════
 # 7b) GELENLER GEÇMİŞİ — para girişleri (tahsilatlar)
 # ════════════════════════════════════════════════════════════════════
+def _sayfa_tahsilat():
+    # Mikro'daki müşteri alacakları, vadesine göre, canlı (kayranacc/mikro_tahsilat.py, 22.10.2026)
+    from .tahsilat_ekran import render
+    render()
+
+
 def _sayfa_gelenler_gecmisi():
     # Ekim 2026: aya göre gruplu liste, her giriş KENDİ para birimiyle
     # (eskiden TL tahsilatlar "$" ile görünüyordu); onaylı geri alma.

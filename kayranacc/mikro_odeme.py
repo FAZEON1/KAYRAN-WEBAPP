@@ -153,10 +153,12 @@ def _evrak_metni(h):
     return _s(h.get("cha_belge_no")) or no
 
 
-def acik_kalemler(hareketler, kartlar, planlar=None, taksitler=None, onekler=BORC_ONEK, gunler=None):
+def acik_kalemler(hareketler, kartlar, planlar=None, taksitler=None, onekler=BORC_ONEK, gunler=None, kalem_tipi=1):
     """Borçlu olduğumuz carilerin açık kalemleri. Her cari için: alacak hareketleri (fatura vb.) vade
     sırasına dizilir, ödemelerin (borç hareketleri) toplamı en eski vadeden başlayarak düşülür.
     gunler: {cari_kod: firma vadesi (gün)} — Mikro'da vadesi girilmemiş faturalara uygulanır.
+    kalem_tipi: kalemi oluşturan cha_tip (1 alacak: satıcı borcu; 0 borç: müşteri alacağı — tahsilat listesi,
+    kayranacc/mikro_tahsilat.py). Öteki tip kapatan harekettir (ödeme / tahsilat).
     Döner: [{cari_kod, unvan, doviz, tarih, vade, tutar, acik, evrak, aciklama, vade_kaynak, vade_kesin}]."""
     dov = {_s(k.get("cari_kod")): _i(k.get("cari_doviz_cinsi")) for k in kartlar if _s(k.get("cari_kod"))}
     ad = {_s(k.get("cari_kod")): _s(k.get("cari_unvan1")) for k in kartlar}
@@ -170,12 +172,13 @@ def acik_kalemler(hareketler, kartlar, planlar=None, taksitler=None, onekler=BOR
         t = hareket_tutari(h, dov[kod])
         if abs(t) < KURUS:
             continue
-        if _i(h.get("cha_tip")) == 0:
+        if _i(h.get("cha_tip")) != kalem_tipi:
             odenen[kod] += t
             continue
         tarih = _tarih(h.get("cha_tarihi"))
         ortak = {"cari_kod": kod, "unvan": ad.get(kod) or kod, "doviz": dov[kod], "tarih": tarih,
-                 "evrak": _evrak_metni(h), "aciklama": _s(h.get("cha_aciklama"))}
+                 "evrak": _evrak_metni(h), "aciklama": _s(h.get("cha_aciklama")),
+                 "plan": _i(h.get("cha_vade")) if 0 < _i(h.get("cha_vade")) < 1000 else None}
         tk = taksitler.get(_evrak_anahtar(h.get("cha_evrak_tip"), h.get("cha_evrakno_seri"),
                                           h.get("cha_evrakno_sira")))
         if tk and 0 < _i(h.get("cha_vade")) < 1000:
