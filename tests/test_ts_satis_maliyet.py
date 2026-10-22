@@ -109,5 +109,6 @@ def test_ekran_cari_secer_ve_toplu_tek_siparis():
     from pathlib import Path
     s = (Path(__file__).resolve().parent.parent / "teknikservis/main.py").read_text(encoding="utf-8")
     assert 'text_input("Satış Firma' not in s
-    assert s.count("_cari_sec(") == 3                      # tanım + toplu + tek ürün
-    assert "cari=_t_firma, siparis_no=_t_sipno" in s and "cari=sf)" in s
+    # Tek ürün 'Satıldı' kalktı (22.10.2026): satış Mikro faturasından seri no ile (teknikservis/mikro_satis.py)
+    assert s.count("_cari_sec(") == 2                      # tanım + toplu (eski ekran)
+    assert "cari=_t_firma, siparis_no=_t_sipno" in s and 'st.popover("💰 Satıldı"' not in s

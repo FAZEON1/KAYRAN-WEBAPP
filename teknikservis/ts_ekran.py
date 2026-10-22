@@ -65,6 +65,45 @@ def geri_yukle(keys):
     B.geri_yukle(keys)
 
 
+# ── Sayfaya giriş: ilk standart hâl ──────────────────────────────────
+# Kullanıcı (22.10.2026): "Tekrar depolara girdiğimde en son kaldığım yerden devam ediyor; her arayüze geçişte
+# ilk standart hâlini görmek istiyorum." Başka bir Teknik Servis sayfasına ya da başka bir modüle geçip dönünce
+# açık ayrıntı, filtreler ve masa görünümü (görünüm, arama, süzgeç, sıralama) sıfırlanır. Aynı sayfada kalırken
+# (ayrıntıdan listeye dönüş, kayıt sonrası yenileme) hiçbir şey değişmez.
+_KORUNAN = {"ts_sayfa"}
+MASA_SIFIRLA = "_ts_masa_sifirla"
+
+
+def sifirlanacak_mi(anahtar):
+    a = str(anahtar)
+    if a in _KORUNAN:
+        return False
+    return ((a.startswith("_ts_") and a.endswith("_secili")) or a.startswith(("ts_", "depo_", "sd_"))
+            or a.startswith(("_koru_ts_", "_koru_depo_", "_masa_bildirim_ts_", "_masa_bildirim_depo_")))
+
+
+def sayfa_girisi(sayfa, yeni_modul=False):
+    """Sayfa değiştiyse ya da modüle yeni girildiyse durumu sıfırlar. Döner: sıfırlandı mı."""
+    if "_ts_gorulen_sayfa" not in st.session_state:          # oturumun ilk açılışı: sıfırlanacak eski hâl yok
+        st.session_state["_ts_gorulen_sayfa"] = sayfa
+        return False
+    if not yeni_modul and st.session_state.get("_ts_gorulen_sayfa") == sayfa:
+        return False
+    for k in [k for k in list(st.session_state.keys()) if sifirlanacak_mi(k)]:
+        st.session_state.pop(k, None)
+    st.session_state["_ts_gorulen_sayfa"] = sayfa
+    st.session_state[MASA_SIFIRLA] = True
+    return True
+
+
+def masa_baslangic(veri):
+    """Sayfaya girişten sonraki ilk masa çiziminde görünüm durumu varsayılandan başlar (tarayıcıdaki eski durum
+    yerine; shared/masa.py 'baslangic')."""
+    if st.session_state.pop(MASA_SIFIRLA, False):
+        return dict(veri, baslangic={})
+    return veri
+
+
 # ── Küçük parçalar ───────────────────────────────────────────────────
 def _e(v, bos="—"):
     v = "" if v is None else str(v).strip()

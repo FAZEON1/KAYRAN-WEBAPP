@@ -342,7 +342,7 @@ SELECT sth_Guid, sth_tarih, sth_tip, sth_cins, sth_evraktip, sth_normal_iade, st
        sth_iskonto1 + sth_iskonto2 + sth_iskonto3 + sth_iskonto4 + sth_iskonto5 + sth_iskonto6 AS sth_iskonto,
        sth_masraf1 + sth_masraf2 + sth_masraf3 + sth_masraf4 AS sth_masraf,
        sth_har_doviz_cinsi, sth_har_doviz_kuru, sth_alt_doviz_kuru, sth_giris_depo_no, sth_exim_kodu,
-       sth_bagli_ithalat_kodu, sth_fat_uid, sth_lastup_date
+       sth_bagli_ithalat_kodu, sth_fat_uid, sth_lastup_date, sth_aciklama
 FROM STOK_HAREKETLERI
 WHERE sth_iptal=0 AND sth_tip=0 AND ISNULL(sth_cari_kodu, '') <> '' AND sth_tarih >= '20250101'
   AND sth_lastup_date > '{SON}'

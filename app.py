@@ -3709,6 +3709,12 @@ def main():
     # Gruplu sayfaların (Verilerim, Sistem) üstünde kardeş sayfalara geçiş seçicisi
     _grup_seridi(aktif)
 
+    # Modüle yeni mi girildi (önceki çalıştırmada başka modül): modül ilk standart hâliyle açılabilsin
+    # (teknikservis.ts_ekran.sayfa_girisi; kullanıcı 22.10.2026)
+    st.session_state["_modul_yeni_girildi"] = ("_son_aktif_modul" in st.session_state
+                                               and st.session_state["_son_aktif_modul"] != aktif)
+    st.session_state["_son_aktif_modul"] = aktif
+
     # Sayfa dispatch
     # Süresi bilgi işlem ölçümüne yazılır (shared/bt_olcum, bt_olcum tablosu).
     import time as _time_bt
