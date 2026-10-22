@@ -11,6 +11,15 @@ destekler satış fiyatından düşülür → net satış; marj = net kâr / net
 from datetime import date
 import calendar as _cal
 
+# Net satış bir sentin altındaysa (bedelsiz çıkış: 0 $ fatura, numune, garanti değişimi) marj hesaplanmaz:
+# zarar ÷ 0,0002 $ gibi bir payda ekranda "%-26.069.604" gösteriyordu (kullanıcı, 22.10.2026).
+MARJ_ESIK = 0.01
+
+
+def marj_hesap(net_kar, net_satis):
+    """Net kâr / net satış (%); net satış MARJ_ESIK'in altındaysa None (anlamsız)."""
+    return (net_kar / net_satis * 100) if net_satis >= MARJ_ESIK else None
+
 
 def onceki_ay_araligi(bugun):
     """Geçen ayın 1'i → geçen ayın 'aynı günü' (kısa ayda ay sonu). Bu ay ciro kartı
@@ -94,7 +103,7 @@ def siparis_grupla(satislar, satir_kar):
     out = []
     for o in g.values():
         ns = o["ciro"] - o["destek"]
-        o["marj"] = (o["net_kar"] / ns * 100) if ns > 0 else None
+        o["marj"] = marj_hesap(o["net_kar"], ns)
         o["kalem"] = len(o["kalemler"])
         out.append(o)
     out.sort(key=lambda o: (o["tarih"], o["siparis_no"]), reverse=True)
@@ -149,7 +158,7 @@ def toplam(siparisler):
         for f in ("adet", "ciro", "maliyet", "destek", "net_kar"):
             t[f] += o[f]
     ns = t["ciro"] - t["destek"]
-    t["marj"] = (t["net_kar"] / ns * 100) if ns > 0 else None
+    t["marj"] = marj_hesap(t["net_kar"], ns)
     return t
 
 

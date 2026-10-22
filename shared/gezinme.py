@@ -34,7 +34,6 @@ MODULLER = [
          ("📊 Dashboard", "genel_bakis", "Genel bakış", None),
          ("💳 Bu Hafta", "bu_hafta", "Bu hafta", None),
          ("🏦 Banka Bakiyeleri", "banka", "Banka bakiyeleri", None),
-         ("💰 Toplam Aktifler", "toplam_aktifler", "Toplam aktifler", "toplam_aktifler"),
          ("💸 Nakit Akış", "nakit_akis", "Nakit akış", None),
          ("📋 Firma Çekleri", "cekler", "Firma çekleri", None),
          ("🕐 Ödenenler & Geçmiş", "odenenler", "Ödenenler ve geçmiş", None),
@@ -49,7 +48,7 @@ MODULLER = [
      "gruplar": [
          ("genel", "Genel bakış", ["genel_bakis"]),
          ("odemeler", "Ödemeler", ["bu_hafta", "cekler", "ertelenen", "odenenler"]),
-         ("nakit", "Nakit", ["banka", "nakit_akis", "toplam_aktifler", "tahsilat", "gelenler"]),
+         ("nakit", "Nakit", ["banka", "nakit_akis", "tahsilat", "gelenler"]),
          ("cari", "Cari", ["cari_ekstre"]),
          ("veri", "Veri ve raporlar", ["raporlar", "edefter"]),
      ]},

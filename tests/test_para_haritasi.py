@@ -63,7 +63,7 @@ def test_kur_yoksa_tl_sayilmaz_ve_yazilir():
 
 def test_cari_excel_yoksa_not():
     h = P.harita(dict(V, alacak=None, borc=None), KUR)
-    assert _b(h, "Müşteri alacağı") == 0 and any("cari Excel" in e for e in h["eksik"])
+    assert _b(h, "Müşteri alacağı") == 0 and any("Mikro cari" in e for e in h["eksik"])
     assert all(x["ad"] != "Cari borç" for x in h["borc"])
 
 

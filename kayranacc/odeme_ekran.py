@@ -63,6 +63,17 @@ def _mikro_liste_acik():
         return False
 
 
+def _mikro_idler(hafta):
+    """Haftanın Mikro'dan gelen satırları (ödendi bilgisi Mikro'dan; elle Öde yok). Okunamazsa boş küme."""
+    if not hafta or not _mikro_liste_acik():
+        return set()
+    try:
+        from .mikro_odeme_oto import mikro_idleri
+        return mikro_idleri(hafta.get("id"))
+    except Exception:  # noqa: BLE001
+        return set()
+
+
 def _mikro_eylemler():
     if _mikro_liste_acik():
         return [dict(_MIKRO_YENILE, disabled=_salt()), dict(_MIKRO_VADE, disabled=_salt())]
@@ -279,8 +290,10 @@ def _render_masa(kategoriler, export_excel, kur):
                     unsafe_allow_html=True)
         return
     from shared.masa import calistir
-    calistir(OM.masa_verisi(odemeler, bankalar, kategoriler, kur, bugun, salt=_salt()), "odeme_masasi",
-             OM.yurutucu(odemeler, bankalar, kategoriler, kur, bugun, salt=_salt()))
+    mikro_idler = _mikro_idler(hafta)
+    calistir(OM.masa_verisi(odemeler, bankalar, kategoriler, kur, bugun, salt=_salt(), mikro_idler=mikro_idler),
+             "odeme_masasi",
+             OM.yurutucu(odemeler, bankalar, kategoriler, kur, bugun, salt=_salt(), mikro_idler=mikro_idler))
     e1, e2 = st.columns([1, 3], vertical_alignment="center")
     e1.download_button("Excel indir", data=lambda: export_excel(odemeler, (hafta or {}).get("hafta_adi", ""), kur),
                        file_name=f"odeme_listesi_{bugun}.xlsx", on_click="ignore",

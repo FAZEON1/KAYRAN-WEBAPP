@@ -85,12 +85,21 @@ def _css():
 """) + "</style>"
 
 
+def _marj_alt(o):
+    """Sipariş penceresi kâr kartının alt yazısı: "net marj %12,3" / "bedelsiz" (satis_masasi.marj_metni)."""
+    from .satis_masasi import marj_metni
+    m = marj_metni(o["marj"], o["ciro"] - o["destek"])
+    return f"net marj {m}" if m.startswith("%") else m
+
+
 def _satir_html(o, firma_goster=True):
     urunler = ", ".join(dict.fromkeys(str(k.get("sku") or "") for k in o["kalemler"]))
     kar = ""
     if kar_gorunur():
         sinif = "poz" if o["net_kar"] >= 0 else "neg"
-        marj = f" · %{tr_sayi(o['marj'], 1)}" if o["marj"] is not None else ""
+        from .satis_masasi import marj_metni
+        _mm = marj_metni(o["marj"], o["ciro"] - o["destek"])
+        marj = f" · {_mm}" if _mm else ""
         kar = f'<small class="{sinif}">kâr {_usd(o["net_kar"])}{marj}</small>'
     uyari = B.cip(f"{o['maliyetsiz']} maliyetsiz", "amber", "Paçal maliyeti olmayan kalem: kâr yüksek görünür") \
         if o["maliyetsiz"] and kar_gorunur() else ""
@@ -179,7 +188,7 @@ def siparis_dialog(anahtar):
     if kar_ok:
         kal += [{"etiket": "Maliyet", "deger": _usd(o["maliyet"]), "renk": "amber"},
                 {"etiket": "Net kâr", "deger": _usd(o["net_kar"]), "renk": "yesil" if o["net_kar"] >= 0 else "kirmizi",
-                 "alt": f"net marj %{tr_sayi(o['marj'], 1)}" if o["marj"] is not None else "",
+                 "alt": _marj_alt(o),
                  "ipucu": _usd_tam(o["net_kar"])}]
     st.markdown(kpi_serit(kal), unsafe_allow_html=True)
     if o["maliyetsiz"] and kar_ok:

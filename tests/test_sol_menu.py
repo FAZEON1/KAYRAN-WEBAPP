@@ -37,10 +37,11 @@ def test_gorunurluk_paletle_ayni():
 
 
 def test_kosullu_sayfalar_suzulur():
-    yok = _mod(SM.menu_yapisi(TAM, set(), "ali", _kosul_yok), "kayranacc")
-    var = _mod(SM.menu_yapisi(TAM, set(), "ali", _kosul_var), "kayranacc")
-    assert "toplam_aktifler" not in [s["kod"] for s in yok["sayfalar"]]
-    assert "toplam_aktifler" in [s["kod"] for s in var["sayfalar"]]
+    # Muhasebe › Toplam Aktifler 22.10.2026'da kalktı (Yönetim panosunda): koşula bağlı örnek Satış › P&L
+    var = _mod(SM.menu_yapisi(TAM, set(), "ali", _kosul_var), "satis")
+    assert "pnl" in [s["kod"] for s in var["sayfalar"]]
+    assert "toplam_aktifler" not in [s["kod"] for s in _mod(SM.menu_yapisi(TAM, set(), "ali", _kosul_var),
+                                                            "kayranacc")["sayfalar"]]
     assert "pnl" not in [s["kod"] for s in _mod(SM.menu_yapisi(TAM, set(), "ali", _kosul_yok), "satis")["sayfalar"]]
 
 

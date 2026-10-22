@@ -459,10 +459,21 @@ def _toplam_aktif_penceresi(RENK, pencere, pencere_bos, buyuk=False):
     except Exception:  # noqa: BLE001
         snap = None
     if not snap:
-        return pencere("Toplam aktifler", RENK["mor"], pencere_bos("Muhasebe → Toplam Aktifler işlenince burada görünür"),
+        return pencere("Toplam aktifler", RENK["mor"], pencere_bos("İlk Mikro eşitleme turundan sonra burada görünür"),
                        yukseklik=60)
     return pencere("Toplam aktifler", RENK["mor"], _toplam_aktif_html(snap, RENK, buyuk=buyuk),
                    rozet=_tr_tarih(snap.get("tarih"), saat=True), yukseklik=320 if buyuk else 300)
+
+
+def _toplam_aktif_ayrintisi():
+    """Pencerenin altı: defter kalemleri dökümü ve manuel kalemler (yalnız Toplam Aktifler yetkisi olana;
+    Muhasebe › Toplam Aktifler sayfası 22.10.2026'da kalktı — kayranacc/toplam_aktif_ekran.py)."""
+    try:
+        from kayranacc.database import get_ayar
+        from kayranacc.toplam_aktif_ekran import ayrinti
+        ayrinti(get_ayar("toplam_aktif_snapshot"))
+    except Exception as e:  # noqa: BLE001
+        st.caption(f"Toplam aktifler ayrıntısı açılamadı: {type(e).__name__}")
 
 
 def _ozet(r, yil, donem, bugun, kur, RENK, pencere, pencere_grid, pencere_bos):
@@ -506,6 +517,7 @@ def _ozet(r, yil, donem, bugun, kur, RENK, pencere, pencere_grid, pencere_bos):
     _p_kanal = pencere("Kanal katkısı · net kâr", RENK["mor"], _k or pencere_bos("Bu dönemde satış kaydı yok"),
                        rozet=f"{len(r['kanal'])} kanal", yukseklik=300)
     st.markdown(pencere_grid(_p_kanal, _toplam_aktif_penceresi(RENK, pencere, pencere_bos)), unsafe_allow_html=True)
+    _toplam_aktif_ayrintisi()
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -778,6 +790,7 @@ def run():
                         unsafe_allow_html=True)
             uyari_ciz()
             st.markdown(_toplam_aktif_penceresi(RENK, pencere, pencere_bos, buyuk=True), unsafe_allow_html=True)
+            _toplam_aktif_ayrintisi()
             return
         # Başlık seçili bölümün adı (Özet, Ay kapanışı…): sayfa başlığı yalnız soldaki menüdeki adla eşleşince
         # görünür (shared.tasarim.baslik); "Yönetim panosu" eşleşmediği için Yönetim sayfalarında başlık yoktu.

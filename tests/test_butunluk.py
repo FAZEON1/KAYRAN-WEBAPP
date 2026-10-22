@@ -86,6 +86,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "yukleme_takvimi.py",   # Mikro'nun karşıladığı kaynaklar: görev yok (22.10.2026)
                "stok_hesap.py", "musteri_ekran.py",   # kanal stoğu kod eşleşmesi karşılaştırması (Eki 2026)
                "satis_hesap.py",                      # elle siparişte mükerrer uyarısı (Eki 2026)
+               "toplam_aktif.py", "toplam_aktif_ekran.py",   # Toplam Aktifler eşitleme turunda (22.10.2026)
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -226,7 +227,7 @@ KRITIK_FONKSIYONLAR = {
                            "veri_oku", "plan_hazirla", "uygula", "otomatik", "durum", "acik_mi", "ac", "aktarici_yayinla", "aktarici_ozeti", "aktarici_yayinda_mi", "kopyasiz", "aktarim_suruyor_mu", "aktarim_suruyor", "otomatik_guvenli_mi", "acik_mi",
                            "siparis_kayitlari", "siparis_oku",
                            "elle_fatura_eslestir"],   # elle satır ↔ fatura satırı (çift sayım, Eki 2026)
-    "satis.satis_hesap": ["mukerrer_kalemler", "siparis_grupla"],   # elle siparişte mükerrer uyarısı
+    "satis.satis_hesap": ["mukerrer_kalemler", "siparis_grupla", "marj_hesap"],   # bedelsiz satışta marj yok (22.10)   # elle siparişte mükerrer uyarısı
     "satis.mikro_esitle_ekran": ["ilk_onay_kutusu"],
     "shared.mikro_saglik": ["zaman", "dakika_once", "sure_metni", "is_durumu", "sorunlar", "bildirim_karari",
                             "senk_oku", "satis_durumu", "gunluk_oku", "gunluk_yaz", "tetik_durumu",
@@ -247,7 +248,7 @@ KRITIK_FONKSIYONLAR = {
     "kayranacc.mikro_alinan": ["aylik", "ay_kuru", "usd_satirlari", "durum", "acik_mi",
                                "mikro_satirlari"],   # alınan destekler Mikro 602 (Eki 2026)
     "shared.mikro_kilit": ["sahip_adi", "al", "birak", "tur_kilidi"],   # eşitleme turu kilidi (Eki 2026)
-    "kayranacc.mikro_muhasebe": ["bagli_banka_mi", "yalniz_bagli_mi", "donem_sonu_virmansiz", "hareket_tutari", "bakiyeler", "banka_bakiyeleri", "cari_bakiyeleri", "cari_ozeti",
+    "kayranacc.mikro_muhasebe": ["faturasiz_teslimler", "bagli_banka_mi", "yalniz_bagli_mi", "donem_sonu_virmansiz", "hareket_tutari", "bakiyeler", "banka_bakiyeleri", "cari_bakiyeleri", "cari_ozeti",
                                  "ithalat_odenen", "banka_eslestir", "cek_satirlari", "cek_imzasi", "cek_ozeti",
                                  "plan_yap", "veri_oku", "plan_hazirla", "uygula", "durum", "acik_mi", "ac",
                                  "son_aktarim", "otomatik"],
@@ -263,7 +264,7 @@ KRITIK_FONKSIYONLAR = {
                               "maas_satirlari"],
     "kayranacc.mikro_odeme_ekran": ["oneri_penceresi", "vade_penceresi", "vade_tablosu"],   # Bu Hafta (Eki 2026)
     # Haftalık ödeme listesi her pazartesi Mikro'dan (22.10.2026)
-    "kayranacc.mikro_odeme_oto": ["pazartesi", "liste_satirlari", "tasinacaklar", "guncelleme_plani",
+    "kayranacc.mikro_odeme_oto": ["mikro_idleri", "pazartesi", "liste_satirlari", "tasinacaklar", "guncelleme_plani",
                                   "gecmis_satirlari", "durum", "acik_mi", "mikro_haftasi", "son_aktarim", "veri_oku",
                                   "firma_gunleri", "hafta_ac", "hafta_yenile", "otomatik", "elle_yenile",
                                   "firma_vadeleri_kaydet"],
@@ -279,6 +280,10 @@ KRITIK_FONKSIYONLAR = {
     "kayranacc.mikro_tahsilat": ["plan_adlari", "satisa_bagli_mi", "ozet", "son_tahsilatlar", "toplamlar",
                                  "veri_oku", "hesapla"],      # tahsilat listesi, Mikro 120 (22.10.2026)
     "kayranacc.tahsilat_ekran": ["render"],
+    # Toplam Aktifler Muhasebe'den kalktı, eşitleme turunda hesaplanır, Yönetim'de görünür (22.10.2026)
+    "kayranacc.toplam_aktif": ["stok_degeri", "cari_usd", "banka_usd", "hesapla", "kayit", "yazilmali_mi", "veri_oku",
+                               "guncelle", "otomatik"],
+    "kayranacc.toplam_aktif_ekran": ["ayrinti", "yetkili_mi"],
     "kayranpm.mikro_depo": ["hareket_turu", "hareketler", "depo_partileri", "havuz_partileri", "depo_yaslari",
                             "depo_ozet_satirlari", "depo_parti_satirlari", "toplam", "excel_karsilastir",
                             "yas_karsilastir", "veri_oku", "hesapla", "havuz_partileri_oku", "depo_partileri_oku",
@@ -340,7 +345,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.masa_liste": ["kolon", "bicim", "veri", "excel_bayt", "ciz"],   # salt-okur liste masası (Eki 2026)
     "shared.form": ["tr_sayi_oku", "tr_sayi_yaz", "sayi_kutusu", "ozet_paneli", "css"],   # giriş formları (Eki 2026)
     "shared.ikon": ["bas_emoji", "ic_temizle", "metin", "mesaj", "toast", "kur"],   # merkezi emoji → ikon (Eki 2026)
-    "satis.satis_masasi": ["siparis_masa_verisi", "siparis_ozeti", "siparis_satirlari", "kalem_masa_verisi",
+    "satis.satis_masasi": ["marj_metni", "siparis_masa_verisi", "siparis_ozeti", "siparis_satirlari", "kalem_masa_verisi",
                            "iade_masa_verisi", "siparis_yurutucu", "iade_yurutucu", "siparis_anahtari",
                            "usd_tam", "usd_kisa", "usd_birim"],
     "teknikservis.ts_masasi": ["kayit_masa_verisi", "kayit_yurutucu", "depo_masa_verisi", "depo_yurutucu",
@@ -410,7 +415,7 @@ KRITIK_FONKSIYONLAR = {
     "kayranacc.main": ["run", "_sayfa_dashboard", "_sayfa_bu_hafta", "_sayfa_banka_bakiyeleri", "_sayfa_nakit_akis",
                        "_sayfa_firma_cekleri", "_sayfa_odenenler_gecmis", "_sayfa_gelenler_gecmisi",
                        "_sayfa_e_defter", "_sayfa_raporlar_bildirim", "_sayfa_ertelenen_odemeler",
-                       "_sayfa_cari_ekstre", "_sayfa_toplam_aktifler"],
+                       "_sayfa_cari_ekstre"],
     "kayranpm.main": ["run", "_sayfa_dashboard", "_sayfa_tum_urunler", "_sayfa_stok_yasi", "_sayfa_yurt_ici_alis",
                       "_sayfa_musteri_satislari", "_sayfa_kampanya_takip", "_sayfa_siparis_onerisi",
                       "_sayfa_ref_no_takibi", "_sayfa_toplu_islemler", "stok_mikrodan"],    "shared.dataframe_yamasi": ["kur", "asil_fonksiyon", "html_uygun_mu"],
@@ -519,10 +524,8 @@ def test_toplam_aktifler_tek_kaynak():
     src = open(KOK / "kayranacc" / "main.py", encoding="utf-8").read()
     assert re.search(r"^TOPLAM_AKTIFLER_YETKILI\s*=\s*\{", src, re.M), \
         "TOPLAM_AKTIFLER_YETKILI modül düzeyinde tanımlı değil"
-    assert "YETKILI_KULLANICILAR_TOPLAM_AKTIFLER = _toplam_aktifler_yetkilileri()" in src, \
-        "sol menü tek kaynaktan okumuyor"
-    assert "YETKILI_TOPLAM_AKTIFLER = _toplam_aktifler_yetkilileri()" in src, \
-        "sayfa gövdesi tek kaynaktan okumuyor"
+    # Toplam Aktifler sayfası Muhasebe'den kalktı (22.10.2026); yetki Yönetim'deki ayrıntıda tek kaynaktan okunur
+    assert "_toplam_aktifler_yetkilileri()" in open(KOK / "kayranacc" / "toplam_aktif_ekran.py", encoding="utf-8").read()
     # Elde yazılmış ikinci bir liste kalmamalı
     sabit = re.findall(r'YETKILI\w*TOPLAM\w*\s*=\s*\{"ibrahim"', src)
     assert not sabit, "Toplam Aktifler için elle yazılmış ikinci liste var"

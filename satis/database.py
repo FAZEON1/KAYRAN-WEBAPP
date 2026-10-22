@@ -1604,7 +1604,9 @@ def satir_kar(s):
     destek = adet * (_f(s.get("birim_firma_destek")) + _f(s.get("birim_ek_destek")))
     net_satis = ciro - destek
     net = net_satis - maliyet
-    marj = (net / net_satis * 100) if net_satis > 0 else 0.0
+    # Bedelsiz çıkışta (net satış < 1 sent) marj anlamsız: 0 sayılır, ekranda "bedelsiz" yazar (satis_hesap.MARJ_ESIK;
+    # eskiden 0,0002 $'lık paydayla "%-26.069.604" çıkıyordu, 22.10.2026)
+    marj = (net / net_satis * 100) if net_satis >= 0.01 else 0.0
     return {"adet": adet, "ciro": ciro, "maliyet": maliyet, "destek": destek,
             "net_satis": net_satis, "net_kar": net, "marj": marj}
 

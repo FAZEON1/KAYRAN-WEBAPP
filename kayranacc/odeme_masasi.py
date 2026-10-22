@@ -52,9 +52,17 @@ def _iki(tl, usd, kisa=False):
 
 
 # ── Ekrana giden veri (saf) ─────────────────────────────────────────
-def masa_verisi(odemeler, bankalar, kategoriler, kur, bugun, salt=False, bildirim=None):
+# Mikro'dan gelen satırda yapılabilecek tek işlem (durum, tutar ve satırın kendisi Mikro'dan gelir)
+MIKRO_ISLEM = ("otele",)
+
+
+def masa_verisi(odemeler, bankalar, kategoriler, kur, bugun, salt=False, bildirim=None, mikro_idler=None):
     """Bileşenin çizdiği her şey. Sıra odeme_hesap.gunlere_bol ile (vade, gün içinde önce bekleyen,
-    sonra kategori önceliği) — eski ekranla aynı."""
+    sonra kategori önceliği) — eski ekranla aynı.
+    mikro_idler: Mikro'dan gelen satırlar (kayranacc.mikro_odeme_oto.mikro_idleri). Bu satırlarda Öde, Düzenle,
+    Sil, Geri al yok — ödendi bilgisi Mikro'dan gelir (kullanıcı, 22.10.2026); yalnız Ötele kalır. Elle eklenen
+    satırlarda her işlem eskisi gibi."""
+    mikro_idler = set(mikro_idler or ())
     from shared.tasarim import tr_sayi
     kur = H._f(kur)
     oz = H.ozet(odemeler, bankalar, kur, bugun)
@@ -109,13 +117,18 @@ def masa_verisi(odemeler, bankalar, kategoriler, kur, bugun, salt=False, bildiri
                 "_not": (f"Ödendi{' · ' + '.'.join(reversed(od_t.split('-'))) if od_t else ''}"
                          + (f" · {ban} hesabından düşüldü" if ban else " · bakiyeden düşülmedi")) if d == "odendi" else "",
                 "_soluk": d == "odendi",
+                "mikro": o.get("id") in mikro_idler,
             })
+            if satirlar[-1]["mikro"]:
+                satirlar[-1]["_not"] = ((satirlar[-1]["_not"] + " · ") if satirlar[-1]["_not"] else "") + \
+                    "Mikro'dan geliyor: fatura Mikro'da kapanınca kendiliğinden ödendi olur."
     kat_sec = [{"k": k, "ad": v.get("label", k)}
                for k, v in sorted((kategoriler or {}).items(), key=lambda kv: kv[1].get("oncelik", 99))]
     banka_sec = [{"k": b.get("id"), "ad": f"{banka_ad.get(b.get('id'), '')} · "
                                            f"{_bakiye(H._f(b.get('bakiye')), b.get('para_birimi'))}"} for b in bankalar or []]
     banka_sec.append({"k": BANKASIZ, "ad": "Bakiyeden düşme (yalnız ödendi işaretle)"})
     bekler = [["durum", "ne", "odendi"]]
+    elle = [["mikro", "ne", True]]            # yalnız elle eklenen satırlar
     return {
         # ortak masa (shared/masa.py) tanımı
         "ozet": ozet,
@@ -141,7 +154,7 @@ def masa_verisi(odemeler, bankalar, kategoriler, kur, bugun, salt=False, bildiri
         "toplu_toplam": [{"alan": "tl", "on": "₺"}, {"alan": "usd", "on": "$"}],
         "satirlar": satirlar,
         "islemler": [
-            {"k": "ode", "ad": "Öde", "dugme": "Öde", "f": bekler, "birincil": True,
+            {"k": "ode", "ad": "Öde", "dugme": "Öde", "f": bekler + elle, "birincil": True,
              "ipucu": "Tutarı küçültürseniz kısmi ödeme olur: ödenen kısım ayrı kayıt açılır, kalan aynı vadeyle listede kalır.",
              "toplu": {"ad": "Seçilenleri öde", "alanlar": ["banka"]},
              "alanlar": [{"ad": "banka", "et": "Hangi bankadan ödendi?", "tip": "secim", "zorunlu": True, "tam": True,
@@ -156,16 +169,17 @@ def masa_verisi(odemeler, bankalar, kategoriler, kur, bugun, salt=False, bildiri
              "toplu": {"ad": "+7 gün ötele", "alanlar": [], "degerler": {"gun": 7}},
              "alanlar": [{"ad": "vade", "et": "Ya da tarih seç", "tip": "tarih", "varsayilan_alan": "vade"},
                          {"ad": "gun", "tip": "gizli", "sayi": True, "en_az": 1, "en_cok": OTELE_EN_COK_GUN}]},
-            {"k": "duzenle", "ad": "Düzenle", "dugme": "Kaydet", "f": bekler,
+            {"k": "duzenle", "ad": "Düzenle", "dugme": "Kaydet", "f": bekler + elle,
              "alanlar": [{"ad": "tl", "et": "Tutar TL", "tip": "sayi", "varsayilan_alan": "tl"},
                          {"ad": "usd", "et": "Tutar USD", "tip": "sayi", "varsayilan_alan": "usd"},
                          {"ad": "kategori", "et": "Kategori", "tip": "secim", "secenekler": kat_sec, "varsayilan_alan": "kat",
                           "tam": True, "zorunlu": True},
                          {"ad": "aciklama", "et": "Açıklama", "tip": "metin", "varsayilan_alan": "ack"}]},
-            {"k": "sil", "ad": "Sil", "dugme": "Ödemeyi sil", "f": bekler, "tehlike": True,
+            {"k": "sil", "ad": "Sil", "dugme": "Ödemeyi sil", "f": bekler + elle, "tehlike": True,
              "ipucu": "Kayıt kalıcı olarak silinir.",
              "alanlar": [{"ad": "onay", "et": "Evet, {baslik} ödemesini sil", "tip": "onay", "zorunlu": True}]},
-            {"k": "geri_al", "ad": "Geri al", "dugme": "Geri al (bekliyor yap)", "f": [["durum", "eq", "odendi"]], "coklu": True},
+            {"k": "geri_al", "ad": "Geri al", "dugme": "Geri al (bekliyor yap)", "f": [["durum", "eq", "odendi"]] + elle,
+             "coklu": True},
         ],
         "bos": {"liste": "Bu hafta ödeme yok.",
                 "suzgec": "Bu süzgece uyan ödeme yok. Ödenenleri görmek için 'Ödendi' ya da 'Tümü'."},
@@ -188,9 +202,10 @@ def _sayi(v):
     return f if f == f and abs(f) != float("inf") else None
 
 
-def istek_coz(istek, odemeler, bankalar, kategoriler, salt=False, bugun=None):
+def istek_coz(istek, odemeler, bankalar, kategoriler, salt=False, bugun=None, mikro_idler=None):
     """Bileşenden gelen isteği doğrular. Döner: (temiz istek, None) ya da (None, kullanıcıya hata metni).
-    Tarayıcıdan gelen hiçbir değere güvenilmez: kimlik listede, banka hesaplarda, tutar kalan tutarda olmalı."""
+    Tarayıcıdan gelen hiçbir değere güvenilmez: kimlik listede, banka hesaplarda, tutar kalan tutarda olmalı.
+    Mikro'dan gelen satırda yalnız MIKRO_ISLEM yapılır (masa_verisi)."""
     if salt:
         return None, "Salt-okur oturum: işlem yapılamaz."
     istek = istek if isinstance(istek, dict) else {}
@@ -207,6 +222,8 @@ def istek_coz(istek, odemeler, bankalar, kategoriler, salt=False, bugun=None):
             return None, "Ödeme bulunamadı; sayfayı yenileyip tekrar deneyin."
         if int(i) not in ids:
             ids.append(int(i))
+    if tur not in MIKRO_ISLEM and any(i in set(mikro_idler or ()) for i in ids):
+        return None, "Bu ödeme Mikro'dan geliyor: ödendi bilgisi Mikro'dan gelir, burada değiştirilmez."
     if tur in _TEK and len(ids) != 1:
         return None, "Bu işlem tek ödemeyle yapılır."
     secilen = [sozluk[i] for i in ids]
@@ -332,10 +349,11 @@ def motor_istegi(temiz):
     return {"tur": islem, "ids": ids}
 
 
-def yurutucu(odemeler, bankalar, kategoriler, kur, bugun, salt=False):
+def yurutucu(odemeler, bankalar, kategoriler, kur, bugun, salt=False, mikro_idler=None):
     """shared.masa.calistir için: temiz istek → anlamsal kontrol → veritabanı → bildirim."""
     def yurut(temiz):
-        t, hata = istek_coz(motor_istegi(temiz), odemeler, bankalar, kategoriler, salt=salt, bugun=bugun)
+        t, hata = istek_coz(motor_istegi(temiz), odemeler, bankalar, kategoriler, salt=salt, bugun=bugun,
+                            mikro_idler=mikro_idler)
         if hata:
             return {"ok": False, "mesaj": hata}
         s = islem_uygula(t, odemeler, kur)

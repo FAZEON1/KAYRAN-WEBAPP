@@ -7,7 +7,7 @@ mevcut kaynaklardan (hepsi USD):
   ithalat  → ithalat dosyalarının durumu × kalemlerin net FOB'u (ithalat.database.get_parti_satirlari)
   depo     → bizim stok × paçal, yaş grubu Stok yaşı ile aynı (kayranpm.stok_yasi, FIFO) — kullanıcı
              kararı (Ekim 2026): paçal (KDV'siz); Toplam Aktifler Mikro raporu × 1,20 kullanır
-  alacak / cari borç → Toplam Aktifler'e yüklenen cari Excel'i (EUR × 1,10, Toplam Aktifler kuralı)
+  alacak / cari borç → Mikro cari kaydı (aktif_excel "cari"; EUR × 1,10, Toplam Aktifler kuralı)
   banka    → banka bakiyeleri (EUR × 1,08, Banka bakiyeleri kuralı)
   verilen çekler → Firma çekleri, kalan (get_cek_toplamlari)
   bekleyen ödemeler → bilgi olarak (çoğu cari borcun içinde; borçtan ayrıca düşülmez)
@@ -70,15 +70,15 @@ def harita(v, kur, eur=None):
         varlik.append(_blok("Depoda · giriş kaydı yok", kayitsiz, "silik", "kayranpm/stok_yasi",
                             "stok × paçal", "Mal (depo)"))
     if v.get("alacak") is None:
-        eksik.append("Müşteri alacağı: cari Excel'i yüklenmemiş (üst menü › Dosya ile yüklenir).")
+        eksik.append("Müşteri alacağı: Mikro cari kaydı henüz yok (eşitleme turunda gelir).")
         alacak = 0.0
     else:
         alacak = usd(v["alacak"], kur, EUR_CARI)
         if alacak is None:
             eksik.append("Müşteri alacağının TL kısmı kur bulunamadığı için sayılmadı.")
             alacak = usd(dict(v["alacak"], tl=0), kur, EUR_CARI)
-    varlik.append(_blok("Müşteri alacağı", alacak, "mor", "kayranacc/toplam_aktifler",
-                        f"cari Excel · {v.get('alacak_tarih') or 'tarih yok'}", "Alacak"))
+    varlik.append(_blok("Müşteri alacağı", alacak, "mor", "kayranacc/tahsilat",
+                        f"Mikro cari · {v.get('alacak_tarih') or 'tarih yok'}", "Alacak"))
     b = {"usd": 0.0, "tl": 0.0, "eur": 0.0}
     for r in v.get("banka") or []:
         pb = str(r.get("para_birimi") or "").upper()
@@ -96,8 +96,8 @@ def harita(v, kur, eur=None):
         if cb is None:
             eksik.append("Cari borcun TL kısmı kur bulunamadığı için sayılmadı.")
             cb = usd(dict(v["borc"], tl=0), kur, EUR_CARI)
-        borc.append(_blok("Cari borç", cb, "kirmizi", "kayranacc/toplam_aktifler",
-                          f"cari Excel · {v.get('alacak_tarih') or 'tarih yok'}"))
+        borc.append(_blok("Cari borç", cb, "kirmizi", "kayranacc/cari_ekstre",
+                          f"Mikro cari · {v.get('alacak_tarih') or 'tarih yok'}"))
     cek_tl, cek_usd = (v.get("cek") or (0.0, 0.0))
     cek = usd({"tl": cek_tl, "usd": cek_usd}, kur, 1.0)
     if cek is None:
