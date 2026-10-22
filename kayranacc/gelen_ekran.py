@@ -211,7 +211,9 @@ def _render_masa(kayit):
         bankalar = get_bankalar() or []
     except Exception:  # noqa: BLE001 — düzenleme sekmesi gösterilmez, geri alma çalışır
         bankalar = []
-    calistir(MM.gelenler_verisi(kayit, bankalar, salt=bool(st.session_state.get("salt_okur"))), "gelen_masasi",
+    from .banka_ekran import elle_giris_kapali       # Mikro açıkken tahsilat Mikro'dan: düzenle / geri al yok
+    calistir(MM.yalniz_okuma(MM.gelenler_verisi(kayit, bankalar, salt=bool(st.session_state.get("salt_okur"))),
+                             elle_giris_kapali()), "gelen_masasi",
              MM.gelenler_yurutucu(bankalar))
     sira = MM.kimden_ne_kadar(kayit)                  # Kimden ne kadar — döviz ayrı ayrı
     st.markdown(B.grup_basligi("Kimden ne kadar", f"{len(sira)} kaynak"), unsafe_allow_html=True)

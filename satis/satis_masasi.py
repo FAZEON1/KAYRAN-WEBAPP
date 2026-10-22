@@ -195,9 +195,12 @@ def siparis_yurutucu():
 
 
 # ── İade kayıtları masası ───────────────────────────────────────────
-def iade_masa_verisi(kayitlar, salt=False, bugun=None):
+def iade_masa_verisi(kayitlar, salt=False, bugun=None, esitleme=None):
     """İade kayıtları: aya göre gruplu (grup başlığında iade sayısı ve net tutar), en yeni üstte.
-    Satıra tıklayınca sağda ayrıntı; silme onay kutusuyla (eski _iade_detay_dialog ile aynı kural)."""
+    Satıra tıklayınca sağda ayrıntı; silme onay kutusuyla (eski _iade_detay_dialog ile aynı kural).
+    esitleme: satis.database.mikro_esitleme() (açık, başlangıç) — açıkken Mikro'dan gelen iadede "İadeyi sil" yok
+    (sil_iade zaten reddediyordu; düğme görünüp "Silinemedi" diyordu, 22.10.2026)."""
+    _acik, _bas = esitleme or (False, "")
     from shared.tasarim import tr_sayi
     from shared.utils import gun_ay_yil
     satirlar = []
@@ -213,6 +216,7 @@ def iade_masa_verisi(kayitlar, salt=False, bugun=None):
         sku, ad = str(r.get("sku") or ""), str(r.get("urun_adi") or "")
         satirlar.append({
             "id": r.get("id"), "ay": ay_ad, "tarih_m": H.gun_adi(r.get("tarih"), bugun),
+            "mikro": bool(_acik and str(r.get("kaynak") or "") == "mikro" and str(r.get("tarih") or "")[:10] >= _bas),
             "tarih_m__s": str(r.get("tarih") or ""), "sku": sku, "urun_adi": ad,
             "urun": f"{sku} · {ad[:48]}" if ad else sku,
             "kanal": str(r.get("kanal") or "").strip(), "firma": firma,
@@ -237,7 +241,7 @@ def iade_masa_verisi(kayitlar, salt=False, bugun=None):
                      {"alan": "net_m", "ad": "İade net", "sag": True, "gen": "124px", "dar": "sag"}],
         "grup": {"alan": "ay", "birim": "iade", "toplamlar": [{"alan": "net", "on": "$"}]},
         "satirlar": satirlar,
-        "islemler": [{"k": "sil", "ad": "Sil", "dugme": "İadeyi sil", "tehlike": True,
+        "islemler": [{"k": "sil", "ad": "Sil", "dugme": "İadeyi sil", "tehlike": True, "f": [["mikro", "ne", True]],
                       "ipucu": "Kayıt silinir; iade edilen adet stoktan geri düşülür.",
                       "alanlar": [{"ad": "onay", "et": "Evet, bu iade kaydını sil", "tip": "onay", "zorunlu": True}]}],
         "bos": {"liste": "Bu dönemde iade kaydı yok.", "suzgec": "Bu süzgece uyan iade kaydı yok."},

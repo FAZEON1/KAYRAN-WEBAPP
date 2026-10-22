@@ -80,9 +80,11 @@ def _depo_secenekleri():
 
 
 # ── Geçmiş ithalatlar: ekrana giden veri (saf) ──────────────────────
-def masa_verisi(dosyalar, hesap_map, bugun=None, salt=False, depolar=None):
+def masa_verisi(dosyalar, hesap_map, bugun=None, salt=False, depolar=None, mikro_acik=False):
     """dosyalar: ithalat_mi ile süzülmüş dosyalar. hesap_map: {id: (dosya, kalemler, dosya_hesapla)}.
-    Sıra: sipariş tarihi yeniden eskiye, aya göre gruplu (eski Liste görünümü)."""
+    Sıra: sipariş tarihi yeniden eskiye, aya göre gruplu (eski Liste görünümü).
+    mikro_acik: Mikro ithalat eşitlemesi açık — Mikro'ya bağlı dosyada (mikro_kodu) aşama ve teslim deposu Mikro'dan
+    gelir: "Teslim alındı" / "Depo ata" yok (kullanıcı, 22.10.2026). Bağsız (yoldaki) dosyada eskisi gibi."""
     from .database import IN_TRANSIT_DURUMLAR, DURUM_SECENEKLER
     bugun = bugun or date.today()
     depolar = depolar if depolar is not None else _depo_secenekleri()
@@ -129,6 +131,7 @@ def masa_verisi(dosyalar, hesap_map, bugun=None, salt=False, depolar=None):
             notlar.append("Masraf girilmedi: Ayrıntı › Düzenle ile girilir.")
         satirlar.append({
             "id": d["id"], "belge": belge or "—", "ted": ted or "—", "takip": takip, "sas": sas,
+            "mikro": bool(mikro_acik and str(d.get("mikro_kodu") or "").strip()),
             "tarih": _gay(d.get("tarih")) or "—", "tarih__s": str(d.get("tarih") or "")[:10] or "0000",
             "ay": _ay_basligi(d.get("tarih")),
             "ted_alt": " · ".join(x for x in (takip, f"{kalem} kalem") if x),
@@ -200,14 +203,15 @@ def masa_verisi(dosyalar, hesap_map, bugun=None, salt=False, depolar=None):
         "satirlar": satirlar,
         "islemler": [
             {"k": "ac", "ad": "Ayrıntı", "dugme": "Ayrıntı · masraf · düzenle", "okuma": True, "birincil": True},
-            {"k": "teslim", "ad": "Teslim alındı", "dugme": "Teslim alındı yap", "f": teslim_degil,
+            {"k": "teslim", "ad": "Teslim alındı", "dugme": "Teslim alındı yap",
+             "f": teslim_degil + [["mikro", "ne", True]],
              "ipucu": "Yalnız aşama ve teslim deposu güncellenir; teslim tarihine dokunulmaz. Teslim deposu "
                       "zorunlu: deposuz dosya 'Teslim Alındı' yapılamaz.",
              "toplu": {"ad": "Teslim alındı yap", "alanlar": ["depo"]},
              "alanlar": [{"ad": "depo", "et": "Teslim deposu", "tip": "secim", "zorunlu": True, "tam": True,
                           "bos": "Depo seç…", "secenekler": depolar}]},
             {"k": "depo", "ad": "Depo ata", "dugme": "Depoyu ata",
-             "f": [["asama", "eq", TESLIM], ["depo", "yok", None]],
+             "f": [["asama", "eq", TESLIM], ["depo", "yok", None], ["mikro", "ne", True]],
              "ipucu": "Teslim alınmış ama deposu boş dosyaya teslim deposu yazılır.",
              "toplu": {"ad": "Depoyu ata", "alanlar": ["depo"]},
              "alanlar": [{"ad": "depo", "et": "Atanacak depo", "tip": "secim", "zorunlu": True, "tam": True,

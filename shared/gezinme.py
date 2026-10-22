@@ -205,6 +205,26 @@ def _ikon(secenek):
     return "chevron_right"
 
 
+def _mikro_kapali_islemler():
+    """Mikro'dan gelen işlerin "yap" kısayolları (kullanıcı, 22.10.2026: "datalar Mikro'dan gelecekse bu gibi her
+    şeyi kaldır"): satış eşitlemesi açıkken "Yeni satış girişi", sevk Mikro'dayken "Depolar arası sevk" yok."""
+    out = set()
+    try:
+        from satis.database import mikro_esitleme
+        if mikro_esitleme()[0]:
+            out.add("satis/giris")
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from depo.mikro_sevk import kayit_serbest
+        from kayranpm.mikro_stok import acik_mi
+        if not kayit_serbest(acik_mi()):
+            out.add("depo/sevk")
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
 def palet_ogeleri(yetkiler, ozel, kullanici, kosul):
     """Paletin sabit öğeleri: sayfalar + işlemler + hesap sayfaları.
     yetkiler: {modül: bool} · ozel: kullanıcının özel yetkileri (set) ·
@@ -231,8 +251,9 @@ def palet_ogeleri(yetkiler, ozel, kullanici, kosul):
             acik.add(f"{k}/{kod}")
             out.append({"tur": "sayfa", "id": f"{k}/{kod}", "ad": ad, "yol": m["ad"],
                         "ikon": _ikon(sec), "ara": _sade(f"{ad} {m['ad']}")})
+    kapali = _mikro_kapali_islemler()
     for ad, hid, ikon in ISLEMLER:
-        if hid in acik:
+        if hid in acik and hid not in kapali:
             out.append({"tur": "islem", "id": hid, "ad": ad, "yol": "", "ikon": ikon, "ara": _sade(ad)})
     if any(v for k, v in (yetkiler or {}).items() if k != "hesap_makinesi"):
         _ad = "Dosya yükle (Excel)"

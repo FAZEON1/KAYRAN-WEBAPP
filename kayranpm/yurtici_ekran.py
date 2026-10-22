@@ -158,9 +158,15 @@ def _yeni(kartlar, kolon):
     with sol:
         mesaj_yeri = st.container()
         f = _form("yi_yeni", {}, kartlar)
-        stok = st.radio("Stok", [H.STOK_EKLE, H.STOK_VAR], key="yi_yeni_stok", horizontal=True,
-                        help="Geçmiş bir alımı sonradan giriyorsan ve mal depoda zaten sayılıysa ikinciyi seç; "
-                             "yoksa stok iki kez girer.")
+        from shared.dosya_kapisi import mikro_kapsar
+        if mikro_kapsar("g5f_sayim"):                 # kayranpm.main.stok_mikrodan ile aynı karar
+            # Stok Mikro'dan: alım stoğa elle eklenmez (zaten yazılmıyordu; seçenek yanıltıyordu, 22.10.2026).
+            stok = H.STOK_VAR
+            st.caption("Stok Mikro'dan gelir: alımın stoğa girişi Mikro'daki irsaliyeyle olur.")
+        else:
+            stok = st.radio("Stok", [H.STOK_EKLE, H.STOK_VAR], key="yi_yeni_stok", horizontal=True,
+                            help="Geçmiş bir alımı sonradan giriyorsan ve mal depoda zaten sayılıysa ikinciyi seç; "
+                                 "yoksa stok iki kez girer.")
         _onizleme(f, kartlar)
     hatalar = H.dogrula(f, kartlar)
     with sag, st.container(key="kf_ozet_yurtici"):

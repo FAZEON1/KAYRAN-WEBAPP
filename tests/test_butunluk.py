@@ -268,7 +268,7 @@ KRITIK_FONKSIYONLAR = {
                               "maas_satirlari"],
     "kayranacc.mikro_odeme_ekran": ["oneri_penceresi", "vade_penceresi", "vade_tablosu"],   # Bu Hafta (Eki 2026)
     # Haftalık ödeme listesi her pazartesi Mikro'dan (22.10.2026)
-    "kayranacc.mikro_odeme_oto": ["mikro_idleri", "pazartesi", "liste_satirlari", "tasinacaklar", "guncelleme_plani",
+    "kayranacc.mikro_odeme_oto": ["mikro_idleri", "mikro_idleri_tum", "pazartesi", "liste_satirlari", "tasinacaklar", "guncelleme_plani",
                                   "gecmis_satirlari", "durum", "acik_mi", "mikro_haftasi", "son_aktarim", "veri_oku",
                                   "firma_gunleri", "hafta_ac", "hafta_yenile", "otomatik", "elle_yenile",
                                   "firma_vadeleri_kaydet"],
@@ -378,11 +378,12 @@ KRITIK_FONKSIYONLAR = {
     "kayranpm.stok_yasi_masasi": ["masa_verisi", "yurutucu"],
     "kayranpm.masa_ortak": ["kisa", "usd", "csv_bayt", "ac_islemi"],
     "kayranpm.urunler_ekran": ["masa_liste", "masa_yan_yana"],
-    "kayranacc.muhasebe_masalari": ["ertelenen_verisi", "ertelenen_yurutucu", "odenenler_verisi", "odenenler_yurutucu",
+    "kayranacc.muhasebe_masalari": ["yalniz_okuma", "ertelenen_verisi", "ertelenen_yurutucu", "odenenler_verisi", "odenenler_yurutucu",
                                     "haftalar_verisi", "haftalar_yurutucu", "cek_arsivi_verisi", "cek_arsivi_yurutucu",
                                     "gelenler_verisi", "gelenler_yurutucu", "kimden_ne_kadar", "firma_cekleri_verisi",
                                     "salt_okunur_yurutucu", "banka_verisi", "banka_yurutucu"],
-    "kayranacc.banka_ekran": ["banka_ozet_kalemleri", "banka_listesi", "bakiye_mikrodan", "mikro_islemi_mi"],
+    "kayranacc.banka_ekran": ["banka_ozet_kalemleri", "banka_listesi", "bakiye_mikrodan", "mikro_islemi_mi",
+                              "elle_giris_kapali"],
     "kayranacc.cek_ekran": ["render_firma_cekleri"],
     "shared.sol_menu": ["menu_yapisi", "secili_sayfa", "css", "ciz", "konum_adi"],   # sol menü (Eki 2026)
     "kayranpm.stok_karti_yeni": ["ciz", "haftalik_seri", "son_hareketler", "durum_uyarilari", "stok_yerleri",
@@ -404,7 +405,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.soru_cevap": ["cevapla", "sozluk_kur", "Veri"],
     "shared.soru_ekran": ["sayfa", "sor", "anlasilir_mi"],
     "shared.paralel": ["basla", "hepsi"],
-    "shared.gezinme": ["serit_kur", "serit_kabi", "sayfa_menusu", "secenekler", "sayfa_grubu",
+    "shared.gezinme": ["_mikro_kapali_islemler", "palet_ogeleri", "serit_kur", "serit_kabi", "sayfa_menusu", "secenekler", "sayfa_grubu",
                        "aktif_sekme_yaz"],   # başlık sekme adıyla (görünüm cilası, Eki 2026)   # şerit sağında modül aracı (Eki 2026)
     "shared.tasarim": ["baslik", "sayfa_baslik", "pencere", "pencere_grid", "pencere_css", "pencere_bos",
                        "genel_tema_css", "detay_karti", "mesaj",   # shared/ui.py buraya katıldı (Eki 2026)
@@ -423,7 +424,7 @@ KRITIK_FONKSIYONLAR = {
                        "_sayfa_firma_cekleri", "_sayfa_odenenler_gecmis", "_sayfa_gelenler_gecmisi",
                        "_sayfa_e_defter", "_sayfa_raporlar_bildirim", "_sayfa_ertelenen_odemeler",
                        "_sayfa_cari_ekstre"],
-    "kayranpm.main": ["run", "_sayfa_dashboard", "_sayfa_tum_urunler", "_sayfa_stok_yasi", "_sayfa_yurt_ici_alis",
+    "kayranpm.main": ["mikro_karti_mi", "run", "_sayfa_dashboard", "_sayfa_tum_urunler", "_sayfa_stok_yasi", "_sayfa_yurt_ici_alis",
                       "_sayfa_musteri_satislari", "_sayfa_kampanya_takip", "_sayfa_siparis_onerisi",
                       "_sayfa_ref_no_takibi", "_sayfa_toplu_islemler", "stok_mikrodan"],    "shared.dataframe_yamasi": ["kur", "asil_fonksiyon", "html_uygun_mu"],
     "yonetim_hesap": ["gider_yili_bul"],

@@ -502,6 +502,10 @@ def otomatik():
         if aktarim_suruyor():
             return None                   # aktarıcı yazıyor: sonraki turda
         sonuc = uygula(plan_hazirla())
+        # uygula() bagli_bankalar'ı yazar: durum YENİDEN okunur. Eskiden turun başındaki kopya geri yazılıyordu,
+        # bagli_bankalar her turda siliniyordu (canlı, 22.10.2026: hiçbir hesap "Mikro'ya bağlı" sayılmıyor,
+        # tahsilat / virman formları açılıyor ve bakiyeye yazıyordu).
+        d = durum()
         d["son_calisma"] = son
         _durum_yaz(d)
         return sonuc

@@ -1885,11 +1885,15 @@ def _sayfa_banka_bakiyeleri(*, _dlg_virman, get_aktif_odemeler, get_kur):
     # Ekim 2026: eylemler başlıkta; hesaplar tıklanır kart (bakiye kesilmez);
     # ekle/düzenle formları pencerede, silme ONAYLI (eskiden onaysızdı).
     from shared import bilesen as _Bb
-    from .banka_ekran import banka_listesi, banka_yeni_dialog, banka_detay_kontrol
+    from .banka_ekran import banka_listesi, banka_yeni_dialog, banka_detay_kontrol, elle_giris_kapali
+    # Mikro eşitlemesi açıkken bakiye, virman, tahsilat ve hesaplar Mikro'dan gelir: başlıkta düğme yok
+    # (kullanıcı, 22.10.2026: "datalar Mikro'dan gelecekse bu gibi her şeyi kaldır"). Kapanınca düğmeler geri gelir.
+    _elle_yok = elle_giris_kapali()
     _bey = _Bb.baslik_eylem(
         "🏦 Muhasebe", "Banka Bakiyeleri",
-        aciklama="Hesap bakiyeleri, hafta sonu tahmini, para girişi ve hesaplar arası transfer.",
-        eylemler=[{"etiket": "Virman", "key": "bnk_virman", "icon": ":material/sync_alt:",
+        aciklama=("Hesap bakiyeleri ve hareketleri Mikro'dan gelir; hesaba tıkla: Mikro hareketleri."
+                  if _elle_yok else "Hesap bakiyeleri, hafta sonu tahmini, para girişi ve hesaplar arası transfer."),
+        eylemler=[] if _elle_yok else [{"etiket": "Virman", "key": "bnk_virman", "icon": ":material/sync_alt:",
                    "help": "Bankalar arası para transferi"},
                   {"etiket": "Arbitraj", "key": "bnk_arb", "icon": ":material/currency_exchange:",
                    "help": "Aynı bankada TL / USD / EUR çevrimi"},

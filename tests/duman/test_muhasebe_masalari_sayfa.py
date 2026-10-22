@@ -60,7 +60,12 @@ def test_ertelenen_odemeler_masasi(monkeypatch):
 def test_odenenler_ve_gecmis_uc_gorunum(monkeypatch, gorunum, anahtar, en_az):
     at = _ac(monkeypatch, "🕐 Ödenenler & Geçmiş", {"gec_gorunum": gorunum})
     v = _masa(at)
-    assert len(v["satirlar"]) >= en_az and v["islemler"]
+    assert len(v["satirlar"]) >= en_az
+    if gorunum == "Bu hafta ödenenler":
+        # Mikro ödeme listesi (varsayılan açık): ödendi bilgisi Mikro'dan, "Geri al" yok (22.10.2026)
+        assert v["islemler"] == []
+    else:
+        assert v["islemler"]
     _eski_tiklanir_yok(at, anahtar)
     if gorunum == "Çek arşivi":
         assert "gec_cek_ara" not in at.session_state                  # arama masanın içinde

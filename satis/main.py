@@ -108,7 +108,9 @@ def _iade_kayit_listesi(bas, bit):
     if IADE_MASASI_YENI:
         from shared.masa import calistir
         from . import satis_masasi as SM
-        calistir(SM.iade_masa_verisi(kayitlar, salt=bool(st.session_state.get("salt_okur"))), "iade_masa",
+        from .database import mikro_esitleme
+        calistir(SM.iade_masa_verisi(kayitlar, salt=bool(st.session_state.get("salt_okur")), esitleme=mikro_esitleme()),
+                 "iade_masa",
                  SM.iade_yurutucu())
         return
     gruplar = {}
