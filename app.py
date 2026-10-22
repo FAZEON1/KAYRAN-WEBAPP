@@ -904,6 +904,9 @@ _sb_comp.html(
     if (!t || t.tagName !== "INPUT") return;
     const tip = (t.getAttribute("type") || "text").toLowerCase();
     if (UYGUN.indexOf(tip) === -1) return;
+    // Açılır listenin (selectbox / multiselect) arama kutusu: yazarken her harfte yeniden odaklanıyor; burada
+    // select() yazılan harfi seçiyor, sonraki harf onu siliyordu (talep #41, Kampanya takip › Ürün ekle, 22.10.2026)
+    if (t.getAttribute("role") === "combobox" || (t.closest && t.closest('[data-baseweb="select"]'))) return;
 
     // Odaklanma anındaki değeri sakla. 60 ms sonraki select() YALNIZ bu
     // değer DEĞİŞMEMİŞSE çalışır.

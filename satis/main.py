@@ -204,6 +204,29 @@ def _tb_anahtar(d):
     return out
 
 
+def kategori_birlestir(*sozlukler):
+    """Kategori kırılımı sözlüklerini kategori anahtarına göre birleştirir (shared.ana_veri.kategori_anahtar):
+    'MOUSE PAD' (ürün kartı) ile 'MOUSEPAD' (Ref No desteği) P&L'de iki ayrı satırdı (talep #37, 22.10.2026).
+    Bütün sözlüklerde aynı anahtar aynı yazıma iner (ilk görülen yazım). Değer sayı ya da {ciro, kar, adet};
+    DİĞER / GENEL olduğu gibi. Döner: sözlüklerin birleşmiş hâlleri (aynı sırayla)."""
+    from shared.ana_veri import kategori_anahtar
+    yazim = {}
+    sonuc = []
+    for d in sozlukler:
+        out = {}
+        for k, v in (d or {}).items():
+            a = k if k in ("DİĞER", "GENEL") else (kategori_anahtar(k) or k)
+            ad = yazim.setdefault(a, k)
+            if isinstance(v, dict):
+                e = out.setdefault(ad, {})
+                for alan, x in v.items():
+                    e[alan] = e.get(alan, 0) + x
+            else:
+                out[ad] = out.get(ad, 0.0) + float(v or 0)
+        sonuc.append(out)
+    return tuple(sonuc)
+
+
 def _usd_md(x, max_ond=2):
     """Markdown metni (caption/success/expander) içinde tutar. '$' kaçırılır:
     aynı metinde iki '$' olunca Streamlit arası LaTeX formülü sanıyordu
@@ -2160,8 +2183,10 @@ def _sayfa_kar_pnl(*, _kar_ok, _sb, kpi_serit, sayi):
                         (_gorunur if _kr_sec == "Kategori" else _Sessiz(), _katmap_p, _ad_kat, _rf_kat,
                          "Kategori")]:
                     with _bk:
-                        _rows = _kirilim_df(_grupla(_hrt, marka_mi=(_kol == "Marka")),
-                                            _dst, _rfd)
+                        _g_k = _grupla(_hrt, marka_mi=(_kol == "Marka"))
+                        if _kol == "Kategori":   # 'MOUSE PAD' = 'MOUSEPAD' tek satır (talep #37)
+                            _g_k, _dst, _rfd = kategori_birlestir(_g_k, _dst, _rfd)
+                        _rows = _kirilim_df(_g_k, _dst, _rfd)
                         if _rows:
                             # İki AYRI destek kolonu. Tek kolonda birleştirmek
                             # yanıltıcı olurdu: alınan destek gelir (+),

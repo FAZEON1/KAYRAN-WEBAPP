@@ -55,8 +55,30 @@ def ref_firmasi_sec(kampanya_firma, firmalar):
                                                 if adaylar else None)
 
 
+def destek_kalemleri(kamp, urunler):
+    """Destek ref'inin kalemleri (Ref No Takip › Kalemler): desteği olan her kampanya ürünü bir kalem —
+    {aciklama: "SKU · adet × $birim", tutar, ay: bitiş ayı, kategori: kampanyanın kategorisi}. Talep #36
+    (22.10.2026): kampanyadan açılan ref'in Kalemler bölümü boştu, ürün bazında düzeltme yapılamıyordu.
+    Kategori ref'inkiyle aynı: P&L'deki kategori dağılımı değişmez."""
+    from kayranpm.kampanya_hesap import urun_hesap
+    from shared.tasarim import tr_sayi
+    bit = str(kamp.get("bitis_tarihi") or kamp.get("baslangic_tarihi") or "")[:7]
+    kat = str(kamp.get("kategori") or "").strip()
+    out = []
+    for u in urunler or []:
+        h = urun_hesap(u)
+        tutar = round(h["t_destek"], 2)
+        if tutar <= 0:
+            continue
+        out.append({"aciklama": f"{str(u.get('sku') or '').strip()} · {tr_sayi(h['adet'])} × "
+                                f"${tr_sayi(h['destek'], 2)}",
+                    "tutar": tutar, "ay": bit if len(bit) == 7 else "", "kategori": kat})
+    return out
+
+
 def ref_plani(kamp, urunler):
-    """Açılacak ref'ler: [{tutar, doviz, aciklama, kategori, donem_ay, donem_yil, tur}]."""
+    """Açılacak ref'ler: [{tutar, doviz, aciklama, kategori, donem_ay, donem_yil, tur, kalemler}]. Destek ref'i
+    ürün kalemleriyle (destek_kalemleri); spiff ref'i tek tutar."""
     from kayranpm.kampanya_hesap import kampanya_ozet
     o = kampanya_ozet(kamp, urunler)
     ad = str(kamp.get("kampanya_adi") or "Kampanya").strip()
@@ -71,12 +93,42 @@ def ref_plani(kamp, urunler):
     destek = round(_f(o.get("firma_destek")) + _f(o.get("ek_destek")), 2)
     if destek > 0:
         plan.append(dict(ortak, tur="destek", tutar=destek, doviz="USD",
-                         aciklama=f"{ad} · {isaret(kid)}"))
+                         aciklama=f"{ad} · {isaret(kid)}", kalemler=destek_kalemleri(kamp, urunler)))
     spiff_tl = round(_f(kamp.get("spiff_tl")), 2)
     if spiff_tl > 0:
         plan.append(dict(ortak, tur="spiff", tutar=spiff_tl, doviz="TL",
                          aciklama=f"{ad} SPIFF · {isaret(kid)}"))
     return plan
+
+
+def kampanya_no(ref):
+    """Ref kampanyadan açılmışsa kampanya numarası (açıklamadaki "Kampanya #<no>" işareti), yoksa None."""
+    m = re.search(r"Kampanya\s*#\s*(\d+)", str((ref or {}).get("aciklama") or ""), re.IGNORECASE)
+    return int(m.group(1)) if m else None
+
+
+def isaret_koru(yeni_aciklama, eski_aciklama):
+    """Kalemler kaydedilince açıklama kalemlerden yeniden yazılır; "Kampanya #<no>" işareti düşerse kampanya
+    yeniden kapatıldığında ikinci ref açılırdı (mevcut_refler bulamaz). İşaret eski açıklamada varsa korunur."""
+    no = kampanya_no({"aciklama": eski_aciklama})
+    if no is None or _isaret_re(no).search(str(yeni_aciklama or "")):
+        return yeni_aciklama
+    return " · ".join(x for x in (str(yeni_aciklama or "").strip(), isaret(no)) if x)
+
+
+def kalemler_kampanyadan(ref):
+    """Kalemi olmayan kampanya ref'i için Kalemler bölümünün ön dolumu (kayıt değil): kampanyanın ürün desteği
+    kalemleri. Spiff (TL) ref'i ve kampanyası bulunamayan ref için []."""
+    no = kampanya_no(ref)
+    if no is None or "SPIFF" in str(ref.get("aciklama") or "").upper():
+        return []
+    from kayranpm.database import get_client
+    cli = get_client()
+    kamp = (cli.table("kampanyalar").select("*").eq("id", no).execute().data or [None])[0]
+    if not kamp:
+        return []
+    urunler = cli.table("kampanya_urunler").select("*").eq("kampanya_id", no).execute().data or []
+    return destek_kalemleri(kamp, urunler)
 
 
 def mevcut_refler(refler, kid):
@@ -136,7 +188,8 @@ def kapaninca_ref_ac(kamp, urunler, firmalar, refler_fn, ref_ekle_fn, bugun):
     f = o["firma"]
     for p in o["plan"]:
         ok, ref_no = ref_ekle_fn(f["id"], f.get("firma_kodu", ""), p["aciklama"], "beklemede", bugun, None,
-                                 p["tutar"], p["doviz"], p["kategori"], p["donem_ay"], p["donem_yil"])
+                                 p["tutar"], p["doviz"], p["kategori"], p["donem_ay"], p["donem_yil"],
+                                 kalemler=p.get("kalemler"))
         if ok:
             sonuc["acilan"].append((ref_no, p["tutar"], p["doviz"]))
         else:

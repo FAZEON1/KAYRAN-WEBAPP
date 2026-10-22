@@ -761,13 +761,23 @@ def _sayfa_tum_urunler():
         else:
             st.markdown('<div style="background:color-mix(in srgb,var(--k-soluk) 6%,transparent);border:1px dashed color-mix(in srgb,var(--k-soluk) 25%,transparent);border-radius:12px;padding:16px;text-align:center;color:var(--k-soluk);font-size:13px;margin-bottom:16px">Bu ürün için İthalat maliyet verisi yok — İthalat modülünden bu SKU ile dosya girilince maliyet/paçal otomatik gelecek.</div>', unsafe_allow_html=True)
 
-        # EOL rozeti
+        # EOL rozeti + tek tık işaretleme (talep #40, 22.10.2026: yalnız en alttaki "Ürün Düzenle" formundaydı)
         if secilen.get("eol"):
             st.markdown(
                 '<div style="background:color-mix(in srgb,var(--k-kirmizi) 10%,transparent);border:1px solid color-mix(in srgb,var(--k-kirmizi) 35%,transparent);'
                 'border-radius:10px;padding:8px 16px;margin:4px 0 8px;color:var(--k-kirmizi);font-size:13px;font-weight:700">'
                 '⛔ EOL — Bu ürün üretimi/satışı sonlandı olarak işaretli; sipariş önerisine girmez.</div>',
                 unsafe_allow_html=True)
+        if not st.session_state.get("salt_okur"):
+            _eol_v = bool(secilen.get("eol"))
+            if st.button("EOL işaretini kaldır" if _eol_v else "EOL olarak işaretle", key=f"pm_eol_{secilen['sku']}",
+                         icon=":material/undo:" if _eol_v else ":material/block:", type="tertiary",
+                         help="EOL: üretimi / satışı sonlandı; ürün sipariş önerisine girmez."):
+                from .database import eol_isaretle as _eol_isaretle
+                if _eol_isaretle(secilen["sku"], not _eol_v):
+                    B.yenile(f"{secilen['sku']} " + ("EOL işareti kaldırıldı" if _eol_v else "EOL olarak işaretlendi"))
+                else:
+                    st.error("Kaydedilemedi; ayrıntı Sistem Kayıtları'nda.")
 
         # Müşteri bazlı satış fiyat listesi
         _fl = secilen.get("satis_fiyat_listesi") or {}

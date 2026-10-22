@@ -88,6 +88,7 @@ for _mod in ("kayranpm", "kayranacc", "satis", "depo", "ithalat", "teknikservis"
                "satis_hesap.py",                      # elle siparişte mükerrer uyarısı (Eki 2026)
                "toplam_aktif.py", "toplam_aktif_ekran.py",   # Toplam Aktifler eşitleme turunda (22.10.2026)
                "mikro_banka_hareket.py", "banka_ekran.py",   # banka penceresinde Mikro hareketleri (22.10.2026)
+               "rapor.py",                                   # Tüm ürünler Excel, müşteri stoğu (talep #39)
                "main.py"):
         _p = KOK / _mod / _d
         if _p.exists():
@@ -139,7 +140,7 @@ def test_kirik_import_yok():
 KRITIK_FONKSIYONLAR = {
     "veritabani.uygula": ["dosyalari_bul", "dosya_sha", "oneri_mi", "plan_yap", "canli_mi",
                           "gecmisi_oku", "uygula", "main"],   # kayıtlı şema değişikliği (Eki 2026)
-    "kayranpm.database": ["_kampanya_cache_temizle",
+    "kayranpm.database": ["eol_isaretle", "_kampanya_cache_temizle",
         "get_yurtici_kategoriler", "set_yurtici_kategoriler",   # 04.08'de silinmişti
         "get_satis_depolari", "depo_kanonik", "stok_hareket_coklu",
         "get_talepler", "get_talepler_kullanici", "acik_talep_sayisi", "ekle_talep",
@@ -286,6 +287,7 @@ KRITIK_FONKSIYONLAR = {
                                "guncelle", "otomatik"],
     "kayranacc.toplam_aktif_ekran": ["ayrinti", "yetkili_mi"],
     "kayranacc.mikro_banka_hareket": ["hareket_listesi", "hesap_kodu", "oku"],   # banka penceresi (22.10.2026)
+    "kayranpm.rapor": ["musteri_stok_kolonlari", "tum_urun_kolonlari", "tum_urunler_excel"],   # talep #39
     "kayranpm.mikro_depo": ["hareket_turu", "hareketler", "depo_partileri", "havuz_partileri", "depo_yaslari",
                             "depo_ozet_satirlari", "depo_parti_satirlari", "toplam", "excel_karsilastir",
                             "yas_karsilastir", "veri_oku", "hesapla", "havuz_partileri_oku", "depo_partileri_oku",
@@ -409,7 +411,7 @@ KRITIK_FONKSIYONLAR = {
     "yonetim_para": ["usd", "harita", "ozet_cumlesi", "veri_topla", "sayfa"],
     # Dosya kapısı (Ekim 2026): bütün Excel yüklemeleri tek pencerede
     "shared.dosya_tani": ["tani", "sayfalari_oku", "norm"],
-    "satis.main": ["iade_excel_oku", "iade_fatura_satirlari", "iade_fatura_ozetle", "kapi_iade",
+    "satis.main": ["kategori_birlestir", "iade_excel_oku", "iade_fatura_satirlari", "iade_fatura_ozetle", "kapi_iade",
                    # sayfa gövdeleri run()'dan ayrı fonksiyonlara taşındı (Ekim 2026, mimari)
                    "_mikro_acik",                  # Mikro esas: açıkken elle giriş düğmeleri yok (22.10.2026)
                    "run", "_sayfa_satis_girisi", "_sayfa_satislar", "_sayfa_kar_pnl", "_sayfa_iade",
@@ -425,7 +427,8 @@ KRITIK_FONKSIYONLAR = {
     "kayranpm.ref_no": ["alinan_destek_kolonlari", "alinan_destek_excel_ice_aktar", "ref_ekle", "ref_ekle_no",
                         "ref_firma_kodu"],
     "kayranpm.kampanya_ref": ["ref_firmasi_sec", "ref_plani", "mevcut_refler", "elle_benzerler", "onizleme",
-                              "kapaninca_ref_ac", "ekran_mesaji", "mail_icerigi", "mail_alicilari"],
+                              "kapaninca_ref_ac", "ekran_mesaji", "mail_icerigi", "mail_alicilari",
+                              "destek_kalemleri", "kampanya_no", "isaret_koru", "kalemler_kampanyadan"],   # talep #36
     "shared.dosya_kapisi": ["ac", "acik", "kapat", "ciz", "izinli", "izinli_turler", "gorunur",
                             "yetkiler_topla", "dosyalari_ekle", "ana_sayfa_alani", "esitleme_acik",
                             "mikro_kapsar", "mikro_turleri", "secilebilir_turler", "gorunen_sablonlar"],
