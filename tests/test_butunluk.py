@@ -194,7 +194,7 @@ KRITIK_FONKSIYONLAR = {
         "tahsilat_guncelle", "tahsilat_bakiye_farki",   # para girişi düzenleme (Ekim 2026)
         "hafta_olustur",                          # yeni hafta + ödemeler + aktif (Mikro önerisi, Ekim 2026)
     ],
-    "satis.database": ["mikro_esas_mi", "pacal_bul", "satis_sku_listesi",
+    "satis.database": ["mikro_esas_mi", "mikro_esitleme", "mikro_kaynakli_mi", "pacal_bul", "satis_sku_listesi",
         "satis_anahtar", "_magaza_ayikla",        # mağazalı mükerrer anahtarı
         "_tum_satislar_yalin", "_satislar_yalin_aralik", "_tum_iadeler", "_iadeler_aralik",  # ortak okuma
         "kanal_kok", "kanal_bolunmeleri",         # kanal adı tekilleştirme
@@ -390,6 +390,7 @@ KRITIK_FONKSIYONLAR = {
     "shared.dosya_tani": ["tani", "sayfalari_oku", "norm"],
     "satis.main": ["iade_excel_oku", "iade_fatura_satirlari", "iade_fatura_ozetle", "kapi_iade",
                    # sayfa gövdeleri run()'dan ayrı fonksiyonlara taşındı (Ekim 2026, mimari)
+                   "_mikro_acik",                  # Mikro esas: açıkken elle giriş düğmeleri yok (22.10.2026)
                    "run", "_sayfa_satis_girisi", "_sayfa_satislar", "_sayfa_kar_pnl", "_sayfa_iade",
                    "_mukerrer_onay"],   # elle siparişte mükerrer onayı (Eki 2026)
     "kayranacc.main": ["run", "_sayfa_dashboard", "_sayfa_bu_hafta", "_sayfa_banka_bakiyeleri", "_sayfa_nakit_akis",

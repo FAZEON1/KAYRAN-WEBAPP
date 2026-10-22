@@ -372,20 +372,57 @@ def kampanya_destek_bul(sku, kanal, tarih):
 
 
 # ── Satış CRUD ──
-def mikro_esas_mi(tarih):
-    """Bu tarihli satış kaydı Mikro'dan mı gelir (satış eşitlemesi açık ve tarih başlangıçtan sonra)?
-    Kullanıcı (21.10.2026): "Mikro'daki datalar her zaman daha doğrudur … her zaman gerçek veri orasıdır."
-    O zaman uygulamada elle satış / sipariş satırı açılmaz; eşitleme Mikro'da olmayan satırı zaten kaldırır."""
+def mikro_esitleme():
+    """(satış eşitlemesi açık mı, başlangıç tarihi). Durum okunamazsa (False, '') — kapalı sayılır."""
     try:
         from satis.mikro_esitle import BASLANGIC, durum
         d = durum() or {}
-        return bool(d.get("acik")) and str(tarih or "")[:10] >= str(d.get("baslangic") or BASLANGIC)[:10]
+        return bool(d.get("acik")), str(d.get("baslangic") or BASLANGIC)[:10]
     except Exception:  # noqa: BLE001
+        return False, ""
+
+
+def mikro_esas_mi(tarih):
+    """Bu tarihli satış kaydı Mikro'dan mı gelir (satış eşitlemesi açık ve tarih başlangıçtan sonra)?
+    Kullanıcı (21.10.2026): "Mikro'daki datalar her zaman daha doğrudur … her zaman gerçek veri orasıdır."
+    O zaman uygulamada elle satış / sipariş / iade satırı açılmaz; eşitleme Mikro'da olmayan satırı zaten kaldırır."""
+    acik, bas = mikro_esitleme()
+    return acik and bool(bas) and str(tarih or "")[:10] >= bas
+
+
+def mikro_kaynakli_mi(satir, esitleme=None):
+    """Satış satırı Mikro'dan mı geliyor (eşitleme açıkken uygulamada düzeltilmez / silinmez; kullanıcı, 22.10.2026).
+    Mikro kaynaklı: notu 'Mikro' ile başlar (fatura satırı 'Mikro · …', açık sipariş 'Mikro sipariş · …') ya da
+    tarihi başlangıçtan sonradır — Mikro esasken başlangıçtan sonraki her satış satırı bir Mikro faturasının ya
+    da siparişinin kopyasıdır (eşitleme Mikro'da olmayanı kaldırır), sipariş no'su Mikro fatura no'su olanlar
+    dahil. Tarihi boş / bozuk satır (Kayıp kayıt ara) kilitli değil. esitleme: mikro_esitleme() sonucu (listede
+    durumu bir kez okumak için)."""
+    acik, bas = mikro_esitleme() if esitleme is None else esitleme
+    if not acik:
         return False
+    s = satir or {}
+    from satis.mikro_esitle import NOT_ONEKI
+    if str(s.get("notlar") or "").startswith(NOT_ONEKI):
+        return True
+    t = str(s.get("tarih") or "")[:10]
+    return bool(t) and bool(bas) and t >= bas
+
+
+def _mikro_kilitli(cli, kolon, deger):
+    """Bu satış satırı / siparişin bir kalemi Mikro kaynaklı mı (eşitleme kapalıyken okumaz)."""
+    es = mikro_esitleme()
+    if not es[0]:
+        return False
+    rows = _rows(cli.table("satislar").select("tarih,notlar,siparis_no").eq(kolon, deger).execute())
+    return any(mikro_kaynakli_mi(r, es) for r in rows)
 
 
 MIKRO_ESAS_MESAJ = ("Satışlar Mikro'dan gelir: siparişi / faturayı Mikro'ya gir, 15 dakika içinde burada görünür. "
                     "Uygulamada satış kaydı açılmadı.")
+MIKRO_KILIT_MESAJ = ("Bu satış Mikro'dan gelir: düzeltme ve silme Mikro'daki faturada / siparişte yapılır, "
+                     "15 dakika içinde burada görünür. Uygulamada değiştirilmedi.")
+MIKRO_IADE_MESAJ = ("İadeler Mikro'daki iade faturasından gelir: iade faturasını Mikro'ya gir, 15 dakika içinde "
+                    "burada görünür. Uygulamada iade kaydı açılmadı.")
 
 
 def ekle_satis(tarih, kanal, sku, urun_adi, adet, birim_satis, birim_maliyet,
@@ -1261,9 +1298,26 @@ def ice_aktar_satislar(satirlar, atla_mevcut=True, temizle_once=False, ilerleme=
             "atlanan_detay": atlanan_detay}
 
 
-def guncelle_satis(satis_id, alanlar):
+def guncelle_satis(satis_id, alanlar, ayrinti=False):
+    """Satış satırını günceller (stok farkı işlenir). Döner: bool; ayrinti=True → (ok, mesaj).
+    Mikro kaynaklı satır (mikro_kaynakli_mi) eşitleme açıkken güncellenmez: Mikro'da düzeltilir."""
+    r = _guncelle_satis(satis_id, alanlar)
+    return r if ayrinti else r[0]
+
+
+def _guncelle_satis(satis_id, alanlar):
     try:
         cli = _get_client()
+        if _mikro_kilitli(cli, "id", satis_id):
+            return False, MIKRO_KILIT_MESAJ
+        ok = _guncelle_satis_yaz(cli, satis_id, alanlar)
+        return ok, ("Satış güncellendi." if ok else "Satış güncellenemedi; ayrıntı Sistem Kayıtları'nda.")
+    except Exception as e:  # noqa: BLE001
+        return False, f"Satış güncellenemedi: {type(e).__name__}: {str(e)[:120]}"
+
+
+def _guncelle_satis_yaz(cli, satis_id, alanlar):
+    try:
         # ── STOK SENKRONU: adet/SKU değişiyorsa farkı stoğa yansıt ──
         # (Eski davranış stoğa hiç dokunmuyordu → adet düzeltmeleri stokta iz
         #  bırakmıyordu. Şimdi: eski kaydın stok etkisi geri alınır, yenisi uygulanır.)
@@ -1314,7 +1368,19 @@ def guncelle_satis(satis_id, alanlar):
         return False
 
 
-def sil_satis(satis_id):
+def sil_satis(satis_id, ayrinti=False):
+    """Satış satırını siler, stoğu geri verir. Döner: bool; ayrinti=True → (ok, mesaj).
+    Mikro kaynaklı satır (mikro_kaynakli_mi) eşitleme açıkken silinmez."""
+    try:
+        if _mikro_kilitli(_get_client(), "id", satis_id):
+            return (False, MIKRO_KILIT_MESAJ) if ayrinti else False
+    except Exception as e:  # noqa: BLE001
+        return (False, f"Silinemedi: {type(e).__name__}: {str(e)[:120]}") if ayrinti else False
+    ok = _sil_satis(satis_id)
+    return (ok, "Satış silindi." if ok else "Silinemedi; ayrıntı Sistem Kayıtları'nda.") if ayrinti else ok
+
+
+def _sil_satis(satis_id):
     try:
         cli = _get_client()
         _r = _rows(cli.table("satislar").select("sku,adet").eq("id", satis_id).execute())
@@ -1337,10 +1403,21 @@ def sil_satis(satis_id):
         return False
 
 
-def sil_siparis(siparis_no):
+def sil_siparis(siparis_no, ayrinti=False):
     """Bir sipariş numarasına ait tüm kalemleri siler ve stok karşılığını geri verir.
     (Eskiden stok geri verilmiyordu → silinen sipariş yeniden import edilince
-    düşüm iki kez uygulanıyordu. Artık sil_satis/sil_siparisler ile aynı davranır.)"""
+    düşüm iki kez uygulanıyordu. Artık sil_satis/sil_siparisler ile aynı davranır.)
+    Bir kalemi Mikro kaynaklıysa (mikro_kaynakli_mi) eşitleme açıkken silinmez. ayrinti=True → (ok, mesaj)."""
+    try:
+        if _mikro_kilitli(_get_client(), "siparis_no", siparis_no):
+            return (False, MIKRO_KILIT_MESAJ) if ayrinti else False
+    except Exception as e:  # noqa: BLE001
+        return (False, f"Silinemedi: {type(e).__name__}: {str(e)[:120]}") if ayrinti else False
+    ok = _sil_siparis(siparis_no)
+    return (ok, "Sipariş silindi." if ok else "Silinemedi; ayrıntı Sistem Kayıtları'nda.") if ayrinti else ok
+
+
+def _sil_siparis(siparis_no):
     try:
         cli = _get_client()
         _r = _rows(cli.table("satislar").select("sku,adet").eq("siparis_no", siparis_no).execute())
@@ -1601,7 +1678,12 @@ def ekle_iade(tarih, kanal, sku, urun_adi, iade_adet,
     stok_isle=False: stok başka yerde işlendi (teknik servis mal kabulü +1 yazdı), yalnız kayıt.
     Toplu mal kabul yüklemesi içindeyse eklenen satır geri alma için bildirilir.
     kimlik=True: (ok, mesaj, id) döner — teknik servis kaydı iade satırına bağlansın diye.
+    Mikro esas (22.10.2026): eşitleme açıkken başlangıçtan sonraki Mikro dışı iade (elle, teknik servis) yazılmaz,
+    stok da işlenmez; iade Mikro'daki iade faturasından gelir (eşitleme Mikro dışı iade satırını kaldırır).
     """
+    if str(kaynak or "manuel") != "mikro" and mikro_esas_mi(tarih):
+        r = (False, MIKRO_IADE_MESAJ, None)
+        return r if kimlik else r[:2]
     r = _ekle_iade(tarih, kanal, sku, urun_adi, iade_adet, iade_brut, iade_iskonto, iade_masraf, iade_net,
                    depo, kaynak, stok_isle)
     return r if kimlik else r[:2]

@@ -120,16 +120,27 @@ def test_iptal_fatura_silinir_satirsiz_fatura_korunur():
     assert [b["fatura_no"] for b in p["hizmet_faturalari"]] == ["G5F26-21"]   # satırsız: dokunulmaz, listelenir
 
 
-def test_excel_iadeleri_mikro_iadeleriyle_degisir():
+def test_mikro_esas_mikro_disi_her_iade_satiri_kalkar():
+    """Mikro esas (kullanıcı, 22.10.2026; satıştaki kuralın aynısı): başlangıçtan sonraki Mikro dışı HER iade
+    satırı kalkar — Excel (firması Mikro'da olsun olmasın), elle iade, teknik servis mal kabulünün yazdığı
+    'manuel' iade. Eskiden yalnız firması Mikro iade faturasında geçen Excel satırı (id 9) kalkıyordu: teknik
+    servisin yazdığı iade (id 11) aynı malın Mikro iade faturasıyla iki kez sayılıyordu. Başlangıçtan önceki
+    satıra dokunulmaz."""
     mikro = [_s(31, "X24F200", 1, 120, tip=0, iade=1, cari="120.02.005", unvan="EERA", tarih="2026-08-01")]
     iadeler = [{"id": 9, "tarih": "2026-09-30", "kanal": "120.02.005 EERA", "sku": "X24F200", "iade_adet": 1,
                 "iade_net": 120, "kaynak": "excel"},
                {"id": 10, "tarih": "2026-09-30", "kanal": "120.09.999 BAŞKA", "sku": "Z", "iade_adet": 1,
                 "iade_net": 5, "kaynak": "excel"},
                {"id": 11, "tarih": "2026-09-30", "kanal": "120.02.005 EERA", "sku": "Q", "iade_adet": 1,
-                "iade_net": 7, "kaynak": "manuel"}]
+                "iade_net": 7, "kaynak": "manuel"},
+               {"id": 13, "tarih": "2026-08-02", "kanal": "EERA", "sku": "X24F200", "iade_adet": 1,
+                "iade_net": 0, "kaynak": None},
+               {"id": 14, "tarih": "2026-06-30", "kanal": "EERA", "sku": "X24F200", "iade_adet": 1,
+                "iade_net": 50, "kaynak": "manuel"}]
     p = M.plan_yap(mikro, [], iadeler)
-    assert p["yuk"]["sil_iade_id"] == [9]
+    assert p["yuk"]["sil_iade_id"] == [9, 10, 11, 13]
+    eylul = next(o for o in p["ozet"] if o["ay"] == "2026-09")
+    assert (eylul["iade_once"], eylul["iade_sonra"]) == (132, 0)
     assert [r["belge_no"] for r in p["yuk"]["ekle_iade"]] == ["G5F26-31"]
     p2 = M.plan_yap(mikro, [], [dict(p["yuk"]["ekle_iade"][0], id=12, kaynak="mikro")])
     assert not p2["degisiklik_var"]

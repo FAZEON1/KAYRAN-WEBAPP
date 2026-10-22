@@ -28,7 +28,10 @@ from shared.ana_veri import kategori_ad as _kat_ad, urun_ad   # tek yazım / ür
 from shared.utils import sku_anahtar                   # get_sku_kategori anahtarı normalize (Faz 3)
 from . import satis_hesap as H
 from .database import (get_satislar_yalin, get_siparis_kalemleri, get_satislar_kanal_ara,
-                       guncelle_satis, sil_satis, sil_siparis, satir_kar, get_sku_kategori, get_urunler)
+                       guncelle_satis, sil_satis, sil_siparis, satir_kar, get_sku_kategori, get_urunler,
+                       mikro_esitleme, mikro_kaynakli_mi)
+
+MIKRO_SIPARIS_NOTU = "Bu sipariş Mikro'dan gelir: düzeltme ve silme Mikro'daki faturada / siparişte yapılır."
 
 
 # ── Liste masası (Ekim 2026, tüm program yeni tasarım): sipariş ve kalem listesi ortak masada
@@ -184,6 +187,9 @@ def siparis_dialog(anahtar):
                                    "Tabloda maliyeti gir ya da Kâr / P&L → 'Maliyeti 0 düzelt' ile paçaldan doldur."),
                     unsafe_allow_html=True)
 
+    # Mikro'dan gelen sipariş (eşitleme açık): düzeltme ve silme Mikro'da — eylemler gösterilmez (22.10.2026)
+    es = mikro_esitleme()
+    mikro = any(mikro_kaynakli_mi(s, es) for s in kalemler)
     satirlar = []
     for s in kalemler:
         k = satir_kar(s)
@@ -193,9 +199,22 @@ def siparis_dialog(anahtar):
             r.update({"Birim maliyet": float(s.get("birim_maliyet") or 0), "Kâr": k["net_kar"],
                       "Marj %": k["marj"]})
         r["Ciro"] = k["ciro"]
-        r["Sil"] = False
+        if not mikro:
+            r["Sil"] = False
         satirlar.append(r)
     df = pd.DataFrame(satirlar).set_index("_id")
+    if mikro:
+        st.dataframe(df, hide_index=True, use_container_width=True, height=min(400, 38 + 35 * len(df)),
+                     key=f"sip_mikro_{anahtar}",
+                     column_config={"Birim satış": st.column_config.NumberColumn("Birim satış", format="dollar",
+                                                                                 step=0.0001),
+                                    "Birim maliyet": st.column_config.NumberColumn("Birim maliyet", format="dollar",
+                                                                                   step=0.0001),
+                                    "Kâr": st.column_config.NumberColumn("Kâr", format="dollar", step=0.01),
+                                    "Marj %": st.column_config.NumberColumn("Marj %", format="localized", step=0.1),
+                                    "Ciro": st.column_config.NumberColumn("Ciro", format="dollar", step=0.01)})
+        st.caption(MIKRO_SIPARIS_NOTU)
+        return
     salt = _salt_okur()
     para = lambda b, adim=0.01: st.column_config.NumberColumn(b, format="dollar", step=adim, min_value=0.0)
     duz = st.data_editor(
@@ -426,7 +445,11 @@ def _hayalet_dialog():
             [_mk("Firma", ana=True, alt="SKU"), _mk("SKU", gizli=True), _mk("Kayıt no", gen="90px", ara=True),
              _mk("Tarih", gen="104px"), _mk("Adet", "adet", gen="70px"), _mk("Sipariş", gen="130px")],
             "l_hayalet_masa", baslik_ipucu="Tarihi boş ya da bozuk kayıtlar")
-    sec = st.multiselect("Silinecek kayıt id'leri", [r.get("id") for r in rows], key="l_hayalet_sec")
+    es = mikro_esitleme()
+    silinebilir = [r.get("id") for r in rows if not mikro_kaynakli_mi(r, es)]   # Mikro'dan gelen silinmez
+    if len(silinebilir) < len(rows):
+        st.caption(f"{len(rows) - len(silinebilir)} kayıt Mikro'dan gelir; silme Mikro'da yapılır.")
+    sec = st.multiselect("Silinecek kayıt id'leri", silinebilir, key="l_hayalet_sec")
     if sec and B.onayli_sil(f"Evet, seçili {len(sec)} kaydı sil", key="l_hayalet", dugme=f"{len(sec)} kaydı sil"):
         n = sum(1 for i in sec if sil_satis(i))
         B.yenile(f"{n} kayıt silindi")

@@ -44,7 +44,7 @@ def _plan_goster(plan):
     st.caption(f"Eklenecek: {tr_sayi(len(y['ekle_satis']))} satış satırı ({tr_sayi(plan['yeni_fatura'])} fatura), "
                f"{tr_sayi(len(y['ekle_iade']))} iade satırı. Değiştirilecek: {tr_sayi(len(y['sil_satis_id']))} "
                f"Mikro dışı satış satırı, {tr_sayi(len(y['fatura_nolar']))} değişen fatura, "
-               f"{tr_sayi(len(y['sil_iade_id']))} Excel iade satırı. Mikro'da açık "
+               f"{tr_sayi(len(y['sil_iade_id']))} Mikro dışı iade satırı. Mikro'da açık "
                f"{tr_sayi(plan.get('acik_siparis', 0))} sipariş ({tr_sayi(plan.get('acik_siparis_adet', 0))} adet) "
                "faturası kesilene kadar bekleyen satış olarak görünür. Stok değişmez.")
     if plan["sil_satis_kanal"]:
@@ -76,13 +76,22 @@ def _aktarici_dugmesi():
                            mime="text/x-python", icon=":material/download:", key="me_aktarici")
 
 
+KAYNAK_NOTU = "Satışlar, iadeler ve siparişler Mikro'dan gelir (15 dakikada bir) · {tarih} sonrası."
+
+
 def ilk_onay_kutusu():
-    """Satışlar sayfasının üstü: eşitleme kapalıysa ve Mikro satırları geldiyse bir kerelik onay."""
+    """Satışlar sayfasının üstü. Eşitleme açıkken yalnız kısa kaynak notu (kullanıcı, 22.10.2026: Mikro'dan sonra
+    anlamsız kalan ekran parçası açıkken gösterilmez). Kapalıysa ve Mikro satırları geldiyse bir kerelik onay
+    (aşağıdaki dal yedek: eşitleme kapatılırsa yeniden çıkar)."""
     from shared.kar_gizle import kar_gorunur
+    d = M.durum()
+    if d and d.get("acik"):
+        bas = str(d.get("baslangic") or M.BASLANGIC)[:10]
+        st.caption(KAYNAK_NOTU.format(tarih=f"{bas[8:10]}.{bas[5:7]}.{bas[:4]}"))
+        return
     if not kar_gorunur():
         return
-    d = M.durum()
-    if not d or d.get("acik"):
+    if not d:
         return
     try:
         if not M._son_aktarim():
