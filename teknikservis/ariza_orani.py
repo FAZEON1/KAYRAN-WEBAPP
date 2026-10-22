@@ -16,17 +16,17 @@ yalnız servis kayıtlarına uygulanır: dönemin satışını payda yapmak, dö
 arızalanan ürünler yüzünden %100'ü aşan oranlar veriyordu (canlı veri, Ekim 2026). Servis kayıtları
 23.06.2026'da başladığı için oran bir ALT SINIRDIR. Aynı seri numarası bir kez sayılır.
 
-Mikro iadeleri (kullanıcı, 22.10.2026: "Mikro'dan gelen datalarla geçmişe dönük daha gerçekçi adet ve oranları
-çekebilir miyiz?" → öneri onaylandı). Mikro'da arıza kaydı yok ama müşteri iadesi var (mikro_depo_hareket: iade
-irsaliyesi, SERVİS DEPO'ya 2025'ten Haziran 2026'ya, İADE DEPO'ya Temmuz 2026'dan beri). İadenin sebebi Mikro'da
-yazmaz; bu yüzden:
-  İade oranı              Mikro'daki tekli iade ÷ ulaşan (tahmin yok). Toplu stok iadesi (satırda 3'ten fazla adet,
-                          ör. SND'nin 3.120 adetlik iadesi) arıza değildir, sayılmaz.
-  Arızalı tahmini         İLK servis kaydından ÖNCEKİ Mikro iadeleri × kategorinin Kayran'daki iade arıza payı
-                          (iade kayıtlarının kaçı "Arıza doğrulandı"; az örnekli kategoride genel pay). İlk kayıttan
-                          sonrası yalnız Kayran kaydından sayılır — aynı iade iki kez sayılmaz.
-  Tahmini dahil oran      (arızalı + arızalı tahmini) ÷ ulaşan. Kesin oran ("Arıza oranı (%)") değişmez.
-Haziran 2026 öncesi iadesiz teknik servis ürünleri Mikro'da yoktur: tahmini dahil oran da alt sınırdır.
+Mikro depo hareketleri (kullanıcı, 22.10.2026: "İade değil arızalı ürün oranı önemli. Müşteri iyi satamıyor diye
+başka yere verdiğimiz iadeler üründen kaynaklı değil. Ürün outlet, ikinci el, spot, hurda gibi depolara girmişse
+demek ki üründen kaynaklı sorun; onları göreyim yeter."). Mikro'da arıza sonucu yazmaz ama ürünün nereye gittiği
+yazar (mikro_depo_hareket, 2025'ten beri):
+  Sorunlu depoya giren    adında OUTLET, İKİNCİ EL, HURDA ya da SPOT geçen depoya DIŞARIDAN giren adet (servis /
+                          iade deposundan, merkezden…). Sorunlu depolar arası sevk (outlet → ikinci el) aynı ürünü
+                          ikinci kez saymaz. Mikro arıza oranı = bu adet ÷ son kullanıcıya ulaşan.
+  Servis deposundan satış servis / iade deposundan doğrudan satış faturası (spot satış) — ayrı sütun, orana girmez.
+  Servis deposundan fire  servis / iade deposundan çıkış fişi (hurda / fire) — ayrı sütun, orana girmez.
+Müşteri iadesi, iade deposuna giriş ve oradan merkeze dönüş (sağlam ürün) sayılmaz. Kayran'daki teknisyen sonucuna
+dayanan "Arıza oranı (%)" ayrıca durur, iki oran toplanmaz.
 """
 from shared.utils import normalize_tr
 
@@ -188,13 +188,16 @@ def _yuzde(r):
     return None if r is None else round(r, 2)
 
 
+MIKRO_SUTUN = ("Sorunlu depoya giren (Mikro)", "Servis deposundan satış (Mikro)", "Servis deposundan fire (Mikro)")
+MIKRO_ORAN = "Arıza oranı Mikro depo (%)"
+
+
 def satirlar(kartlar, alim, satis, mstok, servis, mikro=None):
-    """Ekran / Excel satırları — servise gelen, satılan ya da Mikro'da iadesi olan her SKU (en yüksek oran önce).
-    mikro: mikro_ozeti(...) sonucu ya da None (Mikro sütunları eklenmez)."""
+    """Ekran / Excel satırları — servise gelen, satılan ya da Mikro'da sorunlu depoya giren her SKU (en yüksek oran
+    önce). mikro: mikro_sorunlu(...) sonucu {sku: {"giren", "satis", "fire"}} ya da None (Mikro sütunları yok)."""
     mk = mikro or {}
-    once, iade = mk.get("once") or {}, mk.get("iade") or {}
     out = []
-    for k in set(satis) | set(servis) | (set(once) | set(iade) if mikro else set()):
+    for k in set(satis) | set(servis) | set(mk):
         u = kartlar.get(k) or {}
         sv = servis.get(k) or {}
         sat = max(0.0, satis.get(k, 0.0))
@@ -206,19 +209,14 @@ def satirlar(kartlar, alim, satis, mstok, servis, mikro=None):
              "Müşteri stoğunda": round(mstok.get(k, 0.0)), "Son kullanıcıya ulaşan": round(ul),
              "Servise gelen": sv.get("gelen", 0), "Arızalı": sv.get("arizali", 0),
              "Arızalının tahmini": sv.get("tahmini", 0), "Arıza oranı (%)": _yuzde(r)}
-        if mikro:
-            tah = once.get(k, 0.0) * pay_bul(mk.get("paylar"), mk.get("genel_pay"), u.get("kategori"))
-            s.update({"Mikro iadesi (kayıt öncesi)": round(once.get(k, 0.0)),
-                      "Arızalı tahmini (Mikro iade)": round(tah, 1),
-                      "Arıza oranı tahmini dahil (%)": _yuzde(oran(s["Arızalı"] + tah, ul)),
-                      "Mikro iadesi (dönem)": round(iade.get(k, 0.0)),
-                      "İade oranı (%)": _yuzde(oran(iade.get(k, 0.0), ul))})
+        if mikro is not None:
+            m = mk.get(k) or {}
+            s.update({MIKRO_SUTUN[0]: round(m.get("giren", 0.0)), MIKRO_ORAN: _yuzde(oran(m.get("giren", 0.0), ul)),
+                      MIKRO_SUTUN[1]: round(m.get("satis", 0.0)), MIKRO_SUTUN[2]: round(m.get("fire", 0.0))})
         out.append(s)
-    out.sort(key=lambda x: (x["Arıza oranı (%)"] is None, -(x["Arıza oranı (%)"] or 0), -x["Arızalı"]))
+    anahtar = MIKRO_ORAN if mikro is not None else "Arıza oranı (%)"
+    out.sort(key=lambda x: (x[anahtar] is None, -(x[anahtar] or 0), -x["Arızalı"]))
     return out
-
-
-_MIKRO_TOPLAM = ("Mikro iadesi (kayıt öncesi)", "Arızalı tahmini (Mikro iade)", "Mikro iadesi (dönem)")
 
 
 def grup_ozeti(satirlar_, alan):
@@ -230,92 +228,82 @@ def grup_ozeti(satirlar_, alan):
         o["Son kullanıcıya ulaşan"] += s["Son kullanıcıya ulaşan"]
         o["Arızalı"] += s["Arızalı"]
         o["Servise gelen"] += s["Servise gelen"]
-        for m in _MIKRO_TOPLAM:
+        for m in MIKRO_SUTUN:
             if m in s:
                 o[m] = o.get(m, 0) + s[m]
     out = []
     for o in g.values():
-        r = oran(o["Arızalı"], o["Son kullanıcıya ulaşan"])
-        o["Arıza oranı (%)"] = _yuzde(r)
-        if _MIKRO_TOPLAM[1] in o:
-            o[_MIKRO_TOPLAM[1]] = round(o[_MIKRO_TOPLAM[1]], 1)
-            o["Arıza oranı tahmini dahil (%)"] = _yuzde(oran(o["Arızalı"] + o[_MIKRO_TOPLAM[1]],
-                                                             o["Son kullanıcıya ulaşan"]))
-            o["İade oranı (%)"] = _yuzde(oran(o[_MIKRO_TOPLAM[2]], o["Son kullanıcıya ulaşan"]))
+        o["Arıza oranı (%)"] = _yuzde(oran(o["Arızalı"], o["Son kullanıcıya ulaşan"]))
+        if MIKRO_SUTUN[0] in o:
+            o[MIKRO_ORAN] = _yuzde(oran(o[MIKRO_SUTUN[0]], o["Son kullanıcıya ulaşan"]))
         out.append(o)
-    out.sort(key=lambda x: (x["Arıza oranı (%)"] is None, -(x["Arıza oranı (%)"] or 0)))
+    anahtar = MIKRO_ORAN if any(MIKRO_ORAN in o for o in out) else "Arıza oranı (%)"
+    out.sort(key=lambda x: (x[anahtar] is None, -(x[anahtar] or 0)))
     return out
 
 
-# ── Mikro iadeleri ──────────────────────────────────────────────────
-IADE_IRSALIYE = 3              # sth_evraktip: müşteri iade irsaliyesi
-TOPLU_SINIR = 3                # satırda bundan fazla adet: toplu stok iadesi, arıza değil
-IADE_DEPO_KELIME = ("SERVIS", "IADE")
-PAY_ORNEK_ALT = 20             # kategoride bundan az iade kaydı varsa genel pay
+# ── Mikro depo hareketleri ───────────────────────────────────────────
+SORUNLU_DEPO_KELIME = ("OUTLET", "IKINCI EL", "HURDA", "SPOT")
+SERVIS_DEPO_KELIME = ("SERVIS", "IADE")
+GIRIS, CIKIS, SEVK = 0, 1, 2           # sth_tip
+SATIS_FATURASI, CIKIS_FISI = 1, 0      # sth_evraktip (çıkış hareketinde)
+DEGER_FARKI = 9                        # sth_cins: tutar düzeltmesi, mal hareketi değil
+SAYIM = (10, 11)                       # sth_cins: sayım farkı
 
 
-def iade_depolari(depo_kartlar):
-    """Mikro depo kartlarından iadenin girdiği depolar (adında SERVİS ya da İADE geçen) → {dep_no}."""
-    out = set()
+def depo_gruplari(depo_kartlar):
+    """Mikro depo kartları → (sorunlu depolar, servis / iade depoları) {dep_no}."""
+    sorunlu, servis = set(), set()
     for d in depo_kartlar or []:
         ad = normalize_tr(d.get("dep_adi"))
-        if any(w in ad for w in IADE_DEPO_KELIME):
-            try:
-                out.add(int(d.get("dep_no")))
-            except (TypeError, ValueError):
-                pass
-    return out
+        try:
+            no = int(d.get("dep_no"))
+        except (TypeError, ValueError):
+            continue
+        if any(w in ad for w in SORUNLU_DEPO_KELIME):
+            sorunlu.add(no)
+        elif any(w in ad for w in SERVIS_DEPO_KELIME):
+            servis.add(no)
+    return sorunlu, servis
 
 
 def _iptal(v):
     return v is True or str(v or "").strip().lower() in ("1", "true")
 
 
-def mikro_iadeleri(hareketler, anahtar, depolar, bas=None, bit=None, once=None):
-    """{sku: adet} — iade depolarına giren tekli müşteri iadeleri. once: bu günden ÖNCEKİLER (ilk servis kaydı)."""
+def _int(v, d=-1):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return d
+
+
+def mikro_sorunlu(hareketler, anahtar, sorunlu, servis, bas=None, bit=None):
+    """{sku: {"giren", "satis", "fire"}} — dönemde sorunlu depoya dışarıdan giren, servis / iade deposundan satılan
+    ve fire çıkışı yapılan adet."""
     t = {}
     for h in hareketler or []:
-        if _iptal(h.get("sth_iptal")):
-            continue
-        try:
-            tip, ia, dep = int(h.get("sth_evraktip")), int(h.get("sth_normal_iade")), int(h.get("sth_giris_depo_no"))
-            adet = float(h.get("sth_miktar") or 0)
-        except (TypeError, ValueError):
-            continue
-        if tip != IADE_IRSALIYE or ia != 1 or dep not in depolar or not 0 < adet <= TOPLU_SINIR:
+        if _iptal(h.get("sth_iptal")) or _int(h.get("sth_cins")) in (DEGER_FARKI, *SAYIM):
             continue
         g = _gun(h.get("sth_tarih"))
-        if not g or (bas and g < str(bas)) or (bit and g > str(bit)) or (once and g >= str(once)):
+        if not g or (bas and g < str(bas)) or (bit and g > str(bit)):
+            continue
+        tip, evr = _int(h.get("sth_tip")), _int(h.get("sth_evraktip"))
+        gir, cik = _int(h.get("sth_giris_depo_no")), _int(h.get("sth_cikis_depo_no"))
+        if tip in (GIRIS, SEVK) and gir in sorunlu and (tip == GIRIS or cik not in sorunlu):
+            alan = "giren"
+        elif tip == CIKIS and cik in servis and evr == SATIS_FATURASI:
+            alan = "satis"
+        elif tip == CIKIS and cik in servis and evr == CIKIS_FISI:
+            alan = "fire"
+        else:
             continue
         k = anahtar(h.get("sth_stok_kod"))
-        if k:
-            t[k] = t.get(k, 0.0) + adet
+        try:
+            adet = float(h.get("sth_miktar") or 0)
+        except (TypeError, ValueError):
+            adet = 0.0
+        if k and adet > 0:
+            o = t.setdefault(k, {"giren": 0.0, "satis": 0.0, "fire": 0.0})
+            o[alan] += adet
     return t
-
-
-def iade_arizali_payi(kayitlar, anahtar, kategori_bul):
-    """Kayran'daki iade kayıtlarında arızalı payı: ({kategori: pay}, genel pay). kategori_bul(sku) → kategori.
-    Aynı seri bir kez; az örnekli kategori sözlüğe girmez (pay_bul genel payı kullanır)."""
-    oz = servis_ozeti([k for k in kayitlar or [] if k.get("arayuz") == "iade"], anahtar)
-    kat, gelen, ariz = {}, 0, 0
-    for sku, o in oz.items():
-        x = kat.setdefault(kategori_bul(sku) or "", [0, 0])
-        x[0] += o["gelen"]
-        x[1] += o["arizali"]
-        gelen += o["gelen"]
-        ariz += o["arizali"]
-    paylar = {k: a / g for k, (g, a) in kat.items() if k and g >= PAY_ORNEK_ALT}
-    return paylar, (ariz / gelen if gelen else 0.0)
-
-
-def pay_bul(paylar, genel, kategori):
-    return (paylar or {}).get(kategori or "", genel or 0.0)
-
-
-def mikro_ozeti(hareketler, depo_kartlar, kayitlar, anahtar, kategori_bul, bas, bit, ilk_kayit):
-    """satirlar(mikro=…) girdisi: kayıt öncesi iadeler, dönemin bütün iadeleri, kategori payları."""
-    dep = iade_depolari(depo_kartlar)
-    paylar, genel = iade_arizali_payi(kayitlar, anahtar, kategori_bul)
-    return {"once": mikro_iadeleri(hareketler, anahtar, dep, bas, bit, once=ilk_kayit) if ilk_kayit else {},
-            "iade": mikro_iadeleri(hareketler, anahtar, dep, bas, bit),
-            "paylar": paylar, "genel_pay": genel}

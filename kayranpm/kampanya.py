@@ -442,25 +442,42 @@ def _detay_dialog(kid):
         _sekme_islemler(kamp, o)
 
 
+def _musteri_satisi(kamp):
+    """Açık kampanyada ürün başına müşteri raporundaki satış {sku_anahtar: adet} ya da None (kapalı / DİĞER /
+    okunamadı). Yalnız gösterim — kayda yazılmaz (kampanya_hesap.musteri_satisi)."""
+    if H.durum(kamp, tr_today()) == "kapali":
+        return None
+    try:
+        from .database import get_musteri_haftalik_satis, kanal_kod_haritasi
+        rows = get_musteri_haftalik_satis(kamp.get("baslangic_tarihi"), kamp.get("bitis_tarihi")) or []
+        return H.musteri_satisi(kamp, rows, tr_today(), kanal_kod_haritasi())
+    except Exception as e:  # noqa: BLE001
+        sessiz("kayranpm.kampanya._musteri_satisi", e)
+        return None
+
+
 def _sekme_urunler(kamp, urunler_k, pacal, urunler, o):
     kid = kamp["id"]
     if urunler_k:
+        oto = _musteri_satisi(kamp)
         satirlar = []
         for u in urunler_k:
             h = H.urun_hesap(u, pacal.get(sku_anahtar(u.get("sku")), 0))
-            satirlar.append({
-                "_id": u["id"], "SKU": u.get("sku", ""), "Ürün": _urun_ad(u.get("sku"), u.get("urun_adi")),
-                "Paçal": h["pacal"] or None, "Satış": h["satis"], "Firma desteği": h["fd"],
-                "Ek destek": h["ed"], "Satılan": h["adet"],
-                "Net kâr/adet": h["net_kar"], "Net marj %": h["marj"], "Toplam net": h["t_net"] if h["net_kar"] is not None else None,
-                "Not": u.get("notlar") or "", "Sil": False,
-            })
+            s = {"_id": u["id"], "SKU": u.get("sku", ""), "Ürün": _urun_ad(u.get("sku"), u.get("urun_adi")),
+                 "Paçal": h["pacal"] or None, "Satış": h["satis"], "Firma desteği": h["fd"],
+                 "Ek destek": h["ed"], "Satılan": h["adet"]}
+            if oto is not None:
+                s["Müşteri satışı"] = oto.get(sku_anahtar(u.get("sku")), 0)
+            s.update({"Net kâr/adet": h["net_kar"], "Net marj %": h["marj"],
+                      "Toplam net": h["t_net"] if h["net_kar"] is not None else None,
+                      "Not": u.get("notlar") or "", "Sil": False})
+            satirlar.append(s)
         df = pd.DataFrame(satirlar).set_index("_id")
         _para = lambda b, y=None: st.column_config.NumberColumn(b, format="dollar", step=0.01, help=y)
         duz = st.data_editor(
             df, key=f"kmp_ed_{kid}", use_container_width=True, hide_index=True,
             height=min(420, 38 + 35 * len(df)),
-            disabled=["SKU", "Ürün", "Paçal", "Net kâr/adet", "Net marj %", "Toplam net"],
+            disabled=["SKU", "Ürün", "Paçal", "Müşteri satışı", "Net kâr/adet", "Net marj %", "Toplam net"],
             column_config={
                 "SKU": st.column_config.TextColumn("SKU", width="small"),
                 "Ürün": st.column_config.TextColumn("Ürün", width="medium"),
@@ -469,6 +486,10 @@ def _sekme_urunler(kamp, urunler_k, pacal, urunler, o):
                 "Firma desteği": _para("Firma desteği", "Firmanın verdiği birim destek"),
                 "Ek destek": _para("Ek destek", "Bizim verdiğimiz ek birim destek"),
                 "Satılan": st.column_config.NumberColumn("Satılan", min_value=0, step=1, format="localized"),
+                "Müşteri satışı": st.column_config.NumberColumn(
+                    "Müşteri satışı", format="localized", step=1,
+                    help="Müşterinin haftalık satış raporundan, kampanya tarihleri içinde (otomatik). Yalnız "
+                         "bilgi: Satılan'a ve kâra girmez; kaydettiğinde de bir şey değişmez."),
                 "Net kâr/adet": _para("Net kâr/adet", "(Satış − destekler) − paçal"),
                 "Net marj %": st.column_config.NumberColumn("Net marj %", format="localized", step=0.1,
                                                             help="Net kâr ÷ net satış"),
@@ -477,7 +498,10 @@ def _sekme_urunler(kamp, urunler_k, pacal, urunler, o):
                 "Sil": st.column_config.CheckboxColumn("Sil", width="small",
                                                        help="İşaretle ve kaydet: ürün kampanyadan çıkar"),
             })
-        st.caption("Satış, destek, adet ve notu tabloda düzenle; hesaplı sütunlar kaydedince güncellenir.")
+        st.caption("Satış, destek, adet ve notu tabloda düzenle; hesaplı sütunlar kaydedince güncellenir."
+                   + (" Müşteri satışı: müşterinin haftalık raporundan, kampanya tarihleri içinde "
+                      f"(toplam {tr_sayi(sum(df['Müşteri satışı']))} adet) — yalnız bilgi, Satılan'a yazılmaz."
+                      if "Müşteri satışı" in df.columns else ""))
         _degisen, _silinen = [], []
         for rid, yeni in duz.iterrows():
             eski = df.loc[rid]
