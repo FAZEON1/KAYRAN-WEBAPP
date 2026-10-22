@@ -56,6 +56,25 @@ def stok_mikrodan():
     return mikro_kapsar("g5f_sayim")
 
 
+@st.cache_data(ttl=600, show_spinner=False)
+def _mikro_kart_anahtarlari():
+    from shared.utils import sku_anahtar
+    from .mikro_urun import _cli
+    return {sku_anahtar(r.get("sto_kod")) for r in (_cli().table("mikro_stok_kart").select("sto_kod").execute().data
+                                                    or [])}
+
+
+def mikro_karti_mi(sku):
+    """Ürün kartı Mikro'da var mı ve Mikro ürün eşitlemesi açık mı: açıksa kart silinmez (eşitleme yeniden açardı;
+    kullanıcı, 22.10.2026: "datalar Mikro'dan gelecekse bu gibi her şeyi kaldır"). Okunamazsa False (eski ekran)."""
+    try:
+        from shared.utils import sku_anahtar
+        from .mikro_urun import acik_mi
+        return bool(acik_mi()) and sku_anahtar(sku) in _mikro_kart_anahtarlari()
+    except Exception:  # noqa: BLE001
+        return False
+
+
 # ══════════════════ DOSYA KAPISI GÖVDELERİ (Ekim 2026) ══════════════════
 # Haftalık müşteri stok + satış (eskiden Müşteri Satışları'ndaki pencere) ve G5F depo sayımı
 # (eskiden Veri Yükleme sayfası) artık üst menüdeki Dosya kapısında (shared/dosya_kapisi).
@@ -966,8 +985,13 @@ def _sayfa_tum_urunler():
                 # ── Yanlış girilen stok kartını sil ──
                 st.markdown("<div style='height:1px;background:color-mix(in srgb,var(--k-metin) 6%,transparent);margin:12px 0 8px'></div>",
                             unsafe_allow_html=True)
-                _sil_onay = st.checkbox(f"⚠️ '{_sec_sku}' stok kartını kalıcı olarak sil", key="urun_sil_onay")
-                if st.button("Stok Kartını Sil", key="urun_sil_btn",
+                if mikro_karti_mi(_sec_sku):
+                    st.caption("Bu kart Mikro'da var: silinemez (Mikro eşitlemesi kartı yeniden açar). "
+                               "Kartı kaldırmak için Mikro'da pasife al.")
+                    _sil_onay = None
+                else:
+                    _sil_onay = st.checkbox(f"⚠️ '{_sec_sku}' stok kartını kalıcı olarak sil", key="urun_sil_onay")
+                if _sil_onay is not None and st.button("Stok Kartını Sil", key="urun_sil_btn",
                              disabled=not _sil_onay, use_container_width=True, icon=":material/delete:"):
                     from .database import sil_urun as _sil_urun
                     try:

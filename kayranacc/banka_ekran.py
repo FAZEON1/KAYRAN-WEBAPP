@@ -6,7 +6,8 @@
                         "₺1.845.230…"), para birimi, hafta sonu tahmini
   banka_yeni_dialog()   Yeni hesap (eskiden sayfada sürekli açık form)
   banka_detay_kontrol() Karta tıklanınca: Mikro hareketleri (bağlı hesapta) · düzenle · son tahsilatlar · ONAYLI sil
-                        (eskiden "Sil" düğmesi hesabı onaysız siliyordu)
+                        (eskiden "Sil" düğmesi hesabı onaysız siliyordu). Mikro eşitlemesi açıkken yalnız
+                        Mikro hareketleri (elle_giris_kapali).
 
 Hafta sonu tahmini TOPLAM üzerinden gösterilir (Genel Bakış / Bu Hafta ile aynı):
   TL bankalar toplamı − bekleyen TL − bekleyen USD × kur
@@ -43,6 +44,17 @@ def bakiye_mikrodan(banka_id):
 
 
 MIKRO_ISLEM_NOTU = "Bu işlem Mikro'ya girilir; bakiye 15 dakikada güncellenir."
+
+
+def elle_giris_kapali():
+    """Muhasebe Mikro eşitlemesi açık mı: açıksa banka sayfasında virman / arbitraj / tahsilat / yeni hesap
+    düğmesi ve hesap penceresinde düzenle / sil yok, yalnız Mikro hareketleri (kullanıcı, 22.10.2026: "datalar
+    Mikro'dan gelecekse bu gibi her şeyi kaldır"). Okunamazsa False (eski ekran)."""
+    try:
+        from .mikro_muhasebe import acik_mi
+        return acik_mi()
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def mikro_islemi_mi(banka_idleri):
@@ -190,6 +202,9 @@ def _banka_dialog(b, kur):
     st.markdown(f'<div style="font-size:19px;font-weight:650">{_h.escape(str(b.get("hesap_adi") or ""))}</div>'
                 f'<div style="font-family:var(--k-mono);font-size:24px;font-weight:600;margin:4px 0 14px">'
                 f'{_para(b.get("bakiye"), pb)}</div>', unsafe_allow_html=True)
+    if elle_giris_kapali():
+        _mikro_hareketleri(b, pb)                 # hesap Mikro'dan: düzenle / sil / elle girişler yok
+        return
     mikro = bakiye_mikrodan(b["id"])
     if mikro:
         t0, t1, t2, t3 = st.tabs(["Hareketler", "Son girişler", "Düzenle", "Sil"])

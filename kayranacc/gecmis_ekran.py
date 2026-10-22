@@ -42,6 +42,21 @@ def _salt():
     return bool(st.session_state.get("salt_okur"))
 
 
+def _mikro_odeme():
+    """Haftalık ödeme listesi Mikro'dan mı (her pazartesi otomatik): geri al / aktif yap / hafta sil yok."""
+    try:
+        from .mikro_odeme_oto import acik_mi
+        return acik_mi()
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _mikro_cek():
+    """Çekler Mikro'dan mı (muhasebe eşitlemesi): çek silme yok."""
+    from .banka_ekran import elle_giris_kapali
+    return elle_giris_kapali()
+
+
 def _tl(v):
     return f"₺{tr_sayi(float(v or 0), 2)}"
 
@@ -191,7 +206,7 @@ def _hafta_dialog(h, aktif_mi):
                     f'<b style="font-family:var(--k-mono)">{_tutar(o)}</b>'
                     f'<span style="width:70px;text-align:right;color:var(--k-silik)">{durum}</span></div>',
                     unsafe_allow_html=True)
-    if st.session_state.get("salt_okur"):
+    if st.session_state.get("salt_okur") or _mikro_odeme():
         return
     st.markdown("")
     if not aktif_mi:
@@ -258,7 +273,7 @@ def _cek_arsivi():
 
 def _cek_hepsini_sil(cekler, pb):
     """Bir para biriminin bütün çekleri — onaylı (yeni döküm yüklemeden önce temizlik)."""
-    if not st.session_state.get("salt_okur"):
+    if not st.session_state.get("salt_okur") and not _mikro_cek():
         with st.expander(f"Tüm {pb} çeklerini sil", icon=":material/delete_sweep:"):
             st.markdown(mesaj("uyari", f"{len(cekler)} {pb} çekinin tamamı silinir; yeni döküm yüklemeden önce "
                                        "temizlemek için."), unsafe_allow_html=True)
@@ -281,7 +296,7 @@ def _cek_dialog(c, sym):
         st.markdown(f'<div style="display:flex;gap:12px;padding:6px 0;border-bottom:1px solid var(--k-kenar)">'
                     f'<span style="width:90px;color:var(--k-silik);font-size:12.5px">{etk}</span>'
                     f'<span style="font-size:13px">{_h.escape(str(v or "—"))}</span></div>', unsafe_allow_html=True)
-    if st.session_state.get("salt_okur"):
+    if st.session_state.get("salt_okur") or _mikro_cek():
         return
     st.markdown("")
     if B.onayli_sil("Evet, bu çeki sil", key=f"geccek_{c['id']}", dugme="Çeki sil"):
@@ -299,7 +314,8 @@ def _odenenler_masa():
         st.markdown(bos_durum("Bu hafta henüz ödenen yok", "Ödemeler 'Bu Hafta' sayfasından ödendi işaretlenir.",
                               "task_alt"), unsafe_allow_html=True)
         return
-    calistir(MM.odenenler_verisi(odemeler, get_bankalar() or [], date.today(), salt=_salt()), "gec_odenen_masasi",
+    calistir(MM.yalniz_okuma(MM.odenenler_verisi(odemeler, get_bankalar() or [], date.today(), salt=_salt()),
+                             _mikro_odeme()), "gec_odenen_masasi",
              MM.odenenler_yurutucu())
 
 
@@ -315,7 +331,8 @@ def _haftalar_masa():
     aktif = get_aktif_hafta()
     aktif_id = aktif["id"] if aktif else None
     ozetler = {h["id"]: get_hafta_ozet(h["id"]) for h in haftalar}
-    calistir(MM.haftalar_verisi(haftalar, ozetler, aktif_id, salt=_salt()), "gec_hafta_masasi",
+    calistir(MM.yalniz_okuma(MM.haftalar_verisi(haftalar, ozetler, aktif_id, salt=_salt()), _mikro_odeme()),
+             "gec_hafta_masasi",
              MM.haftalar_yurutucu(lambda i: B.detay_ac("gech", i)))
     sec = B.detay_istendi("gech")
     if sec:
@@ -334,5 +351,6 @@ def _cek_arsivi_masa():
         st.markdown(bos_durum(f"Kayıtlı {pb} çeki yok", "Çek dökümü üst menüdeki Dosya düğmesinden yüklenir.", "receipt"),
                     unsafe_allow_html=True)
         return
-    calistir(MM.cek_arsivi_verisi(cekler, pb, salt=_salt()), f"gec_cek_masasi_{pb}", MM.cek_arsivi_yurutucu())
+    calistir(MM.yalniz_okuma(MM.cek_arsivi_verisi(cekler, pb, salt=_salt()), _mikro_cek()), f"gec_cek_masasi_{pb}",
+             MM.cek_arsivi_yurutucu())
     _cek_hepsini_sil(cekler, pb)

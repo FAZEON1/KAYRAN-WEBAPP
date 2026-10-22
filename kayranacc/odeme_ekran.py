@@ -74,6 +74,17 @@ def _mikro_idler(hafta):
         return set()
 
 
+def _mikro_idler_tum():
+    """Bütün haftaların Mikro satırları (Ertelenen ödemeler). Okunamazsa boş küme."""
+    if not _mikro_liste_acik():
+        return set()
+    try:
+        from .mikro_odeme_oto import mikro_idleri_tum
+        return mikro_idleri_tum()
+    except Exception:  # noqa: BLE001
+        return set()
+
+
 def _mikro_eylemler():
     if _mikro_liste_acik():
         # Liste 15 dakikada bir kendiliğinden güncellenir: "Mikro'dan yenile" yok (kullanıcı, 22.10.2026)
@@ -525,5 +536,7 @@ def _render_ertelenen_masa(liste, kategoriler, bankalar, kur):
     bugun = tr_today()
     bankalar = bankalar if bankalar is not None else (get_bankalar() or [])
     kur = float(kur or 0)
-    calistir(MM.ertelenen_verisi(liste, bankalar, kategoriler, kur, bugun, salt=_salt()), "ertelenen_masasi",
-             MM.ertelenen_yurutucu(liste, bankalar, kategoriler, kur, bugun, salt=_salt()))
+    mik = _mikro_idler_tum()
+    calistir(MM.ertelenen_verisi(liste, bankalar, kategoriler, kur, bugun, salt=_salt(), mikro_idler=mik),
+             "ertelenen_masasi",
+             MM.ertelenen_yurutucu(liste, bankalar, kategoriler, kur, bugun, salt=_salt(), mikro_idler=mik))

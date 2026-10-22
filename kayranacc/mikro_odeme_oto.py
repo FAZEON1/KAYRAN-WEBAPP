@@ -182,6 +182,16 @@ def mikro_idleri(hafta_id, d=None):
     return out
 
 
+def mikro_idleri_tum(d=None):
+    """Bütün haftaların Mikro'dan gelen ödeme satırları — Ertelenen ödemeler birden çok haftayı listeler
+    (eskiden orada mikro_idler verilmiyordu: Mikro satırında Öde / Düzenle / Sil açıktı, 22.10.2026)."""
+    d = d if d is not None else durum()
+    out = set()
+    for hid in (d.get("haftalar") or {}):
+        out |= mikro_idleri(hid, d)
+    return out
+
+
 # ── Veritabanı ─────────────────────────────────────────────────────
 def _cli():
     from kayranacc.database import get_client

@@ -1588,27 +1588,36 @@ def _kontrol_paneli(kayit):
             _alt_baslik("İade faturası")
             _satir("Birim fiyat (KDV hariç)", _stok.iade_fiyat_metni(kayit))
             _satir("Giren depo", _g(kayit, "giris_depo") or _stok.giris_deposu(kayit) or "—")
-            with st.popover("İade faturası fiyatını gir / düzelt", icon=":material/receipt_long:"):
-                st.caption("Faturadaki KDV hariç birim fiyat. TL girilirse mal kabul gününün kuruyla USD'ye "
-                           "çevrilir; Satış › İade raporu ve P&L bu tutarı kullanır.")
-                _pf1, _pf2 = st.columns([1.6, 1])
-                _pb0 = str(kayit.get("iade_pb") or "USD").upper()
-                _f0 = kayit.get("iade_fiyat") if kayit.get("iade_fiyat") not in (None, "") else kayit.get("iade_net")
-                _yf = _pf1.number_input("Birim fiyat", min_value=0.0, step=1.0, format="%.2f",
-                                        value=float(_f0 or 0), key=f"ts_ifiyat_{kid}")
-                _ypb = _pf2.selectbox("Para birimi", _stok.PARA_BIRIMLERI,
-                                      index=_stok.PARA_BIRIMLERI.index(_pb0) if _pb0 in _stok.PARA_BIRIMLERI else 0,
-                                      key=f"ts_ipb_{kid}")
-                if st.button("Kaydet", key=f"ts_ifiyat_kaydet_{kid}", type="primary", icon=":material/save:"):
-                    _fok, _fmsg, _ = _stok.iade_fiyat_guncelle(kayit, _yf, _ypb)
-                    if _fok:
-                        durum_guncelle(kid, kayit.get("mevcut_durum", "mal kabül"),
-                                       st.session_state.get("aktif_kullanici", ""), f"İade fiyatı: {_fmsg}")
-                        st.session_state["_ts_bilgi"] = _fmsg
-                        st.cache_data.clear()
-                        st.rerun()
-                    else:
-                        st.error(_fmsg)
+            try:
+                from satis.database import mikro_esas_mi as _mikro_esas
+                _iade_mikro = _mikro_esas(str(kayit.get("mal_kabul_tarihi") or kayit.get("olusturma_tarihi") or "")[:10])
+            except Exception:  # noqa: BLE001
+                _iade_mikro = False
+            if _iade_mikro:
+                # İade faturası Mikro'dan (satış eşitlemesi): fiyat elle girilmez (22.10.2026).
+                st.caption("İade faturası Mikro'dan gelir; fiyat Mikro'daki iade faturasından alınır.")
+            else:
+                with st.popover("İade faturası fiyatını gir / düzelt", icon=":material/receipt_long:"):
+                    st.caption("Faturadaki KDV hariç birim fiyat. TL girilirse mal kabul gününün kuruyla USD'ye "
+                               "çevrilir; Satış › İade raporu ve P&L bu tutarı kullanır.")
+                    _pf1, _pf2 = st.columns([1.6, 1])
+                    _pb0 = str(kayit.get("iade_pb") or "USD").upper()
+                    _f0 = kayit.get("iade_fiyat") if kayit.get("iade_fiyat") not in (None, "") else kayit.get("iade_net")
+                    _yf = _pf1.number_input("Birim fiyat", min_value=0.0, step=1.0, format="%.2f",
+                                            value=float(_f0 or 0), key=f"ts_ifiyat_{kid}")
+                    _ypb = _pf2.selectbox("Para birimi", _stok.PARA_BIRIMLERI,
+                                          index=_stok.PARA_BIRIMLERI.index(_pb0) if _pb0 in _stok.PARA_BIRIMLERI else 0,
+                                          key=f"ts_ipb_{kid}")
+                    if st.button("Kaydet", key=f"ts_ifiyat_kaydet_{kid}", type="primary", icon=":material/save:"):
+                        _fok, _fmsg, _ = _stok.iade_fiyat_guncelle(kayit, _yf, _ypb)
+                        if _fok:
+                            durum_guncelle(kid, kayit.get("mevcut_durum", "mal kabül"),
+                                           st.session_state.get("aktif_kullanici", ""), f"İade fiyatı: {_fmsg}")
+                            st.session_state["_ts_bilgi"] = _fmsg
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.error(_fmsg)
 
         _alt_baslik("Arıza / İşlem")
         _satir("Müşteri Şikayet", _g(kayit, "ariza"))

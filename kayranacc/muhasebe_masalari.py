@@ -91,6 +91,14 @@ def _ozet_karti(k, et, deger, renk="", al="", suz=None, nokta=True):
     return d
 
 
+def yalniz_okuma(veri, mikro):
+    """Mikro kaynaklı listede elle işlem yok (kullanıcı, 22.10.2026: "datalar Mikro'dan gelecekse bu gibi her şeyi
+    kaldır"): mikro True ise yalnız okuma işlemleri kalır (ör. "Ödemeleri göster"). Satır seçimi de kalkar."""
+    if mikro:
+        veri = dict(veri, islemler=[i for i in veri.get("islemler") or [] if i.get("okuma")])
+    return veri
+
+
 def _ilk(temiz):
     return temiz["ids"][0], temiz["satirlar"][0]
 
@@ -98,11 +106,12 @@ def _ilk(temiz):
 # ════════════════════════════════════════════════════════════════════
 # ERTELENEN ÖDEMELER — ödeme işlemleri Bu hafta masasıyla aynı (kayranacc/odeme_masasi)
 # ════════════════════════════════════════════════════════════════════
-def ertelenen_verisi(liste, bankalar, kategoriler, kur, bugun, salt=False):
+def ertelenen_verisi(liste, bankalar, kategoriler, kur, bugun, salt=False, mikro_idler=None):
     """Satırlar odeme_masasi.masa_verisi'nden (aynı alanlar, aynı işlemler: öde / kısmi öde / ötele /
-    düzenle / sil / geri al); üstüne erteleme bilgisi. Sıra eski ekranla aynı: önce bekleyenler, vadeye göre."""
+    düzenle / sil / geri al); üstüne erteleme bilgisi. Sıra eski ekranla aynı: önce bekleyenler, vadeye göre.
+    mikro_idler: Mikro'dan gelen satırlar — Bu hafta gibi yalnız ötele (mikro_odeme_oto.mikro_idleri_tum)."""
     from . import odeme_masasi as OM
-    v = OM.masa_verisi(liste or [], bankalar or [], kategoriler or {}, kur, bugun, salt=salt)
+    v = OM.masa_verisi(liste or [], bankalar or [], kategoriler or {}, kur, bugun, salt=salt, mikro_idler=mikro_idler)
     satir = {s["id"]: s for s in v["satirlar"]}
     satirlar = []
     for o in sorted(liste or [], key=lambda x: (H.odendi_mi(x), str(x.get("vade") or ""))):
@@ -155,10 +164,10 @@ def ertelenen_verisi(liste, bankalar, kategoriler, kur, bugun, salt=False):
     })
 
 
-def ertelenen_yurutucu(liste, bankalar, kategoriler, kur, bugun, salt=False):
+def ertelenen_yurutucu(liste, bankalar, kategoriler, kur, bugun, salt=False, mikro_idler=None):
     """Bu hafta masasının yürütücüsü (istek_coz + islem_uygula) bu listeyle — aynı veritabanı çağrıları."""
     from . import odeme_masasi as OM
-    return OM.yurutucu(liste or [], bankalar or [], kategoriler or {}, kur, bugun, salt=salt)
+    return OM.yurutucu(liste or [], bankalar or [], kategoriler or {}, kur, bugun, salt=salt, mikro_idler=mikro_idler)
 
 
 # ════════════════════════════════════════════════════════════════════

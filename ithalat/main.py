@@ -43,7 +43,8 @@ def _ithalat_masasi(dosyalar, hesap_map):
     from shared import bilesen as _B
     from shared.masa import calistir
     from .ithalat_masasi import masa_verisi, yurutucu
-    calistir(masa_verisi(dosyalar, hesap_map, date.today(), salt=bool(st.session_state.get("salt_okur"))),
+    calistir(masa_verisi(dosyalar, hesap_map, date.today(), salt=bool(st.session_state.get("salt_okur")),
+                         mikro_acik=_mikro_ith_acik()),
              "ith_masa", yurutucu(dosyalar))
     _sec_id = _B.detay_istendi("ith")
     _sel = [i for i, _d in enumerate(dosyalar) if _d.get("id") == _sec_id] if _sec_id is not None else []
@@ -276,6 +277,21 @@ def _masraf_karti(d, h):
 # ─────────────────────────────────────────────────────────────────────
 # SAYFA 1 — Geçmiş İthalatlar
 # ─────────────────────────────────────────────────────────────────────
+def _mikro_ith_acik():
+    try:
+        from .mikro_ithalat import acik_mi
+        return acik_mi()
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _mikro_bagli(d):
+    """Dosya Mikro'ya bağlı mı (mikro_kodu) ve Mikro ithalat eşitlemesi açık mı: aşama, teslim, masraf ve kalemler
+    Mikro'dan gelir, ekranda elle düzenle / sil / teslim / depo ata yok (kullanıcı, 22.10.2026: "datalar Mikro'dan
+    gelecekse bu gibi her şeyi kaldır"). Bağsız (yolda, Mikro'ya henüz girmemiş) dosya eskisi gibi düzenlenir."""
+    return bool(str((d or {}).get("mikro_kodu") or "").strip()) and _mikro_ith_acik()
+
+
 def _gecmis_ithalatlar():
     _baslik("📋", "Geçmiş İthalatlar", "Dosya başı toplam masraf ve FOB üzerine binen % maliyet")
     dosyalar = [d for d in get_dosyalar() if ithalat_mi(d)]      # yurt içi alışlar Ürün Yönetimi'nde
@@ -283,9 +299,10 @@ def _gecmis_ithalatlar():
     _mikro_ithalat_bolumu()                                       # masraf / durum / teslim Mikro'dan (Eki 2026)
 
     # ── ⚠️ Deposu seçilmemiş 'Teslim Alındı' dosyaları — hızlı depo atama ──
+    # Mikro'ya bağlı dosyanın deposu Mikro'dan gelir: elle atama listesine girmez (22.10.2026).
     _depo_eksik = [d for d in (dosyalar or [])
                    if str(d.get("durum", "") or "").strip() == "Teslim Alındı"
-                   and not str(d.get("teslim_deposu", "") or "").strip()]
+                   and not str(d.get("teslim_deposu", "") or "").strip() and not _mikro_bagli(d)]
     if _depo_eksik:
         @st.dialog(f"⚠️ Deposu seçilmemiş 'Teslim Alındı' dosyaları ({len(_depo_eksik)}) — depo ata", width="large")
         def _dlg_depo_ata():
@@ -762,6 +779,7 @@ def _gecmis_ithalatlar():
     def _dlg_dosya_detay():
         did = dosyalar_goster[_sel[0]]["id"]
         d, kal, h = hesap_map[did]
+        _mikro_d = _mikro_bagli(d)
 
         st.markdown(f'<div style="color:var(--k-soluk);font-size:13px;margin-bottom:8px">Belge No: <b style="color:var(--k-metin)">{d.get("pi_no","") or d.get("dosya_no","") or "—"}</b> · Takip No: <b style="color:var(--k-metin)">{d.get("ithalat_takip_no","") or "—"}</b> · {d.get("tedarikci","")}{(" · Aşama: <b style=" + chr(34) + "color:var(--k-mavi)" + chr(34) + ">" + str(d.get("durum","")) + "</b>") if d.get("durum") else ""}{(" · Tahmini Varış: <b style=" + chr(34) + "color:var(--k-mor)" + chr(34) + ">" + gun_ay_yil(d.get("tahmini_varis")) + "</b>") if (str(d.get("durum","")).strip() in IN_TRANSIT_DURUMLAR and d.get("tahmini_varis")) else ""}</div>', unsafe_allow_html=True)
         _sip_t = gun_ay_yil(d.get("tarih")) or "—"
@@ -774,7 +792,9 @@ def _gecmis_ithalatlar():
             + (f' · 🏬 Teslim Deposu: <b style="color:var(--k-metin)">{_tes_d}</b>' if _tes_d else '')
             + (f' · 🚢 Teslim Şekli: <b style="color:var(--k-metin)">{str(d.get("teslim_sekli","") or "")}</b>' if d.get("teslim_sekli") else '')
             + '</div>', unsafe_allow_html=True)
-        _dr_txt = "✅ Masraf girildi — maliyet hesaplandı" if h["toplam_masraf"] > 0 else "⏳ Masraf bekliyor — aşağıdan ✏️ Düzenle ile gir"
+        _dr_txt = ("✅ Masraf girildi — maliyet hesaplandı" if h["toplam_masraf"] > 0
+                   else ("⏳ Masraf bekliyor — Mikro'ya girilince gelir" if _mikro_d
+                         else "⏳ Masraf bekliyor — aşağıdan ✏️ Düzenle ile gir"))
         _dr_renk = trenk("yesil2") if h["toplam_masraf"] > 0 else trenk("amber")
         st.markdown(f'<div style="display:inline-block;background:color-mix(in srgb,var(--k-metin) 4%,transparent);border:1px solid {_dr_renk}55;border-radius:8px;padding:8px 12px;margin:0px 0 12px;color:{_dr_renk};font-size:13px;font-weight:700">{_dr_txt}</div>', unsafe_allow_html=True)
 
@@ -800,7 +820,8 @@ def _gecmis_ithalatlar():
         _sok = f"ith_sil_onay_{did}"
         _scc1, _scc2 = st.columns([3, 1])
         with _scc2:
-            if st.button("Bu ithalatı sil", key=f"ith_sil_{did}", use_container_width=True, icon=":material/delete:"):
+            if not _mikro_d and st.button("Bu ithalatı sil", key=f"ith_sil_{did}", use_container_width=True,
+                                          icon=":material/delete:"):
                 st.session_state[_sok] = True
         if st.session_state.get(_sok):
             _ad_g = d.get("dosya_no", "") or d.get("pi_no", "") or "—"
@@ -1312,7 +1333,10 @@ def _gecmis_ithalatlar():
                         st.error(msg)
         st.markdown("---")
         _duzen_key = f"ith_duzen_ac_{did}"
-        if st.toggle("✏️ Düzenle — masraf kalemleri · ürün · adet · FOB", key=_duzen_key):
+        if _mikro_d:
+            st.caption(f"Bu dosya Mikro'dan gelir (Mikro {d.get('mikro_kodu')}): aşama, teslim, masraf ve kalemler "
+                       "Mikro'da güncellenir, 15 dakika içinde burada görünür.")
+        elif st.toggle("✏️ Düzenle — masraf kalemleri · ürün · adet · FOB", key=_duzen_key):
             _dosya_duzen_govde()
         else:
             # Düzenleme kapalı → guard'ı sıfırla ki tekrar açılışta DB'den taze dolsun
