@@ -134,6 +134,38 @@ def kampanya_ozet(kamp, urunler, pacal_map=None, bugun=None):
     return o
 
 
+def musteri_satisi(kamp, rapor_satirlari, bugun, harita=None):
+    """Açık kampanyada ürün başına müşterinin kendi raporundaki satış (kullanıcı, 22.10.2026: "müşteri satışları
+    zaten giriliyor; açık kampanyalarda satılan miktarlar ilgili firma için kampanyadaki modellere otomatik ayrı
+    sütunda gösterilsin, ben kapat / kaydet demeden bir işlem yapmasın"). Yalnız GÖSTERİM: 'satilan_adet'e ve
+    hesaba (urun_hesap, kampanya_ozet) girmez.
+
+    rapor_satirlari: get_musteri_haftalik_satis(bas, bit) — haftada tek rapor. Müşteri Satışları ekranıyla aynı
+    kural: yükleme tarihi kampanya aralığına düşen raporların haftalik_satis + satis_magaza toplamı. harita:
+    kanal_kod_haritasi {sku_anahtar(rapor kodu): kart SKU'su} (pazaryeri kodu → kart).
+    Döner: {sku_anahtar(kart SKU): adet} — kampanya kapalıysa ya da firması belli değilse (DİĞER) None."""
+    from shared.utils import DIGER_KODU, firma_kanonik, sku_anahtar
+    if durum(kamp, bugun) == "kapali":
+        return None
+    fk = firma_kanonik(kamp.get("firma"))
+    if not fk or fk == DIGER_KODU:
+        return None
+    bas, bit = str(kamp.get("baslangic_tarihi") or "")[:10], str(kamp.get("bitis_tarihi") or "")[:10]
+    harita = harita or {}
+    out = {}
+    for r in rapor_satirlari or []:
+        if firma_kanonik(r.get("firma")) != fk:
+            continue
+        g = str(r.get("yukleme_tarihi") or "")[:10]
+        if not g or (bas and g < bas) or (bit and g > bit):
+            continue
+        ham = sku_anahtar(r.get("sku"))
+        k = sku_anahtar(harita.get(ham) or r.get("sku"))
+        if k:
+            out[k] = out.get(k, 0) + int(_f(r.get("haftalik_satis")) + _f(r.get("satis_magaza")))
+    return out
+
+
 def filtrele(kampanyalar, bugun, durum_sec="tumu", firma="Tümü", kategori="Tümü",
              yil="Tümü", ara=""):
     """Ekrandaki filtre çubuğunun tamamı (saf)."""

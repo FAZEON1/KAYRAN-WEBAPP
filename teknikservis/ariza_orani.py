@@ -15,6 +15,18 @@ son stok raporundaki stok (raporu olmayan müşteriye satılanın tamamı ulaşm
 yalnız servis kayıtlarına uygulanır: dönemin satışını payda yapmak, dönemden önce satılıp dönemde
 arızalanan ürünler yüzünden %100'ü aşan oranlar veriyordu (canlı veri, Ekim 2026). Servis kayıtları
 23.06.2026'da başladığı için oran bir ALT SINIRDIR. Aynı seri numarası bir kez sayılır.
+
+Mikro depo hareketleri (kullanıcı, 22.10.2026: "İade değil arızalı ürün oranı önemli. Müşteri iyi satamıyor diye
+başka yere verdiğimiz iadeler üründen kaynaklı değil. Ürün outlet, ikinci el, spot, hurda gibi depolara girmişse
+demek ki üründen kaynaklı sorun; onları göreyim yeter."). Mikro'da arıza sonucu yazmaz ama ürünün nereye gittiği
+yazar (mikro_depo_hareket, 2025'ten beri):
+  Sorunlu depoya giren    adında OUTLET, İKİNCİ EL, HURDA ya da SPOT geçen depoya DIŞARIDAN giren adet (servis /
+                          iade deposundan, merkezden…). Sorunlu depolar arası sevk (outlet → ikinci el) aynı ürünü
+                          ikinci kez saymaz. Mikro arıza oranı = bu adet ÷ son kullanıcıya ulaşan.
+  Servis deposundan satış servis / iade deposundan doğrudan satış faturası (spot satış) — ayrı sütun, orana girmez.
+  Servis deposundan fire  servis / iade deposundan çıkış fişi (hurda / fire) — ayrı sütun, orana girmez.
+Müşteri iadesi, iade deposuna giriş ve oradan merkeze dönüş (sağlam ürün) sayılmaz. Kayran'daki teknisyen sonucuna
+dayanan "Arıza oranı (%)" ayrıca durur, iki oran toplanmaz.
 """
 from shared.utils import normalize_tr
 
@@ -172,28 +184,43 @@ def oran(arizali, ulasan):
     return (arizali / ulasan * 100.0) if ulasan and ulasan > 0 else None
 
 
-def satirlar(kartlar, alim, satis, mstok, servis):
-    """Ekran / Excel satırları — servise gelen ya da satılan her SKU (en yüksek oran önce)."""
+def _yuzde(r):
+    return None if r is None else round(r, 2)
+
+
+MIKRO_SUTUN = ("Sorunlu depoya giren (Mikro)", "Servis deposundan satış (Mikro)", "Servis deposundan fire (Mikro)")
+MIKRO_ORAN = "Arıza oranı Mikro depo (%)"
+
+
+def satirlar(kartlar, alim, satis, mstok, servis, mikro=None):
+    """Ekran / Excel satırları — servise gelen, satılan ya da Mikro'da sorunlu depoya giren her SKU (en yüksek oran
+    önce). mikro: mikro_sorunlu(...) sonucu {sku: {"giren", "satis", "fire"}} ya da None (Mikro sütunları yok)."""
+    mk = mikro or {}
     out = []
-    for k in set(satis) | set(servis):
+    for k in set(satis) | set(servis) | set(mk):
         u = kartlar.get(k) or {}
         sv = servis.get(k) or {}
         sat = max(0.0, satis.get(k, 0.0))
         ul = max(0.0, sat - mstok.get(k, 0.0))
         r = oran(sv.get("arizali", 0), ul)
-        out.append({"_id": k, "SKU": u.get("sku") or k, "Ürün": u.get("urun_adi") or "",
-                    "Kategori": u.get("kategori") or "", "Marka": u.get("marka") or "",
-                    "Satın alınan": round(alim.get(k, 0.0)), "Müşteriye satılan": round(sat),
-                    "Müşteri stoğunda": round(mstok.get(k, 0.0)), "Son kullanıcıya ulaşan": round(ul),
-                    "Servise gelen": sv.get("gelen", 0), "Arızalı": sv.get("arizali", 0),
-                    "Arızalının tahmini": sv.get("tahmini", 0),
-                    "Arıza oranı (%)": None if r is None else round(r, 2)})
-    out.sort(key=lambda x: (x["Arıza oranı (%)"] is None, -(x["Arıza oranı (%)"] or 0), -x["Arızalı"]))
+        s = {"_id": k, "SKU": u.get("sku") or k, "Ürün": u.get("urun_adi") or "",
+             "Kategori": u.get("kategori") or "", "Marka": u.get("marka") or "",
+             "Satın alınan": round(alim.get(k, 0.0)), "Müşteriye satılan": round(sat),
+             "Müşteri stoğunda": round(mstok.get(k, 0.0)), "Son kullanıcıya ulaşan": round(ul),
+             "Servise gelen": sv.get("gelen", 0), "Arızalı": sv.get("arizali", 0),
+             "Arızalının tahmini": sv.get("tahmini", 0), "Arıza oranı (%)": _yuzde(r)}
+        if mikro is not None:
+            m = mk.get(k) or {}
+            s.update({MIKRO_SUTUN[0]: round(m.get("giren", 0.0)), MIKRO_ORAN: _yuzde(oran(m.get("giren", 0.0), ul)),
+                      MIKRO_SUTUN[1]: round(m.get("satis", 0.0)), MIKRO_SUTUN[2]: round(m.get("fire", 0.0))})
+        out.append(s)
+    anahtar = MIKRO_ORAN if mikro is not None else "Arıza oranı (%)"
+    out.sort(key=lambda x: (x[anahtar] is None, -(x[anahtar] or 0), -x["Arızalı"]))
     return out
 
 
 def grup_ozeti(satirlar_, alan):
-    """Kategori / marka kırılımı: toplam ulaşan, arızalı, oran."""
+    """Kategori / marka kırılımı: toplam ulaşan, arızalı, oran (+ Mikro sütunları varsa onların toplamı)."""
     g = {}
     for s in satirlar_:
         a = s.get(alan) or "—"
@@ -201,10 +228,82 @@ def grup_ozeti(satirlar_, alan):
         o["Son kullanıcıya ulaşan"] += s["Son kullanıcıya ulaşan"]
         o["Arızalı"] += s["Arızalı"]
         o["Servise gelen"] += s["Servise gelen"]
+        for m in MIKRO_SUTUN:
+            if m in s:
+                o[m] = o.get(m, 0) + s[m]
     out = []
     for o in g.values():
-        r = oran(o["Arızalı"], o["Son kullanıcıya ulaşan"])
-        o["Arıza oranı (%)"] = None if r is None else round(r, 2)
+        o["Arıza oranı (%)"] = _yuzde(oran(o["Arızalı"], o["Son kullanıcıya ulaşan"]))
+        if MIKRO_SUTUN[0] in o:
+            o[MIKRO_ORAN] = _yuzde(oran(o[MIKRO_SUTUN[0]], o["Son kullanıcıya ulaşan"]))
         out.append(o)
-    out.sort(key=lambda x: (x["Arıza oranı (%)"] is None, -(x["Arıza oranı (%)"] or 0)))
+    anahtar = MIKRO_ORAN if any(MIKRO_ORAN in o for o in out) else "Arıza oranı (%)"
+    out.sort(key=lambda x: (x[anahtar] is None, -(x[anahtar] or 0)))
     return out
+
+
+# ── Mikro depo hareketleri ───────────────────────────────────────────
+SORUNLU_DEPO_KELIME = ("OUTLET", "IKINCI EL", "HURDA", "SPOT")
+SERVIS_DEPO_KELIME = ("SERVIS", "IADE")
+GIRIS, CIKIS, SEVK = 0, 1, 2           # sth_tip
+SATIS_FATURASI, CIKIS_FISI = 1, 0      # sth_evraktip (çıkış hareketinde)
+DEGER_FARKI = 9                        # sth_cins: tutar düzeltmesi, mal hareketi değil
+SAYIM = (10, 11)                       # sth_cins: sayım farkı
+
+
+def depo_gruplari(depo_kartlar):
+    """Mikro depo kartları → (sorunlu depolar, servis / iade depoları) {dep_no}."""
+    sorunlu, servis = set(), set()
+    for d in depo_kartlar or []:
+        ad = normalize_tr(d.get("dep_adi"))
+        try:
+            no = int(d.get("dep_no"))
+        except (TypeError, ValueError):
+            continue
+        if any(w in ad for w in SORUNLU_DEPO_KELIME):
+            sorunlu.add(no)
+        elif any(w in ad for w in SERVIS_DEPO_KELIME):
+            servis.add(no)
+    return sorunlu, servis
+
+
+def _iptal(v):
+    return v is True or str(v or "").strip().lower() in ("1", "true")
+
+
+def _int(v, d=-1):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return d
+
+
+def mikro_sorunlu(hareketler, anahtar, sorunlu, servis, bas=None, bit=None):
+    """{sku: {"giren", "satis", "fire"}} — dönemde sorunlu depoya dışarıdan giren, servis / iade deposundan satılan
+    ve fire çıkışı yapılan adet."""
+    t = {}
+    for h in hareketler or []:
+        if _iptal(h.get("sth_iptal")) or _int(h.get("sth_cins")) in (DEGER_FARKI, *SAYIM):
+            continue
+        g = _gun(h.get("sth_tarih"))
+        if not g or (bas and g < str(bas)) or (bit and g > str(bit)):
+            continue
+        tip, evr = _int(h.get("sth_tip")), _int(h.get("sth_evraktip"))
+        gir, cik = _int(h.get("sth_giris_depo_no")), _int(h.get("sth_cikis_depo_no"))
+        if tip in (GIRIS, SEVK) and gir in sorunlu and (tip == GIRIS or cik not in sorunlu):
+            alan = "giren"
+        elif tip == CIKIS and cik in servis and evr == SATIS_FATURASI:
+            alan = "satis"
+        elif tip == CIKIS and cik in servis and evr == CIKIS_FISI:
+            alan = "fire"
+        else:
+            continue
+        k = anahtar(h.get("sth_stok_kod"))
+        try:
+            adet = float(h.get("sth_miktar") or 0)
+        except (TypeError, ValueError):
+            adet = 0.0
+        if k and adet > 0:
+            o = t.setdefault(k, {"giren": 0.0, "satis": 0.0, "fire": 0.0})
+            o[alan] += adet
+    return t

@@ -99,6 +99,52 @@ def test_satirlar_ulasan_ve_oran():
                     "Arıza oranı (%)": 5.0}
 
 
+# ── Mikro depo hareketleri (22.10.2026) ──────────────────────────────
+# Kullanıcı: "İade değil arızalı ürün oranı önemli … ürün outlet, ikinci el, spot, hurda gibi depolara girmişse
+# demek ki üründen kaynaklı sorun." Müşteri iadesi arıza sayılmaz.
+def _hr(sku, tarih, adet=1, tip=2, cikis=3, giris=5, evr=2, cins=6, iptal=False):
+    return {"sth_stok_kod": sku, "sth_tarih": tarih + "T00:00:00", "sth_miktar": adet, "sth_tip": tip,
+            "sth_cikis_depo_no": cikis, "sth_giris_depo_no": giris, "sth_evraktip": evr, "sth_cins": cins,
+            "sth_iptal": iptal}
+
+
+DEPOLAR = [{"dep_no": 1, "dep_adi": "Merkez depo"}, {"dep_no": 3, "dep_adi": "SERVİS DEPO"},
+           {"dep_no": 9, "dep_adi": "İADE DEPO "}, {"dep_no": 6, "dep_adi": "İKİNCİ EL DEPO"},
+           {"dep_no": 5, "dep_adi": "OUTLET"}, {"dep_no": 7, "dep_adi": "PAZARLAMA"}]
+
+
+def test_sorunlu_depoya_giren_iade_sayilmaz():
+    so, se = A.depo_gruplari(DEPOLAR)
+    assert (so, se) == ({5, 6}, {3, 9})
+    h = [_hr("Fazeon X24", "2026-02-01"),                              # servis → outlet
+         _hr("X24", "2026-03-01", 2, cikis=9, giris=6),                 # iade deposu → ikinci el
+         _hr("X24", "2026-03-05", cikis=5, giris=6),                    # outlet → ikinci el: aynı ürün, sayılmaz
+         _hr("X24", "2026-03-06", 50, tip=0, cikis=1, giris=9, evr=3, cins=0),   # müşteri iadesi: arıza değil
+         _hr("X24", "2026-03-07", 30, cikis=9, giris=1),                # iade deposundan merkeze (sağlam)
+         _hr("X24", "2026-03-08", cikis=5, giris=7),                    # outlet → pazarlama
+         _hr("X24", "2026-03-09", iptal=True),
+         _hr("X24", "2026-04-01", 4, tip=1, cikis=3, giris=1, evr=1, cins=0),    # servis deposundan satış
+         _hr("X24", "2026-04-02", 7, tip=1, cikis=3, giris=1, evr=0, cins=5),    # servis deposundan fire
+         _hr("X24", "2026-04-03", 9, tip=1, cikis=1, giris=1, evr=1, cins=0),    # merkezden satış: ilgisiz
+         _hr("X24", "2026-07-01", cikis=3, giris=5)]
+    assert A.mikro_sorunlu(h, sku_anahtar, so, se) == {"X24": {"giren": 4.0, "satis": 4.0, "fire": 7.0}}
+    assert A.mikro_sorunlu(h, sku_anahtar, so, se, "2026-01-01", "2026-06-30")["X24"]["giren"] == 3.0
+
+
+def test_satirlar_mikro_orani_kesin_orani_degistirmez():
+    kart = {"X24": {"sku": "Fazeon X24", "kategori": "Monitör"}, "K1": {"sku": "K1", "kategori": "Kasa"}}
+    servis = {"X24": {"gelen": 3, "arizali": 2, "tahmini": 0, "sonuclar": {}}}
+    mikro = {"X24": {"giren": 6.0, "satis": 1.0, "fire": 0.0}, "K1": {"giren": 10.0, "satis": 0.0, "fire": 2.0}}
+    r = A.satirlar(kart, {}, {"X24": 1000.0, "K1": 500.0}, {}, servis, mikro)
+    x, k = (next(s for s in r if s["_id"] == i) for i in ("X24", "K1"))
+    assert x["Arıza oranı (%)"] == 0.2 and x[A.MIKRO_ORAN] == 0.6          # Kayran 2 ÷ 1000, Mikro 6 ÷ 1000
+    assert k[A.MIKRO_ORAN] == 2.0 and r[0]["_id"] == "K1"                  # Mikro oranı yüksek olan önce
+    assert x[A.MIKRO_SUTUN[1]] == 1 and k[A.MIKRO_SUTUN[2]] == 2           # satış / fire orana girmez
+    g = {o["Kategori"]: o for o in A.grup_ozeti(r, "Kategori")}
+    assert g["Monitör"][A.MIKRO_ORAN] == 0.6 and g["Kasa"][A.MIKRO_SUTUN[0]] == 10
+    assert A.MIKRO_ORAN not in A.satirlar(kart, {}, {"X24": 1.0}, {}, servis)[0]
+
+
 def test_ekran_paydasi_butun_satis_gecmisi():
     e = (KOK / "teknikservis" / "ariza_ekran.py").read_text(encoding="utf-8")
     assert "get_satislar_yalin(None, bit)" in e and "A.servis_ozeti(kayitlar, sku_anahtar, bas, bit)" in e

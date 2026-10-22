@@ -30,7 +30,13 @@ def _veri(bas, bit):
     mstok = A.musteri_stogu(kanal_stoklari(_hepsi("firma_stok", "firma, sku, stok_miktari, yukleme_tarihi"),
                                            harita=kanal_kod_haritasi()))
     alim = A.alim_toplami(_bizim_partiler_oku())
-    rows = A.satirlar(kartlar, alim, satis, mstok, servis)
+    mikro, mikro_hata = None, None
+    try:
+        sorunlu, servis_dep = A.depo_gruplari(_mikro_depolar())
+        mikro = A.mikro_sorunlu(_mikro_hareketleri(), sku_anahtar, sorunlu, servis_dep, bas, bit)
+    except Exception as e:  # noqa: BLE001
+        mikro_hata = f"{type(e).__name__}: {str(e)[:120]}"
+    rows = A.satirlar(kartlar, alim, satis, mstok, servis, mikro)
     kayit_rows = []
     for k in kayitlar:
         g = A._gun(k.get("mal_kabul_tarihi") or k.get("olusturma_tarihi"))
@@ -43,7 +49,7 @@ def _veri(bas, bit):
                            "Arıza sonucu": s, "Kaynak": "Tahmin" if t else "Teknisyen",
                            "Arıza beyanı": (k.get("ariza") or "")[:120],
                            "Yapılan işlem": (k.get("yapilan_islem") or "")[:120]})
-    return {"satirlar": rows, "kayitlar": kayit_rows}
+    return {"satirlar": rows, "kayitlar": kayit_rows, "mikro": mikro, "mikro_hata": mikro_hata}
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -52,6 +58,45 @@ def _ilk_kayit_tarihi():
     g = [A._gun(k.get("mal_kabul_tarihi") or k.get("olusturma_tarihi")) for k in get_kayitlar() or []]
     g = [x for x in g if x]
     return min(g) if g else ""
+
+
+def _mikro_cli():
+    from satis.mikro_esitle import _cli
+    return _cli()
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _mikro_depolar():
+    return _mikro_cli().table("mikro_depo_kart").select("dep_no,dep_adi").execute().data or []
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _mikro_hareketleri():
+    """Sorunlu (outlet, ikinci el…) ya da servis / iade deposuna giren ya da çıkan Mikro hareketleri (yalnız okur)."""
+    from satis.mikro_esitle import sayfali_oku
+    sorunlu, servis = A.depo_gruplari(_mikro_depolar())
+    depolar = ",".join(str(d) for d in sorted(sorunlu | servis))
+    if not depolar:
+        return []
+    cli = _mikro_cli()
+    return sayfali_oku(lambda: cli.table("mikro_depo_hareket")
+                       .select("sth_guid,sth_tarih,sth_tip,sth_cins,sth_evraktip,sth_stok_kod,sth_miktar,"
+                               "sth_giris_depo_no,sth_cikis_depo_no,sth_iptal")
+                       .or_(f"sth_giris_depo_no.in.({depolar}),sth_cikis_depo_no.in.({depolar})")
+                       .order("sth_guid"), "sth_guid")
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def _ilk_mikro_tarihi():
+    """Varsayılan başlangıç için: Mikro'da sorunlu depoya ilk girişin günü ("" okunamazsa)."""
+    try:
+        sorunlu, servis = A.depo_gruplari(_mikro_depolar())
+        g = [A._gun(h.get("sth_tarih")) for h in _mikro_hareketleri()
+             if A.mikro_sorunlu([h], lambda s: s or "x", sorunlu, servis)]
+        g = [x for x in g if x]
+        return min(g) if g else ""
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 def goster():
@@ -63,8 +108,10 @@ def goster():
                 unsafe_allow_html=True)
     bugun = tr_now().date()
     ilk = _ilk_kayit_tarihi()
+    _adaylar = [x for x in (ilk, _ilk_mikro_tarihi()) if x]       # Mikro hareketleri servis kayıtlarından eski
+    ilk_bas = min(_adaylar) if _adaylar else ""
     try:
-        varsayilan = date.fromisoformat(ilk) if ilk else date(bugun.year, 1, 1)
+        varsayilan = date.fromisoformat(ilk_bas) if ilk_bas else date(bugun.year, 1, 1)
     except ValueError:
         varsayilan = date(bugun.year, 1, 1)
     c1, c2, c3 = st.columns([1, 1, 1], vertical_alignment="bottom")
@@ -73,14 +120,19 @@ def goster():
     if c3.button("Yenile", icon=":material/refresh:", key="ao_yenile", use_container_width=True):
         _veri.clear()
         _ilk_kayit_tarihi.clear()
+        _mikro_hareketleri.clear()
+        _ilk_mikro_tarihi.clear()
         st.rerun()
     _ilk_tr = ('%s.%s.%s' % (ilk[8:10], ilk[5:7], ilk[:4])) if ilk else '—'
-    st.caption(f"Arıza oranı = arızalı ÷ son kullanıcıya ulaşan · servis kayıtları {_ilk_tr}'den beri, "
-               "oran şimdilik alt sınır",
+    st.caption(f"Mikro arıza oranı = outlet / ikinci el depolarına giren ÷ son kullanıcıya ulaşan · "
+               f"Kayran arıza oranı servis kayıtlarından ({_ilk_tr}'den beri)",
                help="Son kullanıcıya ulaşan = bitiş tarihine kadar müşterilere net satılan (bütün satış geçmişi) − "
                     "müşterinin son stok raporundaki stok (raporu olmayan müşteriye satılanın tamamı ulaşmış sayılır). "
-                    "Arızalı = dönemde servise gelip arıza sonucu \"Arıza doğrulandı\" olan, aynı seri numarası bir kez. "
-                    "Arıza sonucu girilmemiş eski kayıtlarda sonuç metinden tahmin edilir.")
+                    "Sorunlu depoya giren = dönemde Mikro'da adında OUTLET, İKİNCİ EL, HURDA ya da SPOT geçen depoya "
+                    "dışarıdan giren adet; bu depolar arasındaki sevk ikinci kez sayılmaz. Müşteri iadesi ve iade "
+                    "deposundan merkeze dönen (sağlam) ürün sayılmaz. Servis deposundan satış ve fire ayrı sütunlarda "
+                    "gösterilir, orana girmez. Kayran arızalı = dönemde servise gelip arıza sonucu \"Arıza doğrulandı\" "
+                    "olan, aynı seri numarası bir kez; sonucu girilmemiş eski kayıtlarda metinden tahmin edilir.")
     try:
         from shared.islem import bekle
         with bekle("Arıza oranı hesaplanıyor…"):
@@ -89,24 +141,34 @@ def goster():
         st.error(f"Arıza oranı hesaplanamadı: {type(e).__name__}: {str(e)[:120]}")
         return
     rows = v["satirlar"]
+    if v.get("mikro_hata"):
+        st.warning(f"Mikro depo hareketleri okunamadı, yalnız Kayran kayıtları gösteriliyor ({v['mikro_hata']}).")
     kats = sorted({r["Kategori"] for r in rows if r["Kategori"]})
     f1, f2 = st.columns([3, 1], vertical_alignment="bottom")
     secili = f1.multiselect("Kategori", kats, key="ao_kat", placeholder="Tüm kategoriler")
-    yalniz = f2.toggle("Yalnız servise gelenler", value=True, key="ao_yalniz")
+    yalniz = f2.toggle("Yalnız sorunlu ürünler", value=True, key="ao_yalniz")
     if secili:
         rows = [r for r in rows if r["Kategori"] in secili]
     if yalniz:
-        rows = [r for r in rows if r["Servise gelen"]]
+        rows = [r for r in rows if r["Servise gelen"] or r.get(A.MIKRO_SUTUN[0])]
     ulasan = sum(r["Son kullanıcıya ulaşan"] for r in rows)
     arizali = sum(r["Arızalı"] for r in rows)
     tahmini = sum(r["Arızalının tahmini"] for r in rows)
     genel = A.oran(arizali, ulasan)
-    metrik_satiri([
-        {"label": "Son kullanıcıya ulaşan", "value": tr_sayi(ulasan)},
-        {"label": "Servise gelen", "value": tr_sayi(sum(r["Servise gelen"] for r in rows))},
-        {"label": "Arızalı", "value": tr_sayi(arizali), "alt": f"{tr_sayi(tahmini)} tanesi tahmin"},
-        {"label": "Arıza oranı", "value": "—" if genel is None else f"%{tr_sayi(genel, 2)}"},
-    ])
+
+    def _y(r):
+        return "—" if r is None else f"%{tr_sayi(r, 2)}"
+    kartlar = [{"label": "Son kullanıcıya ulaşan", "value": tr_sayi(ulasan)}]
+    if v.get("mikro") is not None:
+        giren = sum(r.get(A.MIKRO_SUTUN[0], 0) for r in rows)
+        kartlar += [{"label": "Outlet / ikinci el'e giren", "value": tr_sayi(giren), "alt": "Mikro depo hareketi"},
+                    {"label": "Mikro arıza oranı", "value": _y(A.oran(giren, ulasan)), "alt": "üründen kaynaklı"}]
+    kartlar += [
+        {"label": "Arızalı (Kayran)", "value": tr_sayi(arizali),
+         "alt": f"{tr_sayi(sum(r['Servise gelen'] for r in rows))} servise gelen · {tr_sayi(tahmini)} tahmin"},
+        {"label": "Kayran arıza oranı", "value": _y(genel), "alt": f"servis kayıtları {_ilk_tr}'den beri"},
+    ]
+    metrik_satiri(kartlar)
     kat_rows = A.grup_ozeti(rows, "Kategori")
     marka_rows = A.grup_ozeti(rows, "Marka")
     kayit_rows = v["kayitlar"]

@@ -94,3 +94,36 @@ def test_kayranpm_eski_kampanya_blogu_kalkti():
     pm = (KOK / "kayranpm/main.py").read_text(encoding="utf-8")
     assert "from .kampanya import render as _kampanya_ekrani" in pm
     assert "_kampanya_detay_dialog" not in pm and "rows_ku" not in pm
+
+
+# ── Müşteri satışı (otomatik, yalnız gösterim — 22.10.2026) ──────────
+# Kullanıcı: "Açık kampanyalarda satılan miktarlar ayrı bir sütunda ilgili firma için kampanyadaki modellere
+# otomatik gösterilsin ama ben kampanya kapat / kaydet demeden bu adetler bir işlem yapmasın."
+def _rap(firma, sku, tarih, satis, magaza=0, ad=""):
+    return {"firma": firma, "sku": sku, "urun_adi": ad, "haftalik_satis": satis, "satis_magaza": magaza,
+            "yukleme_tarihi": tarih}
+
+
+def test_musteri_satisi_firma_tarih_ve_kod_haritasi():
+    kamp = {"firma": "VATAN", "baslangic_tarihi": "2026-10-01", "bitis_tarihi": "2026-10-31", "durum": "aktif"}
+    rap = [_rap("VATAN", "X24F182S", "2026-10-04", 100, 5),
+           _rap("VATAN", "Fazeon X24F182S", "2026-10-11", 20),
+           _rap("VATAN", "X24F182S", "2026-09-27", 999),             # kampanyadan önceki rapor
+           _rap("ITOPYA", "X24F182S", "2026-10-04", 777),            # başka firma
+           _rap("VATAN", "HBCV0000G0F6K6", "2026-10-18", 7)]          # pazaryeri kodu → kart
+    m = H.musteri_satisi(kamp, rap, date(2026, 10, 22), {"HBCV0000G0F6K6": "X27F300"})
+    assert m == {"X24F182S": 125, "X27F300": 7}
+    assert H.musteri_satisi(dict(kamp, durum="kapali"), rap, date(2026, 10, 22)) is None
+    assert H.musteri_satisi(dict(kamp, firma="KANAL"), rap, date(2026, 10, 22)) is None     # DİĞER: firma belli değil
+
+
+def test_musteri_satisi_kayda_ve_hesaba_girmez():
+    s = (KOK / "kayranpm" / "kampanya.py").read_text(encoding="utf-8")
+    i = s.index("def _sekme_urunler(")
+    blok = s[i:s.index("def _kaydet_urunler(")]
+    assert '"Müşteri satışı", "Net kâr/adet"' in blok                         # düzenlenemez sütun
+    assert 'for c in ("Satış", "Firma desteği", "Ek destek", "Satılan", "Not")' in blok   # değişiklik sayılmaz
+    k = s[s.index("def _kaydet_urunler("):s.index("def _sekme_bilgiler(")]
+    assert "Müşteri satışı" not in k
+    u = {"satis_fiyati": 100, "birim_firma_destek": 5, "satilan_adet": 0, "pacal_maliyet": 80}
+    assert H.urun_hesap(dict(u, **{"Müşteri satışı": 50}))["adet"] == 0
