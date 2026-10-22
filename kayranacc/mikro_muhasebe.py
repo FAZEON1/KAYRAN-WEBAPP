@@ -430,6 +430,20 @@ def bagli_banka_mi(banka_id):
     return bool(d.get("acik")) and banka_id in (d.get("bagli_bankalar") or [])
 
 
+def yalniz_bagli_mi(banka_idleri):
+    """Eşitleme açık ve verilen hesapların HEPSİ Mikro'ya bağlı mı (boş liste: hayır). Öyleyse virman / tahsilat /
+    arbitraj Mikro'ya girilir, uygulamadaki pencere yerine not gösterilir (kullanıcı kararı, 22.10.2026).
+    Bağlı olmayan tek hesap bile varsa eski davranış sürer."""
+    idler = [i for i in (banka_idleri or []) if i is not None]
+    if not idler:
+        return False
+    d = durum()
+    if not d.get("acik"):
+        return False
+    bagli = d.get("bagli_bankalar") or []
+    return all(i in bagli for i in idler)
+
+
 def ac(kullanici):
     from shared.utils import tr_now
     d = durum()

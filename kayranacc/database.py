@@ -555,13 +555,15 @@ def banka_ekle(hesap_adi, bakiye, para_birimi):
 
 
 def banka_guncelle(banka_id, hesap_adi, bakiye, para_birimi):
-    """Banka hesabını günceller. app.py'deki çağrıya uygun."""
+    """Banka hesabını günceller. app.py'deki çağrıya uygun.
+    Hesap Mikro'ya bağlıysa (_mikro_yonetir) bakiye YAZILMAZ: bakiyeyi Mikro eşitlemesi yazar, elle düzeltme
+    15 dakika sonra ezilirdi (22.10.2026). Ad ve para birimi yine güncellenir. bakiye None: bakiyeye dokunulmaz
+    (ekran bağlı hesapta alanı göstermez; eskiden None 0 yazardı)."""
     sb = get_client()
-    sb.table("bankalar").update({
-        "hesap_adi": hesap_adi,
-        "bakiye": float(bakiye) if bakiye is not None else 0,
-        "para_birimi": para_birimi,
-    }).eq("id", banka_id).execute()
+    alanlar = {"hesap_adi": hesap_adi, "para_birimi": para_birimi}
+    if bakiye is not None and not _mikro_yonetir(banka_id):
+        alanlar["bakiye"] = float(bakiye)
+    sb.table("bankalar").update(alanlar).eq("id", banka_id).execute()
     _cache_temizle()
 
 

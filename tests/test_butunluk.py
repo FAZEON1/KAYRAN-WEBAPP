@@ -240,11 +240,12 @@ KRITIK_FONKSIYONLAR = {
                               "manuel_cakisan", "manuel_usd", "cakisan_etki", "usd_ozeti", "veri_oku", "plan_hazirla",
                               "kayitli", "uygula", "durum", "acik_mi", "ac", "son_aktarim",
                               "otomatik", "stok_carpani"],   # Toplam Aktifler: Mikro defter kalemleri + satış maliyeti (Eki 2026)
-    "kayranacc.mikro_aktif_ekran": ["kalem_satirlari", "oran_satirlari", "bolum"],
+    "kayranacc.mikro_aktif_ekran": ["kalem_satirlari", "oran_satirlari", "bolum", "kaynak_notu", "excel_kartlari",
+                                   "temizle_gorunur", "formul_metni"],   # Mikro açıkken ekran sadeleşir (22.10.2026)
     "kayranacc.mikro_alinan": ["aylik", "ay_kuru", "usd_satirlari", "durum", "acik_mi",
                                "mikro_satirlari"],   # alınan destekler Mikro 602 (Eki 2026)
     "shared.mikro_kilit": ["sahip_adi", "al", "birak", "tur_kilidi"],   # eşitleme turu kilidi (Eki 2026)
-    "kayranacc.mikro_muhasebe": ["bagli_banka_mi", "donem_sonu_virmansiz", "hareket_tutari", "bakiyeler", "banka_bakiyeleri", "cari_bakiyeleri", "cari_ozeti",
+    "kayranacc.mikro_muhasebe": ["bagli_banka_mi", "yalniz_bagli_mi", "donem_sonu_virmansiz", "hareket_tutari", "bakiyeler", "banka_bakiyeleri", "cari_bakiyeleri", "cari_ozeti",
                                  "ithalat_odenen", "banka_eslestir", "cek_satirlari", "cek_imzasi", "cek_ozeti",
                                  "plan_yap", "veri_oku", "plan_hazirla", "uygula", "durum", "acik_mi", "ac",
                                  "son_aktarim", "otomatik"],
@@ -355,7 +356,7 @@ KRITIK_FONKSIYONLAR = {
                                     "haftalar_verisi", "haftalar_yurutucu", "cek_arsivi_verisi", "cek_arsivi_yurutucu",
                                     "gelenler_verisi", "gelenler_yurutucu", "kimden_ne_kadar", "firma_cekleri_verisi",
                                     "salt_okunur_yurutucu", "banka_verisi", "banka_yurutucu"],
-    "kayranacc.banka_ekran": ["banka_ozet_kalemleri", "banka_listesi"],
+    "kayranacc.banka_ekran": ["banka_ozet_kalemleri", "banka_listesi", "bakiye_mikrodan", "mikro_islemi_mi"],
     "kayranacc.cek_ekran": ["render_firma_cekleri"],
     "shared.sol_menu": ["menu_yapisi", "secili_sayfa", "css", "ciz", "konum_adi"],   # sol menü (Eki 2026)
     "kayranpm.stok_karti_yeni": ["ciz", "haftalik_seri", "son_hareketler", "durum_uyarilari", "stok_yerleri",

@@ -35,6 +35,27 @@ def _para(v, pb):
 BANKA_MASASI_YENI = True
 
 
+def bakiye_mikrodan(banka_id):
+    """Hesabın bakiyesini Mikro eşitlemesi mi yazıyor (database._mikro_yonetir ile aynı karar). Öyleyse düzenle
+    penceresinde bakiye alanı yok, yerine not (22.10.2026; kod yedek: eşitleme kapanınca alan geri gelir)."""
+    from .database import _mikro_yonetir
+    return _mikro_yonetir(banka_id)
+
+
+MIKRO_ISLEM_NOTU = "Bu işlem Mikro'ya girilir; bakiye 15 dakikada güncellenir."
+
+
+def mikro_islemi_mi(banka_idleri):
+    """Virman / tahsilat / arbitraj yalnız Mikro'ya bağlı hesapları mı içeriyor (muhasebe eşitlemesi açık)?
+    Öyleyse pencerede form yerine MIKRO_ISLEM_NOTU (22.10.2026); bağlı olmayan hesap varsa eski davranış.
+    Durum okunamazsa False (eski davranış)."""
+    try:
+        from .mikro_muhasebe import yalniz_bagli_mi
+        return yalniz_bagli_mi(banka_idleri)
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def banka_ozet_kalemleri(bankalar, kur, bekleyen_tl=0.0, bekleyen_usd=0.0, eur=None):
     """Toplam şeridinin kalemleri: eski kartlar ve yeni masanın özeti aynı formülden.
     eur: 1 EUR kaç USD (verilmezse shared.kur.eur_usd — güncel kur)."""
@@ -158,9 +179,14 @@ def _banka_dialog(b, kur):
         with st.form(f"bnk_duz_{b['id']}", border=False):
             ad = st.text_input("Hesap adı", value=b.get("hesap_adi") or "")
             c1, c2 = st.columns([1.6, 1])
-            bak = c1.number_input("Bakiye", value=float(b.get("bakiye") or 0), step=100.0, format="%.2f",
-                                  help="Bankadaki gerçek bakiyeyle eşitlemek için. Normal akışta ödeme, "
-                                       "tahsilat ve virman bakiyeyi kendisi günceller.")
+            if bakiye_mikrodan(b["id"]):
+                # Mikro'ya bağlı hesap: bakiye elle düzeltilmez (eşitleme ezerdi); banka_guncelle de yazmaz.
+                c1.caption("Bakiye Mikro'dan gelir (15 dakikada bir); burada düzeltilmez.")
+                bak = None
+            else:
+                bak = c1.number_input("Bakiye", value=float(b.get("bakiye") or 0), step=100.0, format="%.2f",
+                                      help="Bankadaki gerçek bakiyeyle eşitlemek için. Normal akışta ödeme, "
+                                           "tahsilat ve virman bakiyeyi kendisi günceller.")
             pbs = ["TL", "USD", "EUR"]
             ypb = c2.selectbox("Para birimi", pbs, index=pbs.index(pb) if pb in pbs else 0)
             if st.form_submit_button("Kaydet", type="primary", icon=":material/save:"):

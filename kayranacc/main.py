@@ -1348,89 +1348,97 @@ def run():
             + f'<span style="color:var(--k-yesil)">≈ USD karşılığı <b style="font-family:var(--k-mono)">${tr_sayi(_v_usd_esde, 2)}</b></span>'
             '</div>', unsafe_allow_html=True)
 
-        # ─── Yeni Virman Formu ───
-        st.markdown("### ➕ Yeni Virman")
+        # Mikro eşitlemesi açık ve bütün hesaplar Mikro'ya bağlıysa virman Mikro'ya girilir (22.10.2026): form
+        # yerine not; geçmiş virmanlar aşağıda kalır. Kod yedek: eşitleme kapanınca form geri gelir.
+        from .banka_ekran import mikro_islemi_mi, MIKRO_ISLEM_NOTU
+        if mikro_islemi_mi([b["id"] for b in bankalar]):
+            st.info(MIKRO_ISLEM_NOTU)
+        else:
+            # ─── Yeni Virman Formu ───
+            st.markdown("### ➕ Yeni Virman")
     
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**Kaynak Hesap**")
-            kaynak_options = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {tr_sayi(float(b['bakiye']), 2)}": b['id'] for b in bankalar}
-            kaynak_secim = st.selectbox("Kaynak", list(kaynak_options.keys()), key="virman_kaynak")
-            kaynak_id = kaynak_options[kaynak_secim]
-            kaynak_banka = next(b for b in bankalar if b['id'] == kaynak_id)
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**Kaynak Hesap**")
+                kaynak_options = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {tr_sayi(float(b['bakiye']), 2)}": b['id'] for b in bankalar}
+                kaynak_secim = st.selectbox("Kaynak", list(kaynak_options.keys()), key="virman_kaynak")
+                kaynak_id = kaynak_options[kaynak_secim]
+                kaynak_banka = next(b for b in bankalar if b['id'] == kaynak_id)
     
-        with col2:
-            st.markdown("**Hedef Hesap**")
-            hedef_options = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {tr_sayi(float(b['bakiye']), 2)}": b['id']
-                             for b in bankalar if b['id'] != kaynak_id}
-            if not hedef_options:
-                st.warning("Başka hesap yok.")
-                st.stop()
-            hedef_secim = st.selectbox("Hedef", list(hedef_options.keys()), key="virman_hedef")
-            hedef_id = hedef_options[hedef_secim]
-            hedef_banka = next(b for b in bankalar if b['id'] == hedef_id)
+            with col2:
+                st.markdown("**Hedef Hesap**")
+                hedef_options = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {tr_sayi(float(b['bakiye']), 2)}": b['id']
+                                 for b in bankalar if b['id'] != kaynak_id}
+                if not hedef_options:
+                    st.warning("Başka hesap yok.")
+                    st.stop()
+                hedef_secim = st.selectbox("Hedef", list(hedef_options.keys()), key="virman_hedef")
+                hedef_id = hedef_options[hedef_secim]
+                hedef_banka = next(b for b in bankalar if b['id'] == hedef_id)
     
-        # Para birimi farklılığı uyarısı + kur input
-        farkli_pb = kaynak_banka['para_birimi'] != hedef_banka['para_birimi']
+            # Para birimi farklılığı uyarısı + kur input
+            farkli_pb = kaynak_banka['para_birimi'] != hedef_banka['para_birimi']
     
-        col_t, col_k = st.columns([2, 1])
-        with col_t:
-            kaynak_bakiye_val = float(kaynak_banka.get('bakiye') or 0)
-            tutar = st.number_input(
-                f"Tutar ({kaynak_banka['para_birimi']})",
-                min_value=0.0,
-                max_value=max(kaynak_bakiye_val, 0.01),  # 0 ise input'u kullanılabilir tut
-                step=0.01,
-                format="%.4f",
-                key="virman_tutar",
-                disabled=(kaynak_bakiye_val <= 0)
-            )
-            if kaynak_bakiye_val <= 0:
-                st.caption("Bu hesabın bakiyesi 0 veya negatif. Virman yapılamaz.")
-        with col_k:
-            if farkli_pb:
-                kullanilan_kur = st.number_input(
-                    f"Kur ({kaynak_banka['para_birimi']}/{hedef_banka['para_birimi']})",
-                    value=float(kur),
-                    min_value=0.01,
+            col_t, col_k = st.columns([2, 1])
+            with col_t:
+                kaynak_bakiye_val = float(kaynak_banka.get('bakiye') or 0)
+                tutar = st.number_input(
+                    f"Tutar ({kaynak_banka['para_birimi']})",
+                    min_value=0.0,
+                    max_value=max(kaynak_bakiye_val, 0.01),  # 0 ise input'u kullanılabilir tut
                     step=0.01,
                     format="%.4f",
-                    key="virman_kur",
-                    help=f"1 USD = {kur} TL kullanılıyor"
+                    key="virman_tutar",
+                    disabled=(kaynak_bakiye_val <= 0)
                 )
-            else:
-                kullanilan_kur = None
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.caption("Aynı para birimi, kur gerekmez")
-    
-        # Hedefe gidecek hesaplanmış tutar (önizleme)
-        if farkli_pb and kullanilan_kur and tutar > 0:
-            if kaynak_banka['para_birimi'] == "TL" and hedef_banka['para_birimi'] == "USD":
-                hedef_tutar_onizleme = tutar / kullanilan_kur
-            elif kaynak_banka['para_birimi'] == "USD" and hedef_banka['para_birimi'] == "TL":
-                hedef_tutar_onizleme = tutar * kullanilan_kur
-            else:
-                hedef_tutar_onizleme = tutar
-            st.info(f"➡️ Hedef hesaba **{tr_sayi(hedef_tutar_onizleme, 2)} {hedef_banka['para_birimi']}** eklenecek (Kur: {kullanilan_kur})")
-        elif tutar > 0:
-            st.info(f"➡️ Hedef hesaba **{tr_sayi(tutar, 2)} {hedef_banka['para_birimi']}** eklenecek")
-    
-        aciklama = st.text_input("Açıklama (opsiyonel)", placeholder="Örn: Maaş ödemeleri için TL transferi", key="virman_aciklama")
-    
-        if st.button("Virmanı Yap", type="primary", use_container_width=True, icon=":material/sync_alt:"):
-            if tutar <= 0:
-                st.error("Tutar 0'dan büyük olmalı.")
-            elif tutar > kaynak_bakiye_val:
-                st.error(f"Yetersiz bakiye! Maksimum: {tr_sayi(kaynak_bakiye_val, 2)} {kaynak_banka['para_birimi']}")
-            else:
-                with st.spinner("İşleniyor..."):
-                    basarili, mesaj = virman_yap(kaynak_id, hedef_id, tutar, aciklama, kullanilan_kur)
-                if basarili:
-                    st.success(mesaj)
-                    st.balloons()
-                    st.rerun()
+                if kaynak_bakiye_val <= 0:
+                    st.caption("Bu hesabın bakiyesi 0 veya negatif. Virman yapılamaz.")
+            with col_k:
+                if farkli_pb:
+                    kullanilan_kur = st.number_input(
+                        f"Kur ({kaynak_banka['para_birimi']}/{hedef_banka['para_birimi']})",
+                        value=float(kur),
+                        min_value=0.01,
+                        step=0.01,
+                        format="%.4f",
+                        key="virman_kur",
+                        help=f"1 USD = {kur} TL kullanılıyor"
+                    )
                 else:
-                    st.error(f"❌ {mesaj}")
+                    kullanilan_kur = None
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.caption("Aynı para birimi, kur gerekmez")
+    
+            # Hedefe gidecek hesaplanmış tutar (önizleme)
+            if farkli_pb and kullanilan_kur and tutar > 0:
+                if kaynak_banka['para_birimi'] == "TL" and hedef_banka['para_birimi'] == "USD":
+                    hedef_tutar_onizleme = tutar / kullanilan_kur
+                elif kaynak_banka['para_birimi'] == "USD" and hedef_banka['para_birimi'] == "TL":
+                    hedef_tutar_onizleme = tutar * kullanilan_kur
+                else:
+                    hedef_tutar_onizleme = tutar
+                st.info(f"➡️ Hedef hesaba **{tr_sayi(hedef_tutar_onizleme, 2)} {hedef_banka['para_birimi']}** eklenecek (Kur: {kullanilan_kur})")
+            elif tutar > 0:
+                st.info(f"➡️ Hedef hesaba **{tr_sayi(tutar, 2)} {hedef_banka['para_birimi']}** eklenecek")
+    
+            aciklama = st.text_input("Açıklama (opsiyonel)", placeholder="Örn: Maaş ödemeleri için TL transferi", key="virman_aciklama")
+    
+            if mikro_islemi_mi([kaynak_id, hedef_id]):
+                st.info(MIKRO_ISLEM_NOTU)     # iki hesap da Mikro'ya bağlı: virman Mikro'ya girilir
+            elif st.button("Virmanı Yap", type="primary", use_container_width=True, icon=":material/sync_alt:"):
+                if tutar <= 0:
+                    st.error("Tutar 0'dan büyük olmalı.")
+                elif tutar > kaynak_bakiye_val:
+                    st.error(f"Yetersiz bakiye! Maksimum: {tr_sayi(kaynak_bakiye_val, 2)} {kaynak_banka['para_birimi']}")
+                else:
+                    with st.spinner("İşleniyor..."):
+                        basarili, mesaj = virman_yap(kaynak_id, hedef_id, tutar, aciklama, kullanilan_kur)
+                    if basarili:
+                        st.success(mesaj)
+                        st.balloons()
+                        st.rerun()
+                    else:
+                        st.error(f"❌ {mesaj}")
     
         st.markdown("---")
     
@@ -1916,30 +1924,39 @@ def _sayfa_banka_bakiyeleri(*, _dlg_virman, get_aktif_odemeler, get_kur):
     if bankalar:
         @st.dialog("💰 Tahsilat Ekle — Bankaya Para Girişi", width="large")
         def _dlg_tahsilat():
-            st.caption("Müşteriden/dışarıdan gelen ödemeyi seçtiğin banka hesabına ekler.")
-            _opts = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {tr_sayi(float(b['bakiye']), 2)}": b
-                     for b in bankalar}
-            _sec = st.selectbox("Hangi hesaba girdi?", list(_opts))
-            _bank = _opts[_sec]
-            _pb = _bank["para_birimi"]
-            _sym = "$" if _pb == "USD" else ("€" if _pb == "EUR" else "₺")
+            # Mikro eşitlemesi açık ve hesaplar Mikro'ya bağlıysa para girişi Mikro'ya girilir (22.10.2026): form
+            # yerine not; son tahsilatlar aşağıda kalır. Kod yedek: eşitleme kapanınca form geri gelir.
+            from .banka_ekran import mikro_islemi_mi, MIKRO_ISLEM_NOTU
+            if mikro_islemi_mi([b["id"] for b in bankalar]):
+                st.info(MIKRO_ISLEM_NOTU)
+            else:
+                st.caption("Müşteriden/dışarıdan gelen ödemeyi seçtiğin banka hesabına ekler.")
+                _opts = {f"{b['hesap_adi']} ({b['para_birimi']}) — Bakiye: {tr_sayi(float(b['bakiye']), 2)}": b
+                         for b in bankalar}
+                _sec = st.selectbox("Hangi hesaba girdi?", list(_opts))
+                _bank = _opts[_sec]
+                _pb = _bank["para_birimi"]
+                _sym = "$" if _pb == "USD" else ("€" if _pb == "EUR" else "₺")
 
-            with st.form("tahsilat_form"):
-                _tutar = st.number_input(f"Tutar ({_pb})", min_value=0.0, step=0.0001, format="%.4f")
-                _kaynak = st.text_input("Kimden / Kaynak", placeholder="Örn: Hepsiburada hakediş, ABC Ltd.")
-                _acik = st.text_input("Açıklama (opsiyonel)", placeholder="Örn: Haziran satış ödemesi")
-                _tarih = st.date_input("Tarih", value=tr_today(), format="DD.MM.YYYY")
-                _onay = st.form_submit_button(f"{_sym} Tahsilatı İşle", type="primary", use_container_width=True, icon=":material/payments:")
-                if _onay:
-                    if _tutar <= 0:
-                        st.error("Tutar 0'dan büyük olmalı.")
-                    else:
-                        ok, msg = tahsilat_ekle(_bank["id"], _tutar, _kaynak, _acik, _tarih)
-                        if ok:
-                            st.success(msg)
-                            st.rerun()
-                        else:
-                            st.error(msg)
+                if mikro_islemi_mi([_bank["id"]]):
+                    st.info(MIKRO_ISLEM_NOTU)     # hesap Mikro'ya bağlı: para girişi Mikro'ya girilir
+                else:
+                    with st.form("tahsilat_form"):
+                        _tutar = st.number_input(f"Tutar ({_pb})", min_value=0.0, step=0.0001, format="%.4f")
+                        _kaynak = st.text_input("Kimden / Kaynak", placeholder="Örn: Hepsiburada hakediş, ABC Ltd.")
+                        _acik = st.text_input("Açıklama (opsiyonel)", placeholder="Örn: Haziran satış ödemesi")
+                        _tarih = st.date_input("Tarih", value=tr_today(), format="DD.MM.YYYY")
+                        _onay = st.form_submit_button(f"{_sym} Tahsilatı İşle", type="primary", use_container_width=True, icon=":material/payments:")
+                        if _onay:
+                            if _tutar <= 0:
+                                st.error("Tutar 0'dan büyük olmalı.")
+                            else:
+                                ok, msg = tahsilat_ekle(_bank["id"], _tutar, _kaynak, _acik, _tarih)
+                                if ok:
+                                    st.success(msg)
+                                    st.rerun()
+                                else:
+                                    st.error(msg)
 
             # Son tahsilatlar — geri alma imkânıyla
             _son = get_tahsilatlar(limit=8)
@@ -1995,6 +2012,12 @@ def _sayfa_banka_bakiyeleri(*, _dlg_virman, get_aktif_odemeler, get_kur):
         _bnk = get_bankalar() or []
         if not _bnk:
             st.warning("Kayıtlı banka hesabı yok.")
+            return
+        # Mikro eşitlemesi açık ve bütün hesaplar Mikro'ya bağlıysa çevrim Mikro'ya girilir (22.10.2026): form yerine
+        # not. Kod yedek: eşitleme kapanınca form geri gelir.
+        from .banka_ekran import mikro_islemi_mi, MIKRO_ISLEM_NOTU
+        if mikro_islemi_mi([b.get("id") for b in _bnk]):
+            st.info(MIKRO_ISLEM_NOTU)
             return
 
         def _kok(ad):
@@ -2078,7 +2101,9 @@ def _sayfa_banka_bakiyeleri(*, _dlg_virman, get_aktif_odemeler, get_kur):
         _not = st.text_input("Açıklama", key="arb_not",
                              placeholder="örn. 14.09 arbitraj, banka kuru 48,92")
 
-        if st.button("Arbitrajı Gerçekleştir", type="primary",
+        if mikro_islemi_mi([_kaynak.get("id"), _hedef.get("id")]):
+            st.info(MIKRO_ISLEM_NOTU)     # iki hesap da Mikro'ya bağlı: çevrim Mikro'ya girilir
+        elif st.button("Arbitrajı Gerçekleştir", type="primary",
                      use_container_width=True, key="arb_btn",
                      disabled=(_tutar <= 0 or _k_bak <= 0), icon=":material/currency_exchange:"):
             _ack = (f"Arbitraj · {_banka_ad} · {_kpb}→{_hpb} · "
@@ -2689,8 +2714,18 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
         st.session_state.aktif_excel_yuklendi = True
 
     # ─── Excel yükleme bölümü — kompakt: durum kartları + pencereden yükleme ───
+    # Mikro eşitlemesi açık kaynağın "Yüklendi / Yüklenmedi" kartı ekrandan kalkar, yerine tek satır kaynak notu
+    # (kullanıcı kararı 22.10.2026; kod yedek: eşitleme kapanınca kart geri gelir).
+    from .mikro_muhasebe import acik_mi as _muhasebe_acik
+    from .mikro_aktif_ekran import excel_kartlari as _excel_kartlari, kaynak_notu as _kaynak_notu
+    _muhasebe_acik_v = _muhasebe_acik()
 
-    col1, col2, col3 = st.columns(3)
+    # Stok: eskiden KDV dahil (× 1,20). Mikro defter kalemleri açıkken bilanço mantığı (Ekim 2026, kullanıcı: "sen
+    # belirle"): stok maliyetle (× 1,00); gümrükte peşin ödenen %20 KDV Mikro'da indirilecek KDV'de (191) durur ve
+    # defterin "KDV" kaleminde hesaplanan KDV'den mahsup edilerek sayılır — × 1,20 ile birlikte KDV iki kez girerdi.
+    from .mikro_aktif import acik_mi as _ma_acik, stok_carpani as _stok_carpani
+    _ma_acik_v = _ma_acik()
+    _stok_carpan = _stok_carpani(_ma_acik_v)
 
     # Meta bilgileri al
     stok_meta = None
@@ -2711,7 +2746,7 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
         zaman = (meta.get("yukleme_zamani") or "")[:16]
         return f"{kim} · {zaman}"
 
-    with col1:
+    def _kart_stok():
         st.markdown("**1 · Stok Değeri**" if _stok_uygulamadan else "**1 · Stok Değeri Raporu**")
         if not st.session_state.aktif_stok_data and _stok_uygulamadan:
             st.caption("Henüz hesaplanmadı · depo stoğu × paçal")
@@ -2720,17 +2755,18 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
         if st.session_state.aktif_stok_data:
             try:
                 usd_v, pzr = st.session_state.aktif_stok_data
-                # Kartta AKTİFLERE GİREN değer gösterilir (KDV dahil = ham × 1.20);
-                # ham değer alt satırda kalır ki iki rakam da doğrulanabilsin.
+                # Kartta AKTİFLERE GİREN değer gösterilir (ham × gerçek çarpan: Mikro defteri kapalıyken 1,20 KDV
+                # dahil, açıkken 1,00 maliyet); ham değer alt satırda kalır ki iki rakam da doğrulanabilsin.
                 _ham_v = float(usd_v or 0)
-                metrik_satiri([{"label": "Depo × paçal (KDV dahil)" if _stok_uygulamadan else "Yüklendi (KDV dahil)",
-                                "value": f"${tr_sayi(_ham_v * 1.20)}",
+                _ne = "KDV dahil" if _stok_carpan > 1 else "maliyet"
+                metrik_satiri([{"label": f"Depo × paçal ({_ne})" if _stok_uygulamadan else f"Yüklendi ({_ne})",
+                                "value": f"${tr_sayi(_ham_v * _stok_carpan)}",
                                 "renk": trenk("yesil"),
-                                "alt": f"ham ${tr_sayi(_ham_v)} × 1.20 · {_meta_str(stok_meta)}"}])
+                                "alt": f"ham ${tr_sayi(_ham_v)} × {tr_sayi(_stok_carpan, 2)} · {_meta_str(stok_meta)}"}])
             except Exception:
                 st.session_state.aktif_stok_data = None
 
-    with col2:
+    def _kart_ithalat():
         st.markdown("**2 · İthalat Ödeme Takip**")
         if not st.session_state.aktif_ithalat_data:
             st.caption("Yüklenmedi · üst menü › Dosya")
@@ -2741,7 +2777,7 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
             except Exception:
                 st.session_state.aktif_ithalat_data = None
 
-    with col3:
+    def _kart_cari():
         st.markdown("**3 · Cari Alacaklar Listesi**")
         if not st.session_state.aktif_cari_data:
             st.caption("Yüklenmedi · üst menü › Dosya")
@@ -2774,15 +2810,13 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
             except Exception:
                 st.session_state.aktif_cari_data = None
 
-
-    if not _stok_uygulamadan:
-        st.caption("Stok değeri raporu, ithalat ödeme takip ve cari alacaklar listesi üst menüdeki "
-                   "**Dosya** düğmesinden yüklenir; kartlar kayıttan hemen sonra güncellenir.")
-    else:
-        from .mikro_muhasebe import acik_mi as _muhasebe_acik
-        if not _muhasebe_acik():
-            st.caption("İthalat ödeme takip ve cari alacaklar listesi üst menüdeki **Dosya** düğmesinden "
-                       "yüklenir; kartlar kayıttan hemen sonra güncellenir.")
+    _kartlar = {"stok": _kart_stok, "ithalat": _kart_ithalat, "cari": _kart_cari}
+    _gorunen = _excel_kartlari(_stok_uygulamadan, _muhasebe_acik_v)
+    if _gorunen:
+        for _kol, _tip in zip(st.columns(3), _gorunen):
+            with _kol:
+                _kartlar[_tip]()
+    st.caption(_kaynak_notu(_stok_uygulamadan, _muhasebe_acik_v))
 
     st.markdown("---")
 
@@ -2803,12 +2837,6 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
     except Exception:
         usd_stok, pazaryerleri = 0.0, {}
 
-    # Stok: eskiden KDV dahil (× 1,20). Mikro defter kalemleri açıkken bilanço mantığı (Ekim 2026, kullanıcı: "sen
-    # belirle"): stok maliyetle (× 1,00); gümrükte peşin ödenen %20 KDV Mikro'da indirilecek KDV'de (191) durur ve
-    # defterin "KDV" kaleminde hesaplanan KDV'den mahsup edilerek sayılır — × 1,20 ile birlikte KDV iki kez girerdi.
-    from .mikro_aktif import acik_mi as _ma_acik, stok_carpani as _stok_carpani
-    _ma_acik_v = _ma_acik()
-    _stok_carpan = _stok_carpani(_ma_acik_v)
     stok_marjli = usd_stok * _stok_carpan if usd_stok else 0
 
     # İthalat
@@ -3194,48 +3222,29 @@ def _sayfa_toplam_aktifler(*, _Byuva, get_kur):
 
     # ─── Eksik dosya uyarıları ───
     st.markdown("---")
-    eksikler = []
-    if not st.session_state.aktif_stok_data:
-        eksikler.append("📦 Stok Değeri Raporu yüklenmedi")
-    if not st.session_state.aktif_ithalat_data:
-        eksikler.append("🚢 İthalat Ödeme Takip yüklenmedi")
-    if not st.session_state.aktif_cari_data:
-        eksikler.append("⚠️ Cari Alacaklar Listesi yüklenmedi")
-    # Eksik dosyalar artık sonucun hemen üstünde (Yönetim Panosu'na yazılmadığı
-    # bilgisiyle birlikte) gösteriliyor; burada ikinci kez yazılmıyor.
 
     # ─── Temizleme ───
-    @st.dialog("🗑️ Yüklenen verileri temizle", width="large")
-    def _dlg_veri_temizle():
-        st.warning("⚠️ Bu işlem **kalıcı kayıtları da siler**. Yeniden Excel yüklemeniz gerekir.")
-        if st.button("Tüm Excel verilerini sıfırla", type="secondary"):
-            st.session_state.aktif_stok_data = None
-            st.session_state.aktif_ithalat_data = None
-            st.session_state.aktif_cari_data = None
-            aktif_excel_sil(aktif_kul)  # Supabase'ten de sil
-            st.success("Temizlendi.")
-            st.rerun()
-    if st.button("Yüklenen verileri temizle", key="btn_acc_temizle", use_container_width=True, icon=":material/delete:"):
-        _dlg_veri_temizle()
+    # Mikro eşitlemelerinden biri açıkken HİÇ görünmez (22.10.2026): aktif_excel_sil "ortak" kayıtların hepsini
+    # siler, Mikro'nun yazdığı stok / ithalat / cari / defter kaydı da gider. Kod yedek: hepsi kapanınca geri gelir.
+    from .mikro_aktif_ekran import temizle_gorunur as _temizle_gorunur, formul_metni as _formul_metni
+    if _temizle_gorunur(_stok_uygulamadan, _muhasebe_acik_v, _ma_acik_v):
+        @st.dialog("🗑️ Yüklenen verileri temizle", width="large")
+        def _dlg_veri_temizle():
+            st.warning("⚠️ Bu işlem **kalıcı kayıtları da siler**. Yeniden Excel yüklemeniz gerekir.")
+            if st.button("Tüm Excel verilerini sıfırla", type="secondary"):
+                st.session_state.aktif_stok_data = None
+                st.session_state.aktif_ithalat_data = None
+                st.session_state.aktif_cari_data = None
+                aktif_excel_sil(aktif_kul)  # Supabase'ten de sil
+                st.success("Temizlendi.")
+                st.rerun()
+        if st.button("Yüklenen verileri temizle", key="btn_acc_temizle", use_container_width=True,
+                     icon=":material/delete:"):
+            _dlg_veri_temizle()
 
-    # ─── Formül açıklaması ───
-    _stok_formul = ("Bütün depolardaki stok (Mikro'dan) × paçal maliyet (%20 KDV dahil)" if _stok_uygulamadan
-                    else "Stok Excel'inden USD STOK DEĞERİ toplamı (%20 KDV dahil)")
+    # ─── Formül açıklaması ─── (kaynaklar ve stok çarpanı sayfanın gerçek durumundan; hepsi kapalıyken eski metin)
     with st.popover("📐 Hesaplama Formülü"):
-        st.markdown(f"""
-                **Toplam Aktifler (USD) =**
-
-                - **Stok Değeri × 1.20** — {_stok_formul}
-                - **+ İthalat Ödenmiş Tutar** — İthalat Excel "Ödenen / USD" toplamı
-                - **+ Banka Hesapları USD eşdeğeri** — Uygulamadaki TL hesapları kur ile USD'ye çevrilir
-                - **+ Cari Alacaklar** — Cari Excel'inden POZİTİF bakiyeler (size borçlular)
-                - **+ Manuel Eklemeler** — Kullanıcının elle eklediği kalemler
-                - **− Cari Borçlar** — Cari Excel'inden NEGATİF bakiyeler (sizin borçlu olduklarınız)
-                - **− Sistemdeki Çekler** — Uygulamadaki bekleyen + ciro çek kalanları
-                - **− Manuel Çıkarmalar** — Kullanıcının elle çıkardığı kalemler
-    
-                Kullanılan kur: **{kur} TL/USD** (sidebar'daki güncel kur — sidebar'da değiştirirsen burası da değişir)
-                """)
+        st.markdown(_formul_metni(_stok_uygulamadan, _muhasebe_acik_v, _ma_acik_v, _stok_carpan, kur))
 
 
 def _hafta_secici(hafta):
