@@ -246,7 +246,10 @@ def _sayfali(cli, tablo, secim, siralama):
 
 def veri_oku():
     cli = _cli()
-    satir = _sayfali(cli, "mikro_muhasebe_ay", "yil,ay,hesap_kod,borc,alacak", ("yil", "ay", "hesap_kod"))
+    # Yıl sonu kapanış / açılış ve gelir-gider kapanış mahsubu ayıklanmış (kayranacc/mikro_yil_sonu): kapanış
+    # yapılıp açılış girilmemişken (Ocak başı) bilanço kalemleri sıfır görünmesin
+    from kayranacc.mikro_yil_sonu import oku as _ys_oku
+    satir, _turlu = _ys_oku(cli)
     plan = _sayfali(cli, "mikro_hesap_plani", "muh_hesap_kod,muh_hesap_isim1", ("muh_hesap_kod",))
     return satir, {_s(p.get("muh_hesap_kod")): _s(p.get("muh_hesap_isim1")) for p in plan}
 

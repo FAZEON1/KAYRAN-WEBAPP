@@ -29,10 +29,11 @@ from collections import defaultdict
 DURUM_ANAHTAR = "mikro_gider_durum"
 ILK_YIL = 2026          # fiş türü olmayan tablo (mikro_muhasebe_ay): 2025 Aralık kapanışla sıfır
 ILK_YIL_TURLU = 2025    # fiş türü ayrılmış tablo (mikro_muhasebe_ay_tur) doluysa
-# Mikro MUHASEBE_FISLERI.fis_tur içinde yıl sonu kapanış fişinin türü. DOĞRULANMADI (Mikro'da genelde
-# 0 mahsup, 1 tahsil, 2 tediye, 3 açılış, 4 kapanış): veri gelince mikro_muhasebe_tur tablosunda Aralık'ta
-# gider hesaplarını (gider_alacak) sıfırlayan türe bakılıp düzeltilmeli. Yanlışsa kapanis_kalmis_mi o yılı atlar.
-KAPANIS_TURLERI = (4,)
+# Yıl sonu fişleri (22.10.2026 canlı 2025 sonuyla doğrulandı, kayranacc/mikro_yil_sonu.py): bilanço kapanışı
+# fis_tur 4; gelir / gider hesaplarını kapatan mahsup fişleri (69x / 7x1 hesaplı) aktarıcıdan tür 9 gelir.
+# Yanlışsa kapanis_kalmis_mi o yılı yine atlar (güvenlik).
+from kayranacc.mikro_yil_sonu import KAPANIS as _KAPANIS, YIL_SONU_MAHSUP as _YSM  # noqa: E402
+KAPANIS_TURLERI = (_KAPANIS, _YSM)
 SAYFA = 1000            # Supabase tek sorguda en fazla 1000 satır döndürür
 KATEGORILER = ("Sabit", "Değişken", "Yarı Değişken")
 GIDER_ONEK = ("760.", "770.", "780.", "689.")

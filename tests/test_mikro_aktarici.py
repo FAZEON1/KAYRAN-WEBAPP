@@ -180,14 +180,29 @@ GROUP BY YEAR(fis_tarih), MONTH(fis_tarih), fis_hesap_kod""".split())
     ay_tur, tur = mk.SORGULAR["muhasebe_ay_tur"], mk.SORGULAR["muhasebe_tur"]
     assert ay_tur["tablo"] == "mikro_muhasebe_ay_tur" and ay_tur["anahtar"] == "yil,ay,hesap_kod,fis_tur"
     assert tur["tablo"] == "mikro_muhasebe_tur" and tur["anahtar"] == "yil,ay,fis_tur"
-    for t in (ay_tur, tur):
+    for t, tur_ifadesi in ((ay_tur, "COALESCE(CAST(f.fis_tur AS int), -1) END AS fis_tur"),
+                           (tur, "COALESCE(CAST(fis_tur AS int), -1) AS fis_tur")):
         sql = " ".join(t["sql"].split())
         assert "fis_iptal=0" in sql and not t["artimli"]
         # anahtardaki her kolon SELECT'te ve GROUP BY'da (aynı anahtar iki kez upsert edilmesin)
         grup = sql.split("GROUP BY", 1)[1]
-        assert "fis_tur" in grup and "COALESCE(CAST(fis_tur AS int), -1) AS fis_tur" in sql
+        assert "fis_tur" in grup and tur_ifadesi in sql
     sema = (KLASOR.parent.parent / "veritabani" / "42_mikro_muhasebe_tur.sql").read_text(encoding="utf-8")
     assert "PRIMARY KEY (yil, ay, hesap_kod, fis_tur)" in sema and "PRIMARY KEY (yil, ay, fis_tur)" in sema
+
+
+def test_yil_sonu_mahsup_fisi_tur_9(mk):
+    """22.10.2026: gelir / gider hesaplarını kapatan yıl sonu mahsubu normal mahsup (tür 0) — 69x ya da 7x1 yansıtma
+    hesabına dokunan fişin bütün satırları tür 9 (kayranacc/mikro_yil_sonu ayıklar). Fiş anahtarı mali yıl + tarih +
+    tür + sıra no; SELECT ile GROUP BY'daki tür ifadesi aynı."""
+    sql = " ".join(mk.SORGULAR["muhasebe_ay_tur"]["sql"].split())
+    assert "LIKE '69%'" in sql and "LIKE '7[1-9]1%'" in sql and "THEN 9" in sql
+    for k in ("fis_maliyil", "fis_tarih", "fis_tur", "fis_sira_no"):
+        assert f"k.{k} = f.{k}" in sql, k
+    ifade = "CASE WHEN k.fis_sira_no IS NOT NULL THEN 9 ELSE COALESCE(CAST(f.fis_tur AS int), -1) END"
+    assert sql.count(ifade) == 2
+    from kayranacc.mikro_yil_sonu import YIL_SONU_MAHSUP
+    assert YIL_SONU_MAHSUP == 9
 
 
 # ── İptal yansıması (Ekim 2026): artımlı sorgular "iptal=0 AND lastup > SON" ile çekiyor; Mikro'da sonradan

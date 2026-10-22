@@ -196,15 +196,10 @@ def _taze_mi(son, simdi=None):
 
 def veri_oku():
     """mikro_odeme.veri_oku + muhasebe bakiyeleri (335, 360, 361)."""
-    from satis.mikro_esitle import sayfali_oku
+    from kayranacc.mikro_yil_sonu import oku as _ys_oku
     veri = O.veri_oku()
-    cli = _cli()
-    muh = []
-    for onek in ("335", "360", "361"):
-        muh += sayfali_oku(lambda o=onek: cli.table("mikro_muhasebe_ay").select("yil,ay,hesap_kod,borc,alacak")
-                           .like("hesap_kod", f"{o}%").order("yil").order("ay").order("hesap_kod"),
-                           ("yil", "ay", "hesap_kod"))
-    veri["muhasebe"] = muh
+    # Yıl sonu kapanış / açılış ayıklanmış: Aralık SGK ve muhtasarı kapanış yapılınca sıfırlanmasın (Ocak'ta ödenir)
+    veri["muhasebe"], _turlu = _ys_oku(_cli(), ("335", "360", "361"))
     return veri
 
 

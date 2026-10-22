@@ -290,18 +290,28 @@ FROM MUHASEBE_FISLERI WHERE fis_iptal=0 AND fis_tarih >= '20250101'
 GROUP BY YEAR(fis_tarih), MONTH(fis_tarih), COALESCE(CAST(fis_tur AS int), -1)
 """,
     },
-    # Muhasebe ay × hesap × fiş türü: gider tablosu kapanış fişini ayıklayabilsin (muhasebe_ay ile aynı toplam)
+    # Muhasebe ay × hesap × fiş türü: gider tablosu kapanış fişini ayıklayabilsin (muhasebe_ay ile aynı toplam).
+    # Yıl sonu (Ekim 2026, canlı 2025 sonu): bilanço kapanışı fis_tur 4, açılışı 3; gelir / gider hesaplarını
+    # kapatan fişler ise normal mahsup (0). 69x ya da 7x1 yansıtma hesabına dokunan fişin BÜTÜN satırları tür 9
+    # olarak verilir (kayranacc/mikro_yil_sonu.py ayıklar). Fiş = mali yıl + tarih + tür + sıra no.
     "muhasebe_ay_tur": {
         "tablo": "mikro_muhasebe_ay_tur", "anahtar": "yil,ay,hesap_kod,fis_tur",
         "artimli": False,
         "sql": """
-SELECT YEAR(fis_tarih) AS yil, MONTH(fis_tarih) AS ay, fis_hesap_kod AS hesap_kod,
-       COALESCE(CAST(fis_tur AS int), -1) AS fis_tur,
-       SUM(CASE WHEN fis_meblag0 > 0 THEN fis_meblag0 ELSE 0 END) AS borc,
-       SUM(CASE WHEN fis_meblag0 < 0 THEN -fis_meblag0 ELSE 0 END) AS alacak,
+SELECT YEAR(f.fis_tarih) AS yil, MONTH(f.fis_tarih) AS ay, f.fis_hesap_kod AS hesap_kod,
+       CASE WHEN k.fis_sira_no IS NOT NULL THEN 9 ELSE COALESCE(CAST(f.fis_tur AS int), -1) END AS fis_tur,
+       SUM(CASE WHEN f.fis_meblag0 > 0 THEN f.fis_meblag0 ELSE 0 END) AS borc,
+       SUM(CASE WHEN f.fis_meblag0 < 0 THEN -f.fis_meblag0 ELSE 0 END) AS alacak,
        COUNT(*) AS satir
-FROM MUHASEBE_FISLERI WHERE fis_iptal=0 AND fis_tarih >= '20250101'
-GROUP BY YEAR(fis_tarih), MONTH(fis_tarih), fis_hesap_kod, COALESCE(CAST(fis_tur AS int), -1)
+FROM MUHASEBE_FISLERI f
+LEFT JOIN (SELECT DISTINCT fis_maliyil, fis_tarih, fis_tur, fis_sira_no FROM MUHASEBE_FISLERI
+           WHERE fis_iptal=0 AND fis_tarih >= '20250101'
+             AND (fis_hesap_kod LIKE '69%' OR fis_hesap_kod LIKE '7[1-9]1%')) k
+  ON k.fis_maliyil = f.fis_maliyil AND k.fis_tarih = f.fis_tarih AND k.fis_tur = f.fis_tur
+ AND k.fis_sira_no = f.fis_sira_no
+WHERE f.fis_iptal=0 AND f.fis_tarih >= '20250101'
+GROUP BY YEAR(f.fis_tarih), MONTH(f.fis_tarih), f.fis_hesap_kod,
+         CASE WHEN k.fis_sira_no IS NOT NULL THEN 9 ELSE COALESCE(CAST(f.fis_tur AS int), -1) END
 """,
     },
     "hesap_plani": {
