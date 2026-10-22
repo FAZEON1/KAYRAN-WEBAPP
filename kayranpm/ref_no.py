@@ -845,9 +845,11 @@ def ref_ekle(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None, t
 
 
 def ref_ekle_no(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None, tutar=0, doviz="USD",
-                kategori="", donem_ay=None, donem_yil=None):
+                kategori="", donem_ay=None, donem_yil=None, kalemler=None):
     """ref_ekle'nin kendisi: döner (True, ref_no) ya da (False, hata metni). Kampanya kapanınca otomatik
-    ref (kayranpm.kampanya_ref) açılan numarayı mailde ve ekranda göstermek için bunu çağırır."""
+    ref (kayranpm.kampanya_ref) açılan numarayı mailde ve ekranda göstermek için bunu çağırır.
+    kalemler: Ref No Takip › Kalemler listesi (kampanya ürünleri); tutar / aylık / kategori kayıtta verildiği
+    gibi kalır (kalemler yalnız ürün kırılımı)."""
     try:
         sb = get_client()
         sira = _sonraki_sira(firma_id)
@@ -862,6 +864,8 @@ def ref_ekle_no(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None
         }
         if (kategori or "").strip():
             _kayit["kategori"] = kategori_kanonik(kategori)
+        if kalemler:
+            _kayit["kalemler"] = kalemler
         if donem_ay:
             # NESNE olarak yazılır (json.dumps ile metin yazılıyordu → v_destek_donem okuyamıyordu)
             _dy = int(donem_yil or yil)
@@ -869,8 +873,8 @@ def ref_ekle_no(firma_id, kod, aciklama, durum="beklemede", tarih=None, yil=None
         try:
             sb.table("ref_kayitlari").insert(_kayit).execute()
         except Exception:
-            # kategori/aylik kolonları yoksa onlarsız dene
-            for _k in ("kategori", "aylik"):
+            # kategori/aylik/kalemler kolonları yoksa onlarsız dene
+            for _k in ("kategori", "aylik", "kalemler"):
                 _kayit.pop(_k, None)
             sb.table("ref_kayitlari").insert(_kayit).execute()
         _cache_temizle()
@@ -1244,6 +1248,17 @@ def kalem_yonet_paneli(r, firma_adi=""):
     st.markdown(f"**{r.get('ref_no', '—')}** · {firma_adi}")
 
     if not _kalemler:
+        # Kampanyadan açılmış ref (talep #36, 22.10.2026): kalemler kampanyanın ürünleriyle dolu gelir
+        try:
+            from .kampanya_ref import kalemler_kampanyadan as _kk
+            _kalemler = kalemleri_oku({"kalemler": _kk(r)})
+        except Exception as _e:  # noqa: BLE001
+            sessiz("kayranpm.ref_no.kalem_yonet_paneli", _e)
+            _kalemler = []
+        if _kalemler:
+            st.info("Kalemler kampanyanın ürünlerinden dolduruldu (ürün başına destek). Düzeltip "
+                    "**Kalemleri kaydet** ile yaz; kaydetmeden kayıt değişmez.")
+    if not _kalemler:
         st.info("Bu kayıtta henüz kalem yok. Aşağıdan ekleyebilirsin. "
                 "Kalem girildiğinde **tutar, aylık kırılım ve kategori dağılımı** "
                 "otomatik hesaplanır.")
@@ -1339,7 +1354,7 @@ def kalem_yonet_paneli(r, firma_adi=""):
 
     if st.button("Kalemleri kaydet", type="primary", use_container_width=True,
                  key=f"refkal_kaydet_{_rid}", icon=":material/save:"):
-        _ok, _msg = kalemleri_yaz(_rid, _yeni_liste)
+        _ok, _msg = kalemleri_yaz(_rid, _yeni_liste, eski_aciklama=r.get("aciklama"))
         (st.success if _ok else st.error)(_msg)
         if _ok:
             st.rerun()
@@ -2263,9 +2278,13 @@ def kalemlerden_turet(kalemler):
             "kategori": " · ".join(sorted(kat)) if kat else ""}
 
 
-def kalemleri_yaz(ref_id, kalemler):
-    """Kalemleri kaydeder ve türetilen alanları birlikte günceller."""
+def kalemleri_yaz(ref_id, kalemler, eski_aciklama=None):
+    """Kalemleri kaydeder ve türetilen alanları birlikte günceller. eski_aciklama: kampanya ref'inin
+    "Kampanya #<no>" işareti açıklamada korunur (kayranpm.kampanya_ref.isaret_koru)."""
     t = kalemlerden_turet(kalemler)
+    if eski_aciklama:
+        from .kampanya_ref import isaret_koru
+        t["aciklama"] = isaret_koru(t["aciklama"], eski_aciklama)
     try:
         sb = get_client()
         _d = {"kalemler": kalemler,
@@ -2278,11 +2297,11 @@ def kalemleri_yaz(ref_id, kalemler):
         try:
             sb.table("ref_kayitlari").update(_d).eq("id", ref_id).execute()
         except Exception:
-            # 'kalemler' kolonu henüz eklenmemişse onsuz yaz (bozulma olmasın)
-            _d.pop("kalemler", None)
-            sb.table("ref_kayitlari").update(_d).eq("id", ref_id).execute()
+            # 'kalemler' kolonu henüz eklenmemişse YAZMA: toplamlar kalemlerden yeniden türetilip kaydedilirdi ama
+            # kalemler kaybolurdu (talep #36: canlıda kolon yoktu, her ref'te Kalemler boş görünüyordu)
             _cache_temizle()
-            return False, "⚠️ 'kalemler' kolonu yok — yalnız toplamlar güncellendi."
+            return False, ("Kalemler kaydedilemedi: veritabanında 'kalemler' sütunu yok "
+                           "(veritabani/53_ref_kalemler.sql). Kayıt değişmedi.")
         _cache_temizle()
         return True, f"✅ {len(kalemler)} kalem kaydedildi · toplam {tr_sayi(t['tutar'], 2)}"
     except Exception as e:

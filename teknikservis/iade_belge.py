@@ -15,11 +15,17 @@ GECERLILIK_GUN = 30          # belgenin geçerlilik süresi (gün)
 IADE_DURUM = "iade alındı"
 
 
-def iade_belgesi_uygun(kayit):
-    """Bu kayıt için değişim / iade belgesi verilebilir mi."""
+def iade_belgesi_uygun(kayit, gecmis=None):
+    """Bu kayıt için değişim / iade belgesi verilebilir mi: şimdiki durum ya da arıza sonucu 'iade alındı', ya da
+    kaydın geçmişinde bir kez 'iade alındı' olmuş (depo ne olursa olsun). Talep #35 (22.10.2026): G5F00811 iade
+    alındıktan sonra 'satışa hazır' olup ikinci el deposuna geçti, belge düğmesi kayboldu; servis formu bu
+    durumu geçmişten buluyordu (iade_onay_tarihi), belge bulmuyordu. Tamir edilip hiç iade alınmamış kayda
+    belge çıkmaz."""
     k = kayit or {}
-    return IADE_DURUM in {str(k.get("mevcut_durum") or "").strip().lower(),
-                          str(k.get("ariza_sonucu") or "").strip().lower()}
+    if IADE_DURUM in {str(k.get("mevcut_durum") or "").strip().lower(),
+                      str(k.get("ariza_sonucu") or "").strip().lower()}:
+        return True
+    return any(str(h.get("durum") or "").strip().lower() == IADE_DURUM for h in gecmis or [])
 
 
 def _gun(v):

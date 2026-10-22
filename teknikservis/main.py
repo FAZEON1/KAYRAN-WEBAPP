@@ -2434,8 +2434,9 @@ def _depolar_masa(kayitlar):
 
 
 def _iade_belgesi_dugmesi(kayit, gecmis, anahtar):
-    """'iade alındı' kayıtta Değişim / İade Belgesi (tüketici bununla ürünü aldığı firmaya başvurur)."""
-    if not iade_belgesi_uygun(kayit):
+    """'iade alındı' kayıtta (şimdi ya da geçmişte bir kez) Değişim / İade Belgesi (tüketici bununla ürünü aldığı
+    firmaya başvurur)."""
+    if not iade_belgesi_uygun(kayit, gecmis):
         return
     try:
         st.download_button("İade Belgesi indir", iade_belgesi_pdf(kayit, gecmis),

@@ -32,9 +32,10 @@ class _Kayit:
     def __init__(self):
         self.cagri = []
 
-    def __call__(self, firma_id, kod, aciklama, durum, tarih, yil, tutar, doviz, kategori, ay, dyil):
+    def __call__(self, firma_id, kod, aciklama, durum, tarih, yil, tutar, doviz, kategori, ay, dyil, kalemler=None):
         self.cagri.append(dict(firma_id=firma_id, kod=kod, aciklama=aciklama, durum=durum, tarih=tarih,
                                tutar=tutar, doviz=doviz, kategori=kategori, ay=ay, yil=dyil))
+        self.kalemler = getattr(self, "kalemler", []) + [kalemler]
         return True, f"FZ{kod}RF2026{len(self.cagri):03d}"
 
 
@@ -54,6 +55,21 @@ def test_kapaninca_kampanya_destegiyle_ref_acilir():
                                 ay=8, yil=2026)]
     assert s["acilan"] == [("FZVTNRF2026001", 756.0, "USD")]
     assert "FZVTNRF2026001 ($756,00)" in KR.ekran_mesaji(s)
+
+
+def test_destek_refi_urun_kalemleriyle_acilir():
+    """Talep #36 (22.10.2026): kampanyadan açılan ref'in Kalemler bölümü boştu. Kalem başına ürün desteği;
+    toplam ref tutarına eşit, kategori ref'inki (P&L dağılımı değişmez)."""
+    kayit = _Kayit()
+    KR.kapaninca_ref_ac(dict(KAMP, spiff_tl=3540), URUNLER, FIRMALAR, lambda fid: [], kayit, BUGUN)
+    k = kayit.kalemler[0]
+    assert [(x["aciklama"], x["tutar"], x["ay"], x["kategori"]) for x in k] == [
+        ("A · 100 × $6,00", 600.0, "2026-08", "monitör"), ("B · 13 × $12,00", 156.0, "2026-08", "monitör")]
+    assert sum(x["tutar"] for x in k) == kayit.cagri[0]["tutar"]
+    assert kayit.kalemler[1] is None                                   # spiff ref'i tek tutar
+    from kayranpm.ref_no import kalemlerden_turet
+    t = kalemlerden_turet(k)
+    assert t["tutar"] == 756.0 and t["aylik"] == {"2026-08": 756.0}
 
 
 def test_spiff_ayri_tl_ref():

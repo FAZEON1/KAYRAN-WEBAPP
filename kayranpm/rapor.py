@@ -278,9 +278,25 @@ TUM_URUN_KOLONLAR = [
 ]
 
 
+def musteri_stok_kolonlari(rows):
+    """Excel'de "Kanal Dahil Stok"tan sonra gelen müşteri stoğu sütunları: [(başlık, firma kodu)], veride stoğu
+    görünen her müşteri (firma_sirala sırası). Talep #39 (22.10.2026): ekranda müşteri stoğu görünüyordu, Excel'de
+    yalnız toplam vardı."""
+    kodlar = {k for r in rows or [] for k, _a in (r.get("_kanal_stok") or [])}
+    return [(f"{firma_gorunen_ad(k)} stok", k) for k in firma_sirala({k: 1 for k in kodlar})]
+
+
+def tum_urun_kolonlari(rows):
+    """TUM_URUN_KOLONLAR + müşteri stoğu sütunları (Kanal Dahil Stok'tan hemen sonra)."""
+    i = next(n for n, (b, _k) in enumerate(TUM_URUN_KOLONLAR) if b == "Kanal Dahil Stok") + 1
+    return TUM_URUN_KOLONLAR[:i] + musteri_stok_kolonlari(rows) + TUM_URUN_KOLONLAR[i:]
+
+
 def tum_urunler_excel(rows, kayit_yolu, meta=""):
-    """Filtrelenmiş Tüm Ürünler özetini renkli Excel olarak yazar."""
+    """Filtrelenmiş Tüm Ürünler özetini renkli Excel olarak yazar (müşteri stoğu müşteri başına ayrı sütun)."""
     try:
+        kolonlar = tum_urun_kolonlari(rows)
+        musteri_kol = {b for b, _k in musteri_stok_kolonlari(rows)}
         wb = Workbook()
         ws = wb.active
         ws.title = "Tüm Ürünler"
@@ -289,7 +305,7 @@ def tum_urunler_excel(rows, kayit_yolu, meta=""):
         ws["A2"] = f"{meta}  ·  {tr_now().strftime('%d.%m.%Y %H:%M')}  ·  {len(rows)} ürün"
         ws["A2"].font = Font(size=10, color="666666")
 
-        basliklar = [b for b, _ in TUM_URUN_KOLONLAR]
+        basliklar = [b for b, _ in kolonlar]
         hdr_row = 4
         head_fill = PatternFill("solid", start_color="1F4E79")
         head_font = Font(bold=True, color="FFFFFF", size=10)
@@ -303,12 +319,12 @@ def tum_urunler_excel(rows, kayit_yolu, meta=""):
         para_kol = {"Paçal FOB ($)", "Son FOB ($)", "Paçal Maliyet ($)", "Canlı Paçal Maliyet ($)", "Son Maliyet ($)",
                     "Satış ($)", "Net Kâr ($)"}
         pct_kol = {"Maliyet %", "Net Marj (%)"}
-        sayi_kol = {"G5F Depo", "Kanal Dahil Stok", "Stok Yaşı (gün)", "Alınan Adet"}
+        sayi_kol = {"G5F Depo", "Kanal Dahil Stok", "Stok Yaşı (gün)", "Alınan Adet"} | musteri_kol
 
         for ri, r in enumerate(rows, start=hdr_row + 1):
             stok_renk = r.get("_stok_renk", "yok")
-            for ci, (b, key) in enumerate(TUM_URUN_KOLONLAR, start=1):
-                v = r.get(key)
+            for ci, (b, key) in enumerate(kolonlar, start=1):
+                v = dict(r.get("_kanal_stok") or []).get(key, 0) if b in musteri_kol else r.get(key)
                 if v is None or v == "":
                     val = ""
                 elif b in para_kol or b in pct_kol:
@@ -326,7 +342,7 @@ def tum_urunler_excel(rows, kayit_yolu, meta=""):
                 elif b in pct_kol:
                     c.number_format = '0.0"%"'
                     c.alignment = Alignment(horizontal="right")
-                elif b in ("G5F Depo", "Kanal Dahil Stok", "Alınan Adet"):
+                elif b in ("G5F Depo", "Kanal Dahil Stok", "Alınan Adet") or b in musteri_kol:
                     c.alignment = Alignment(horizontal="right")
                 if b == "Stok Yaşı (gün)":
                     c.alignment = Alignment(horizontal="center")
@@ -335,7 +351,8 @@ def tum_urunler_excel(rows, kayit_yolu, meta=""):
                 if b == "Net Kâr ($)" and isinstance(val, (int, float)) and val < 0:
                     c.font = Font(size=10, color="C00000", bold=True)
 
-        for ci, w in enumerate([12, 38, 13, 11, 11, 9, 9, 11, 11, 12, 10, 9, 13, 13, 10, 10, 11], start=1):
+        _gen = [12, 38, 13, 11, 11, 9, 9] + [11] * len(musteri_kol) + [11, 11, 12, 10, 9, 13, 13, 10, 10, 11]
+        for ci, w in enumerate(_gen, start=1):
             ws.column_dimensions[get_column_letter(ci)].width = w
         ws.freeze_panes = "A5"
         wb.save(kayit_yolu)

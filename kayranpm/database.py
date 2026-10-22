@@ -172,6 +172,20 @@ def upsert_urun(sku, urun_adi, kategori="", marka="", satis_fiyati=0.0,
     _cache_temizle()
 
 
+def eol_isaretle(sku, eol):
+    """Ürünü EOL (üretimi / satışı sonlandı) işaretler ya da işareti kaldırır; başka alana dokunmaz.
+    Talep #40 (22.10.2026): EOL yalnız sayfanın en altındaki "Ürün Düzenle" formundaydı, bulunamıyordu.
+    Döner: yazıldı mı."""
+    try:
+        get_client().table("urunler").update({"eol": bool(eol), "guncelleme_tarihi": get_today()}) \
+            .eq("sku", sku).execute()
+        _cache_temizle()
+        return True
+    except Exception as e:  # noqa: BLE001
+        sessiz("kayranpm.database.eol_isaretle", e)
+        return False
+
+
 # ── Kategori yönetimi ──────────────────────────────────────────────
 # Öneri kuralları: (kategori, anahtar kelime regex). Sıra önemli — ilk eşleşen kazanır.
 import re as _re
