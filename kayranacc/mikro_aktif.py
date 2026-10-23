@@ -66,10 +66,12 @@ DEFTER_KALEMLERI = (
 # yansımasın"). DEFTER_KALEMLERI'nde 100 yok; hiçbir önek 100'ü tutmaz (testte denetlenir).
 HARIC_HESAP = ("100",)
 
-# Adıyla bulunan hesaplar (kullanıcı, 23.10.2026: Mikro'da 320 altında açılacak, "başlıklardan bulabilirsin"). Hesap
-# planındaki adı (mikro_hesap_plani.muh_hesap_isim1) bu adla aynı olan hesap ve alt hesapları kendi kalemine girer,
-# "Yurt içi satıcılar"a girmez. Hesap henüz yoksa kalem boş kalır, açılınca kendiliğinden dolar.
+# "Evrakı gelmemiş ithalat işlemleri" ve "Yönetim diğer borçlar" (kullanıcı, 23.10.2026; Mikro'da cari 320.99.001 /
+# .002, genel amaçlı virman dekontuyla). Toplam Aktifler'e CARİ bakiyeden girer (kayranacc.mikro_muhasebe.
+# ozel_cari_ozeti): biri muhasebe kodsuz açıldı, muhasebe tarafı gecikebilir. Burada iki kez sayılmasınlar diye
+# muhasebe tarafında hiçbir kaleme girmezler: 320.99 öneki ve hesap planında adı bu adlarla aynı olan hesaplar.
 OZEL_HESAPLAR = ("Evrakı gelmemiş ithalat işlemleri", "Yönetim diğer borçlar")
+OZEL_ONEK = ("320.99",)
 
 # Manuel kalem bu kelimelerden birini taşıyorsa aynı şey Mikro'dan geliyor sayılır (kalem adı → kelimeler)
 MANUEL_KELIME = {
@@ -134,10 +136,7 @@ def ozel_kodlar(hesap_adlari):
 
 
 def kalem_bul(kod, ozel=None):
-    for ok, ad in (ozel or {}).items():
-        if onek_uyar(kod, (ok,)):
-            return ad
-    if onek_uyar(kod, HARIC_HESAP):
+    if onek_uyar(kod, HARIC_HESAP + OZEL_ONEK + tuple(ozel or ())):
         return None
     for ad, onek, haric in DEFTER_KALEMLERI:
         if onek_uyar(kod, onek) and not onek_uyar(kod, haric):
@@ -146,8 +145,8 @@ def kalem_bul(kod, ozel=None):
 
 
 def defter_kalemleri(satirlar, hesap_adlari=None):
-    """mikro_muhasebe_ay satırları → [{ad, tl, hesaplar {kod: tl}}] (kümülatif bakiye, TL; DEFTER_KALEMLERI sırası,
-    sonra OZEL_HESAPLAR). hesap_adlari: {kod: ad} (OZEL_HESAPLAR'ı bulmak için)."""
+    """mikro_muhasebe_ay satırları → [{ad, tl, hesaplar {kod: tl}}] (kümülatif bakiye, TL; DEFTER_KALEMLERI sırası).
+    hesap_adlari: {kod: ad} — adı OZEL_HESAPLAR'dan biri olan hesap sayılmaz (cari bakiyeden gelir)."""
     bak = defaultdict(float)
     for r in satirlar or []:
         kod = _s(r.get("hesap_kod"))
@@ -155,7 +154,6 @@ def defter_kalemleri(satirlar, hesap_adlari=None):
             bak[kod] += _f(r.get("borc")) - _f(r.get("alacak"))
     ozel = ozel_kodlar(hesap_adlari)
     out = {ad: {"ad": ad, "tl": 0.0, "hesaplar": {}} for ad, _o, _h in DEFTER_KALEMLERI}
-    out.update({ad: {"ad": ad, "tl": 0.0, "hesaplar": {}} for ad in OZEL_HESAPLAR})
     for kod, v in sorted(bak.items()):
         ad = kalem_bul(kod, ozel)
         if ad and abs(v) >= KURUS:

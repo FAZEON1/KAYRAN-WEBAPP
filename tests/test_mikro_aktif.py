@@ -163,18 +163,21 @@ def test_toplam_aktif_gruplu_ayni_toplam():
     from kayranacc.toplam_aktif import hesapla, BORC, VARLIK
     import yonetim
     defter = {"kalemler": [{"ad": "Antrepodaki mal ve sipariş avansları", "tl": 496000},
-                           {"ad": "Evrakı gelmemiş ithalat işlemleri", "tl": 49600},
-                           {"ad": "Yönetim diğer borçlar", "tl": -99200},
                            {"ad": "İş ve personel avansları", "tl": 99200}, {"ad": "Ödenecek SGK", "tl": -24800}],
               "satis_maliyeti": {"oran": 0.01}}
     g = {"stok": [1000.0, {}], "ithalat": 300.0, "cari": {"borc": {"usd": 400.0}, "alacak": {"usd": 900.0}},
          "bankalar": [{"para_birimi": "USD", "bakiye": 200.0}], "cek": (0.0, 50.0), "manuel": [],
-         "defter": defter, "defter_acik": True, "kur": 49.6, "eur_usd": 1.1}
+         "defter": defter, "defter_acik": True, "kur": 49.6, "eur_usd": 1.1,
+         "ozel_cari": {"Evrakı gelmemiş ithalat işlemleri": {"usd": -260800}, "Yönetim diğer borçlar": {"tl": -99200}}}
     r = hesapla(g)
     gr = {x["ad"]: x for x in r["gruplar"]}
     assert gr["Nakit"]["toplam"] == 200.0 and len(gr["Nakit"]["satirlar"]) == 1   # yalnız banka; kasa yok
-    assert gr["Yoldaki / antrepodaki mal (ödenen)"]["toplam"] == 11300.0  # 320.50 300 + 159 10.000 + evrakı gel. 1.000
+    assert gr["Yoldaki / antrepodaki mal (ödenen)"]["toplam"] == 10300.0  # 320.50 300 + 159 10.000
+    assert gr["Evrakı gelmemiş ithalat işlemleri"]["tur"] == BORC                     # cari 320.99, eksi bakiye
+    assert gr["Evrakı gelmemiş ithalat işlemleri"]["toplam"] == 260800.0
     assert gr["Yönetim diğer borçlar"]["tur"] == BORC and gr["Yönetim diğer borçlar"]["toplam"] == 2000.0
+    assert r["ozel_cari"] == {"Evrakı gelmemiş ithalat işlemleri": -260800.0, "Yönetim diğer borçlar": -2000.0}
+    assert hesapla(dict(g, defter_acik=False))["ozel_cari"] == {}                     # defter kapalı: eski hesap
     assert gr["Vergi, KDV, SGK, tahakkuk, kart, satıcı"]["tur"] == BORC
     v = sum(x["toplam"] for x in r["gruplar"] if x["tur"] == VARLIK)
     b = sum(x["toplam"] for x in r["gruplar"] if x["tur"] == BORC)
@@ -184,17 +187,14 @@ def test_toplam_aktif_gruplu_ayni_toplam():
 
 
 @_M_gerek
-def test_kasa_hicbir_yere_yansimaz_ozel_hesaplar_adindan():
-    """23.10.2026: kasa (100) hiçbir kaleme girmez; Mikro'da 320 altında açılacak iki hesap adından bulunur ve
-    "Yurt içi satıcılar"a girmez."""
-    adlar = {"320.09": "EVRAKI GELMEMİŞ İTHALAT İŞLEMLERİ", "320.10": "Yönetim  Diğer Borçlar",
-             "320.01.001": "ÖRNEK SATICI"}
-    s = [_r("100.001", 1_061_408), _r("320.09.001", 50_000), _r("320.10", 0, 80_000), _r("320.01.001", 0, 400)]
+def test_kasa_ve_ozel_hesaplar_muhasebe_kalemlerine_girmez():
+    """23.10.2026: kasa (100) hiçbir kaleme girmez. "Evrakı gelmemiş ithalat işlemleri" / "Yönetim diğer borçlar"
+    (Mikro cari 320.99.001 / .002) cari bakiyeden gelir; muhasebe tarafında "Yurt içi satıcılar"a girip iki kez
+    sayılmaz (320.99 öneki ya da hesap planındaki adı)."""
+    adlar = {"320.09": "EVRAKI GELMEMİŞ İTHALAT İŞLEMLERİ", "320.01.001": "ÖRNEK SATICI"}
+    s = [_r("100.001", 1_061_408), _r("320.09.001", 50_000), _r("320.99.002", 0, 80_000), _r("320.01.001", 0, 400)]
     k = {x["ad"]: x for x in M.defter_kalemleri(s, adlar)}
-    assert not any("100.001" in x["hesaplar"] for x in k.values())
-    assert k["Evrakı gelmemiş ithalat işlemleri"]["tl"] == pytest.approx(50_000)
-    assert k["Yönetim diğer borçlar"]["tl"] == pytest.approx(-80_000)
+    assert not any(kod in x["hesaplar"] for x in k.values() for kod in ("100.001", "320.09.001", "320.99.002"))
     assert k["Yurt içi satıcılar"]["tl"] == pytest.approx(-400)
-    assert M.kalem_bul("100.001") is None and "Kasa" not in M.MANUEL_KELIME
-    k = {x["ad"]: x for x in M.defter_kalemleri(s)}                        # hesap henüz açılmadı: satıcılarda
-    assert k["Evrakı gelmemiş ithalat işlemleri"]["tl"] == 0.0
+    assert "Evrakı gelmemiş ithalat işlemleri" not in k and "Kasa" not in k
+    assert M.kalem_bul("100.001") is None and M.kalem_bul("320.99.001") is None and "Kasa" not in M.MANUEL_KELIME
