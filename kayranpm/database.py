@@ -1439,6 +1439,17 @@ def _depo_norm(s):
 
 # Bilinen depoların KANONİK yazımı — her yazım varyasyonu buraya toplanır.
 # (normalize edilmiş anahtar → ekranda görünecek standart ad)
+# Kapatılan depolar (talep #46, Serkan 23.10.2026: "ASEL depo ile devam etmediğimiz için kapatılsın"). Stoğu yoksa
+# seçim listelerinde (satış, sevk, iade, ithalat teslim) görünmez; geçmiş kayıtlar ve Mikro hareketleri olduğu gibi kalır.
+KAPALI_DEPOLAR = frozenset({"ASEL DEPO"})
+
+
+def acik_depolar(adlar, stok=None):
+    """Seçim listesi: KAPALI_DEPOLAR'dan stoğu (stok: {depo: adet}) olmayanlar çıkar."""
+    stok = stok or {}
+    return [d for d in adlar if not (depo_kanonik(d) in KAPALI_DEPOLAR and float(stok.get(depo_kanonik(d)) or 0) <= 0)]
+
+
 _DEPO_KANONIK = {
     "MERKEZ DEPO": "MERKEZ DEPO", "MERKEZDEPO": "MERKEZ DEPO", "MERKEZ": "MERKEZ DEPO",
     "HAPPY LIFE": "HAPPY LIFE", "HAPPYLIFE": "HAPPY LIFE", "HAPPY": "HAPPY LIFE",
@@ -1514,6 +1525,8 @@ def get_satis_depolari(sku=None):
                 a = 0.0
             toplam[d] = toplam.get(d, 0.0) + a
 
+    # Kapatılan depo (KAPALI_DEPOLAR): stoğu yoksa hiçbir seçenekte görünmez; stoğu kalırsa çıkarılabilsin diye görünür
+    toplam = {d: toplam[d] for d in acik_depolar(list(toplam), toplam)}
     if sku:
         # Stoğu olan depolar önce; hiç yoksa MERKEZ DEPO'yu seçenek bırak
         cikti = [{"depo": d, "adet": int(a)} for d, a in toplam.items()]
@@ -1530,7 +1543,7 @@ def get_satis_depolari(sku=None):
     # NOT: "Servis Depo" ile "Teknik Depo" AYNI fiziksel yerdir; veritabanında
     # hangi yazımla durursa dursun ekranda tek isimle (TEKNİK DEPO) görünür.
     for _v in ("MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO", "İADE DEPO",
-               "İKİNCİ EL DEPO", "OUTLET DEPO", "HURDA DEPO", "ASEL DEPO", "PAZARLAMA", "YEDEK PARÇA DEPO"):
+               "İKİNCİ EL DEPO", "OUTLET DEPO", "HURDA DEPO", "PAZARLAMA", "YEDEK PARÇA DEPO"):
         _k = depo_kanonik(_v)
         if _k not in adlar:
             adlar.append(_k)
@@ -1635,13 +1648,18 @@ def _sevk_uygula(depo_kirilim, kaynak, hedef, adet):
 def get_depo_listesi():
     """Tüm ürünlerin depo_kirilim'inde geçen benzersiz KANONİK depo adları (alfabetik).
     Ayrıca teslim alınmış ithalat dosyalarının teslim depolarını da dahil eder."""
-    depolar = set()
+    depolar, stok = set(), {}
     for u in _hepsi("urunler", "depo_kirilim"):
         dk = u.get("depo_kirilim") or {}
         if isinstance(dk, dict):
-            for d in dk.keys():
+            for d, a in dk.items():
                 if str(d).strip():
-                    depolar.add(depo_kanonik(d))
+                    k = depo_kanonik(d)
+                    depolar.add(k)
+                    try:
+                        stok[k] = stok.get(k, 0.0) + float(a or 0)
+                    except (TypeError, ValueError):
+                        pass
     try:
         from ithalat.database import get_dosyalar as _ith_dosyalar
         for d in (_ith_dosyalar() or []):
@@ -1653,7 +1671,7 @@ def get_depo_listesi():
         pass
     # Stoğu olmasa da seçilebilsin (Ekim 2026: yeni açılan yedek parça deposu, Mikro'daki pazarlama deposu)
     depolar |= {"PAZARLAMA", "YEDEK PARÇA DEPO"}
-    return sorted(depolar)
+    return acik_depolar(sorted(depolar), stok)
 
 
 @st.cache_data(ttl=120, show_spinner=False)

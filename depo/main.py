@@ -157,7 +157,7 @@ def _sayfa_sevk():
     _hedef_sec = sc2.selectbox("Hedef depo", _hedef_opts, key="dpo_hedef")
     if _hedef_sec == "➕ Yeni depo…":
         _hedef = sc2.text_input("Yeni depo adı", key="dpo_hedef_yeni",
-                                placeholder="örn. ASEL DEPO").strip()
+                                placeholder="örn. YENİ DEPO").strip()
     else:
         _hedef = _hedef_sec
 

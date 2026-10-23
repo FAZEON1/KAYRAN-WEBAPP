@@ -661,7 +661,7 @@ def iade_excel_bytes(ozet_satirlar, iadeler, bas, bit):
 # iade artık üst menüdeki Dosya kapısında (shared/dosya_kapisi) çalışır. Gövdeler eskiden Satış
 # Girişi / İçe Aktar / İade ekranlarındaydı; ayrıştırıcı, önizleme, kontroller ve kayıt kodu AYNI.
 # Fark: dosya yükleme kutusundan değil kapıdan gelir (dosya), kayıttan sonra kapi.bitti(...).
-IADE_DEPOLAR = ["MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO", "ASEL DEPO"]
+IADE_DEPOLAR = ["MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO"]   # ASEL DEPO kapatıldı (talep #46)
 # EERA = İTOPYA (aynı firma). Şablon: taslak Excel ile birebir aynı sütunlar.
 # DEPOTANIM (EERA/DİĞER/İTOPYA) ve "Depo Tanım" (VATAN) = BİZİM hangi depomuzdan mal çıkacağı.
 # Satır bazlı olduğu için tek Excel'de farklı depolardan çıkış yapılabilir. Boş bırakılan

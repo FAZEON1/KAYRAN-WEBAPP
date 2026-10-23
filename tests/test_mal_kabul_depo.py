@@ -20,7 +20,7 @@ def _oku(y):
 @pytest.mark.parametrize("metin, arayuz, beklenen", [
     ("", "iade", "İADE DEPO"), ("", "teknik", "TEKNİK DEPO"), (None, "iade", "İADE DEPO"),
     ("MERKEZ DEPO", "iade", "MERKEZ DEPO"), ("merkez", "iade", "MERKEZ DEPO"), ("Merkez Depo", "teknik", "MERKEZ DEPO"),
-    ("happy life", "iade", "HAPPY LIFE"), ("iade", "teknik", "İADE DEPO"), ("ASEL", "iade", "ASEL DEPO"),
+    ("happy life", "iade", "HAPPY LIFE"), ("iade", "teknik", "İADE DEPO"), ("ASEL", "iade", None),      # ASEL DEPO kapatıldı (talep #46)
     ("teknik servis", "iade", "TEKNİK DEPO"),
     ("OUTLET DEPO", "iade", None),      # listede yok: mal kabulde seçilemez
     ("yok böyle depo", "iade", None),

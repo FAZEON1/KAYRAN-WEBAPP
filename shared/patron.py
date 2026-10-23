@@ -86,6 +86,23 @@ def ozet(rows):
     return o
 
 
+def iade_satirlari(iadeler, pacal=None):
+    """İadeler → eksi satırlar (tarih, kanal, ciro, net_kar, destek, adet); satış satırlarına eklenince ciro,
+    net kâr ve kanal payı iade düşülmüş olur (talep #45). İade kârı: iade tutarı − adet × paçal."""
+    from shared.utils import sku_anahtar
+    from yonetim_hesap import iade_kanal_adi
+    pacal = pacal or {}
+    out = []
+    for r in iadeler or []:
+        net, adet = _f(r.get("iade_net")), int(_f(r.get("iade_adet")))
+        if not (net or adet):
+            continue
+        pc = _f(pacal.get(sku_anahtar(r.get("sku")), pacal.get(str(r.get("sku") or "").strip())))
+        out.append({"tarih": str(r.get("tarih") or "")[:10], "kanal": iade_kanal_adi(r.get("kanal")),
+                    "ciro": -net, "net_kar": -(net - adet * pc), "destek": 0.0, "adet": -adet})
+    return out
+
+
 def degisim(simdi, once):
     return round((simdi - once) / abs(once) * 100, 1) if once else None
 
@@ -246,7 +263,21 @@ CSS = """<style>
 # ── Veri (önbellekli) ───────────────────────────────────────────────
 @st.cache_data(ttl=300, show_spinner=False)
 def _satirlar(bas_iso, bit_iso):
-    """v_satis_pnl satırları; görünüm yoksa satışlardan gün × kanal bazında üretilir."""
+    """Satış satırları (v_satis_pnl; görünüm yoksa satışlardan gün × kanal) + iadeler eksi satır olarak:
+    kartlar, grafik ve kanal payı iade düşülmüş (talep #45). İadeler okunamazsa brüt kalır."""
+    return _satis_satirlari(bas_iso, bit_iso) + _iade_satirlari(bas_iso, bit_iso)
+
+
+def _iade_satirlari(bas_iso, bit_iso):
+    try:
+        from satis.database import get_iadeler, get_pacal_map
+        return iade_satirlari(get_iadeler(bas_iso, bit_iso), get_pacal_map())
+    except Exception as _e:  # noqa: BLE001
+        sessiz("shared.patron._iade_satirlari", _e)
+        return []
+
+
+def _satis_satirlari(bas_iso, bit_iso):
     from satis.database import get_satis_pnl_view
     v = get_satis_pnl_view(bas_iso, bit_iso)
     if v is not None:

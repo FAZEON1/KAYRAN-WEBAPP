@@ -46,7 +46,7 @@ ARAYUZ_DEPO = {"teknik": "TEKNİK DEPO", "iade": "İADE DEPO"}
 # Mal kabulde seçilebilen giriş depoları (Ekim 2026, kullanıcı kararı): müşteriden alınan
 # iade çoğu zaman doğrudan satılacağı için İADE DEPO yerine satılabilir depoya (MERKEZ / HAPPY
 # LIFE) da girebilir. İlk sıradaki, "iade" türünün varsayılanıdır; "teknik" TEKNİK DEPO ile açılır.
-MAL_KABUL_DEPOLAR = ["İADE DEPO", "MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO", "ASEL DEPO"]
+MAL_KABUL_DEPOLAR = ["İADE DEPO", "MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO"]   # ASEL DEPO kapatıldı (talep #46)
 
 # Teknik servis / 2.el satışının işareti. Ekim 2026'ya kadar satislar.kanal'a yazılıyordu
 # (P&L'de ayrı kanal); artık kanal diğer satışlar gibi CARİ adı, bu işaret satış notunun

@@ -246,3 +246,26 @@ def ay_etiketi(yil, ay_idx):
     return f"{AY_KISA[ay_idx]} {yil}"
 
 
+
+
+# ── Aylık ciro · marka dağılımı (talep #44, Korkut 23.10.2026) ──────────
+# "Yönetim panelinde aylık satış cirolarının göründüğü bir grafik; altında Fazeon ve Others marka dağılımı."
+# Ciro iade düşülmüş (pnl_topla, talep #45). Marka ürün kartından; kartı ya da markası yoksa ürün adında
+# "FAZEON" geçiyorsa Fazeon. Others = ciro − Fazeon (toplam her zaman ciroyla tutar).
+FAZEON = "Fazeon"
+OTHERS = "Others"
+
+
+def fazeon_mu(sku, urun_adi="", marka_map=None):
+    from shared.ana_veri import marka_anahtar
+    from shared.utils import sku_anahtar, tr_buyuk
+    m = (marka_map or {}).get(sku_anahtar(sku))
+    if m:
+        return marka_anahtar(m) == "fazeon"
+    return "FAZEON" in tr_buyuk(f"{urun_adi or ''} {sku or ''}")
+
+
+def marka_ciro(urun, ciro, marka_map=None):
+    """urun: pnl_topla kırılımı {sku: {ciro, urun_adi}} → {"Fazeon": $, "Others": $}."""
+    f = sum(float(v.get("ciro") or 0) for s, v in (urun or {}).items() if fazeon_mu(s, v.get("urun_adi"), marka_map))
+    return {FAZEON: round(f, 2), OTHERS: round(float(ciro or 0) - f, 2)}

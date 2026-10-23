@@ -21,6 +21,7 @@ Veri getirme `Kaynak` sınıfında (veritabanı); hesap saf — sahte kaynakla t
 edilir (tests/test_yonetim_yeni.py).
 """
 import calendar
+import re
 from datetime import date
 
 GIDER_AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
@@ -139,6 +140,15 @@ def pnl_topla(yil, donem, bas, bit, kaynak, bugun=None, aylar=None):
         eksik.append(f"İadeler okunamadı ({type(e).__name__}) — net kâr iadeleri düşmüyor")
     r["brut"] = r["ciro"] - r["cogs"]
 
+    # ── İade kanal ve ürün kırılımına da düşer (talep #45, 23.10.2026) ──
+    kirilim = getattr(kaynak, "iade_kirilim", None)
+    if kirilim and r["iade_tutar"]:
+        try:
+            isat, ikan = kirilim(bas, bit)
+            r["kanal"], r["urun"] = iade_kirilima_dus(r["kanal"], r["urun"], isat, ikan)
+        except Exception as e:  # noqa: BLE001
+            eksik.append(f"İade kırılımı okunamadı ({type(e).__name__}) — kanal ve ürün satırları brüt")
+
     # ── Kur ──
     try:
         kmap = kaynak.kur_haritasi(bas, bit) or {}
@@ -224,6 +234,57 @@ def pnl_topla(yil, donem, bas, bit, kaynak, bugun=None, aylar=None):
     return r
 
 
+_CARI_KOD = re.compile(r"^\d{3}(\.\d+)+\s+")
+
+
+def iade_kanal_adi(ad):
+    """Mikro'dan gelen iadede kanal '120.01.003 VATAN BILGISAYAR …' (cari kodu + ünvan), satışta yalnız ünvan;
+    kod atılır."""
+    return _CARI_KOD.sub("", " ".join(str(ad or "").split())) or "—"
+
+
+def _kanal_anahtar(ad):
+    from satis.database import kanal_kok
+    return kanal_kok(iade_kanal_adi(ad)) or "—"
+
+
+def iade_kirilima_dus(kanal, urun, isat, ikan):
+    """Kanal ve ürün kırılımından iadeyi düşer (talep #45, Korkut: "cirolar iadeler düşülmüş olmalı").
+    Toplam ciro zaten netti; kırılımlar brüt kaldığı için toplamla tutmuyordu. Kanal: aynı ad (boşluk
+    farkı gözetilmez); ürün: sku_anahtar. Dönemde satışı olmayan iade kendi satırıyla (eksi) girer.
+    ikan: {kanal: {i_tutar, i_kar, i_adet}} · isat: [{sku, urun_adi, i_adet, i_tutar, i_kar}]."""
+    from shared.utils import sku_anahtar
+    kanal = {k: dict(v) for k, v in (kanal or {}).items()}
+    urun = {k: dict(v) for k, v in (urun or {}).items()}
+
+    def _dus(hedef, i):
+        hedef["ciro"] = float(hedef.get("ciro") or 0) - float(i.get("i_tutar") or 0)
+        hedef["net_kar"] = float(hedef.get("net_kar") or 0) - float(i.get("i_kar") or 0)
+        hedef["adet"] = int(hedef.get("adet") or 0) - int(i.get("i_adet") or 0)
+
+    kad = {}
+    for k in kanal:
+        kad.setdefault(_kanal_anahtar(k), k)
+    for kn, i in (ikan or {}).items():
+        a = _kanal_anahtar(kn)
+        k = kad.get(a)
+        if k is None:
+            k = kad[a] = iade_kanal_adi(kn)
+            kanal.setdefault(k, {"ciro": 0.0, "destek": 0.0, "net_kar": 0.0, "adet": 0})
+        _dus(kanal[k], i)
+    uad = {sku_anahtar(k): k for k in urun}
+    for i in isat or []:
+        if not (float(i.get("i_tutar") or 0) or int(i.get("i_adet") or 0)):
+            continue
+        a = sku_anahtar(i.get("sku"))
+        k = uad.get(a)
+        if k is None:
+            k = uad[a] = i.get("sku") or a
+            urun[k] = {"urun_adi": i.get("urun_adi") or "", "ciro": 0.0, "destek": 0.0, "net_kar": 0.0, "adet": 0}
+        _dus(urun[k], i)
+    return kanal, urun
+
+
 class Kaynak:
     """Gerçek veri kaynağı (veritabanı). Her yöntem hata FIRLATIR; yakalayıp
     eksiklere yazmak pnl_topla'nın işi — sessizce 0 dönmek yok."""
@@ -239,6 +300,15 @@ class Kaynak:
     def iade(self, bas, bit):
         from satis.database import iade_satis_net_ozet
         return iade_satis_net_ozet(bas, bit)[1]
+
+    def iade_kirilim(self, bas, bit):
+        from satis.database import get_iadeler, iade_kanal_ozet, iade_satis_net_ozet
+        ikan = {k: dict(v) for k, v in (iade_kanal_ozet(bas, bit) or {}).items()}
+        for r in get_iadeler(bas, bit) or []:                      # kanal iade adedi (iade_kanal_ozet adet vermez)
+            kn = str(r.get("kanal") or "").strip() or "—"
+            if kn in ikan:
+                ikan[kn]["i_adet"] = ikan[kn].get("i_adet", 0) + int(float(r.get("iade_adet") or 0))
+        return iade_satis_net_ozet(bas, bit)[0], ikan
 
     def destekler(self, bas, bit):
         from kayranpm.ref_no import get_destek_donem
