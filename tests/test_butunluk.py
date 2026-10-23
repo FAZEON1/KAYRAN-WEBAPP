@@ -286,7 +286,7 @@ KRITIK_FONKSIYONLAR = {
                                  "veri_oku", "hesapla"],      # tahsilat listesi, Mikro 120 (22.10.2026)
     "kayranacc.tahsilat_ekran": ["render"],
     # Toplam Aktifler Muhasebe'den kalktı, eşitleme turunda hesaplanır, Yönetim'de görünür (22.10.2026)
-    "kayranacc.toplam_aktif": ["stok_degeri", "cari_usd", "banka_usd", "hesapla", "kayit", "yazilmali_mi", "veri_oku",
+    "kayranacc.toplam_aktif": ["gruplandir", "stok_degeri", "cari_usd", "banka_usd", "hesapla", "kayit", "yazilmali_mi", "veri_oku",
                                "guncelle", "otomatik"],
     "kayranacc.toplam_aktif_ekran": ["ayrinti", "yetkili_mi"],
     "kayranacc.mikro_banka_hareket": ["hareket_listesi", "hesap_kodu", "oku"],   # banka penceresi (22.10.2026)

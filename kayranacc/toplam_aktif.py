@@ -60,6 +60,53 @@ def banka_usd(bankalar, kur):
     return usd + (tl / kur if kur > 0 else 0.0)
 
 
+# ── Gösterim: varlık ve borç grupları (kullanıcı, 23.10.2026) ──────────
+# "Toplam aktiflerin matematiğini, kurgusunu doğru anla ve doğru göster." Net varlık = Varlıklar − Borçlar; her kalem
+# bir kez. Yoldaki / antrepodaki mal tek satırda: tedarikçiye verilen avans (320.50) ve sipariş avansı (159) aynı
+# paranın iki durağıdır (dönem sonu 320.50 → 159 virmanı), ikisi birlikte "ithalat için ödenen"dir. Toplam değişmez.
+VARLIK, BORC = "varlik", "borc"
+NAKIT_KALEM = ("Kasa",)
+YOLDAKI_KALEM = ("Antrepodaki mal ve sipariş avansları",)
+
+
+def gruplandir(stok, ithalat, banka, alacak, borc, cek, ekle, cikar, defter_kalemleri, satis_maliyeti):
+    """Döner: [{ad, tur (varlik / borc), toplam, satirlar [{ad, usd}]}] — tutarlar pozitif; tur yönü belirler.
+    Σ varlık − Σ borç = hesapla()'nın toplamı (testte denetlenir)."""
+    nakit = [("Banka", banka)]
+    yoldaki = [("Tedarikçiye verilen avans (320.50)", ithalat)]
+    diger, vergi = [], []
+    for k in defter_kalemleri:
+        ad, usd = k.get("ad") or "", _f(k.get("usd"))
+        if usd >= 0:
+            if ad in NAKIT_KALEM:
+                nakit.append((ad, usd))
+            elif ad in YOLDAKI_KALEM:
+                yoldaki.append(("Sipariş avansı / antrepodaki mal (159)", usd))
+            else:
+                diger.append((ad, usd))
+        else:
+            vergi.append((ad, -usd))
+    tanim = [
+        (VARLIK, "Nakit", nakit),
+        (VARLIK, "Müşteri alacakları", [("Müşteri alacakları (120 / 340)", alacak)]),
+        (VARLIK, "Depodaki stok", [("Depolardaki stok (paçal)", stok)]),
+        (VARLIK, "Yoldaki / antrepodaki mal (ödenen)", yoldaki),
+        (VARLIK, "Diğer alacaklar", diger),
+        (VARLIK, "Manuel ekleme", [("Manuel ekleme", ekle)]),
+        (BORC, "Müşteri tarafı borç bakiyesi", [("Alınan avans / alacaklı müşteri (120 / 340)", borc)]),
+        (BORC, "Verilen çekler", [("Verilen çekler", cek)]),
+        (BORC, "Vergi, KDV, SGK, tahakkuk, kart, satıcı", vergi),
+        (BORC, "Manuel çıkarma", [("Manuel çıkarma", cikar)]),
+        (BORC, "Tahmini satış masrafı", [("Stoğu satarken çıkacak masraf (tahmini)", satis_maliyeti)]),
+    ]
+    out = []
+    for tur, ad, satir in tanim:
+        satir = [{"ad": a, "usd": round(_f(v), 2)} for a, v in satir if abs(_f(v)) >= KURUS]
+        if satir:
+            out.append({"ad": ad, "tur": tur, "toplam": round(sum(x["usd"] for x in satir), 2), "satirlar": satir})
+    return out
+
+
 def hesapla(g):
     """g: {stok, ithalat, cari, bankalar, cek (tl, usd), manuel [..], defter (mikro_defter kaydı ya da None),
     defter_acik, kur, eur_usd}. Döner: {toplam, kalemler…, eksik [ad], cakisan {id: kalem}}."""
@@ -89,7 +136,12 @@ def hesapla(g):
               + ma["arti"] - ma["eksi"] - ma["satis_maliyeti_usd"])
     eksik = [ad for ad, v in (("Stok değeri", g.get("stok")), ("İthalat ödenen", g.get("ithalat")),
                               ("Cari", g.get("cari"))) if not v]
-    return {"toplam": round(toplam, 2), "kur": kur, "stok": round(stok, 2), "ithalat": round(ithalat, 2),
+    gruplar = gruplandir(stok=stok, ithalat=ithalat, banka=banka, alacak=alacak, borc=borc, cek=cek, ekle=ekle,
+                         cikar=cikar, defter_kalemleri=ma.get("kalemler") or [],
+                         satis_maliyeti=ma["satis_maliyeti_usd"])
+    return {"toplam": round(toplam, 2), "kur": kur, "gruplar": gruplar,
+            "brut_aktif": round(sum(gr["toplam"] for gr in gruplar if gr["tur"] == VARLIK), 2),
+            "toplam_borc": round(sum(gr["toplam"] for gr in gruplar if gr["tur"] == BORC), 2), "stok": round(stok, 2), "ithalat": round(ithalat, 2),
             "banka": round(banka, 2), "alacak": round(alacak, 2), "borc": round(borc, 2), "cek": round(cek, 2),
             "manuel_ekle": round(ekle, 2), "manuel_cikar": round(cikar, 2), "havuz": 0.0,
             "defter_arti": round(ma["arti"], 2), "defter_eksi": round(ma["eksi"], 2),
@@ -109,7 +161,8 @@ def yazilmali_mi(sonuc, eski, tarih):
     if sonuc["eksik"]:
         return False
     eski = eski or {}
-    return round(_f(eski.get("toplam")), 2) != sonuc["toplam"] or str(eski.get("tarih")) != str(tarih)
+    return (round(_f(eski.get("toplam")), 2) != sonuc["toplam"] or str(eski.get("tarih")) != str(tarih)
+            or "gruplar" not in eski)                    # grupsuz eski kayıt bir kez yeniden yazılır
 
 
 # ── Veritabanı ─────────────────────────────────────────────────────

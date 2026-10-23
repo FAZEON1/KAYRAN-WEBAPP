@@ -156,3 +156,25 @@ def test_159_antrepodaki_mal_aktife_girer():
     """22.10.2026: antrepodaki mal (Mikro depo stoğunda yok) 159.02'de; aktiflerden düşmesin."""
     assert M.kalem_bul("159.02") == "Antrepodaki mal ve sipariş avansları"
     assert "159" not in M.KAPSANAN
+
+
+def test_toplam_aktif_gruplu_ayni_toplam():
+    """23.10.2026: Net varlık = Σ varlık − Σ borç; 320.50 avansı ve 159 tek grupta (yoldaki / antrepodaki mal)."""
+    from kayranacc.toplam_aktif import hesapla, BORC, VARLIK
+    import yonetim
+    defter = {"kalemler": [{"ad": "Kasa", "tl": 49600}, {"ad": "Antrepodaki mal ve sipariş avansları", "tl": 496000},
+                           {"ad": "İş ve personel avansları", "tl": 99200}, {"ad": "Ödenecek SGK", "tl": -24800}],
+              "satis_maliyeti": {"oran": 0.01}}
+    g = {"stok": [1000.0, {}], "ithalat": 300.0, "cari": {"borc": {"usd": 400.0}, "alacak": {"usd": 900.0}},
+         "bankalar": [{"para_birimi": "USD", "bakiye": 200.0}], "cek": (0.0, 50.0), "manuel": [],
+         "defter": defter, "defter_acik": True, "kur": 49.6, "eur_usd": 1.1}
+    r = hesapla(g)
+    gr = {x["ad"]: x for x in r["gruplar"]}
+    assert gr["Nakit"]["toplam"] == 1200.0                              # banka 200 + kasa 1000
+    assert gr["Yoldaki / antrepodaki mal (ödenen)"]["toplam"] == 10300.0  # 320.50 300 + 159 10.000
+    assert gr["Vergi, KDV, SGK, tahakkuk, kart, satıcı"]["tur"] == BORC
+    v = sum(x["toplam"] for x in r["gruplar"] if x["tur"] == VARLIK)
+    b = sum(x["toplam"] for x in r["gruplar"] if x["tur"] == BORC)
+    assert abs(r["brut_aktif"] - v) < 0.01 and abs((v - b) - r["toplam"]) < 0.02
+    h = yonetim._toplam_aktif_html(dict(r), {"metin": "#000", "yesil": "#0a0", "kirmizi": "#a00", "mor2": "#a0a"})
+    assert "Net varlık" in h and "Toplam varlıklar" in h and "Sipariş avansı / antrepodaki mal (159)" in h
