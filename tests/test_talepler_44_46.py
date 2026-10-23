@@ -114,3 +114,17 @@ def test_46_asel_depo_kapali():
         m = (KOK / yol).read_text(encoding="utf-8")
         satir = m[m.index(ad):].split("\n")[0]
         assert "ASEL" not in satir.split("#")[0], yol
+
+
+def test_45_satis_pnl_firma_kirilimi_mikro_iadesi_firmasina_duser():
+    """Kullanıcı (23.10.2026): "Satış › Kâr / P&L'deki kanal tablosunda da iadeleri düzelt". Mikro iadesinde kanal
+    '120.01.003 VATAN …' (cari kodu + ünvan): firma kırılımı (ikan) ve firma süzgeci iadeyi bulamıyordu."""
+    import tests.test_satis_pnl as T
+    mikro = [{"kanal": "120.01.003 VATAN", "sku": "K1", "iade_net": 50, "iade_adet": 1}]
+    P = T._p(T.Sahte(iadeler=mikro, iade_kanal={"120.01.003 VATAN": {"i_tutar": 50.0, "i_kar": 20.0}}))
+    assert P["ikan"] == {"VATAN": {"i_tutar": 50.0, "i_kar": 20.0, "i_adet": 1}}
+    F = T._p(T.Sahte(iadeler=mikro), kanal="VATAN")                     # firma süzgeci: iade düşer
+    assert F["itop"]["i_tutar"] == 50.0 and F["net_ciro"] == 450.0
+    assert F["ikan"] == {"VATAN": {"i_tutar": 50.0, "i_kar": 20.0, "i_adet": 1}}
+    m = (KOK / "satis" / "main.py").read_text(encoding="utf-8")
+    assert '"Ciro": _nc,' in m and "_kanal_t.setdefault(_kn," in m

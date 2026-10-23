@@ -248,6 +248,27 @@ def _kanal_anahtar(ad):
     return kanal_kok(iade_kanal_adi(ad)) or "—"
 
 
+def kanal_ayni_mi(a, b):
+    """Satış kanalı ile iade kanalı aynı firma mı ('120.01.003 VATAN … A.Ş.' = 'VATAN …')."""
+    return _kanal_anahtar(a) == _kanal_anahtar(b)
+
+
+def iade_kanala_esle(kanal_adlari, ikan):
+    """İade kanal özetini satış kanalı adlarına bağlar: {satış kanalı ya da (yoksa) kodsuz ünvan: {i_tutar, i_kar,
+    i_adet}}; aynı firmaya düşen iadeler toplanır."""
+    kad = {}
+    for k in kanal_adlari or ():
+        kad.setdefault(_kanal_anahtar(k), k)
+    out = {}
+    for kn, i in (ikan or {}).items():
+        k = kad.setdefault(_kanal_anahtar(kn), iade_kanal_adi(kn))
+        o = out.setdefault(k, {"i_tutar": 0.0, "i_kar": 0.0, "i_adet": 0})
+        o["i_tutar"] += float(i.get("i_tutar") or 0)
+        o["i_kar"] += float(i.get("i_kar") or 0)
+        o["i_adet"] += int(i.get("i_adet") or 0)
+    return out
+
+
 def iade_kirilima_dus(kanal, urun, isat, ikan):
     """Kanal ve ürün kırılımından iadeyi düşer (talep #45, Korkut: "cirolar iadeler düşülmüş olmalı").
     Toplam ciro zaten netti; kırılımlar brüt kaldığı için toplamla tutmuyordu. Kanal: aynı ad (boşluk
@@ -262,16 +283,8 @@ def iade_kirilima_dus(kanal, urun, isat, ikan):
         hedef["net_kar"] = float(hedef.get("net_kar") or 0) - float(i.get("i_kar") or 0)
         hedef["adet"] = int(hedef.get("adet") or 0) - int(i.get("i_adet") or 0)
 
-    kad = {}
-    for k in kanal:
-        kad.setdefault(_kanal_anahtar(k), k)
-    for kn, i in (ikan or {}).items():
-        a = _kanal_anahtar(kn)
-        k = kad.get(a)
-        if k is None:
-            k = kad[a] = iade_kanal_adi(kn)
-            kanal.setdefault(k, {"ciro": 0.0, "destek": 0.0, "net_kar": 0.0, "adet": 0})
-        _dus(kanal[k], i)
+    for k, i in iade_kanala_esle(list(kanal), ikan).items():
+        _dus(kanal.setdefault(k, {"ciro": 0.0, "destek": 0.0, "net_kar": 0.0, "adet": 0}), i)
     uad = {sku_anahtar(k): k for k in urun}
     for i in isat or []:
         if not (float(i.get("i_tutar") or 0) or int(i.get("i_adet") or 0)):

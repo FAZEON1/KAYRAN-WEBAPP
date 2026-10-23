@@ -79,6 +79,11 @@ def satis_pnl(bas, bit, kanal_f, kat_f, kaynak, satislar=None):
         ikan = kaynak.iade_kanal(bas, bit) or {}
     except Exception:  # noqa: BLE001
         ikan = {}
+    # Mikro iadesinde kanal '120.01.003 VATAN …' (cari kodu + ünvan), satışta ünvan: firma eşleşmesi
+    # yonetim_hesap.kanal_ayni_mi ile (eskiden birebir; firma süzgecinde iade hiç düşmüyor, firma
+    # kırılımında hiçbir firmaya bağlanmıyordu — kullanıcı 23.10.2026: "kanal tablosunda da iadeleri düzelt").
+    from yonetim_hesap import iade_kanala_esle, kanal_ayni_mi
+    fikan = {}
     if filtreli:
         # İade toplamları da aynı süzgeçle (kanal + kategori)
         try:
@@ -88,7 +93,7 @@ def satis_pnl(bas, bit, kanal_f, kat_f, kaynak, satislar=None):
             for ir in kaynak.iadeler(bas, bit) or []:
                 kn = (ir.get("kanal") or "").strip()
                 sku = str(ir.get("sku") or "").strip()
-                if kanal_f != "Tümü" and kn != kanal_f:
+                if kanal_f != "Tümü" and not kanal_ayni_mi(kn, kanal_f):
                     continue
                 if kat_f != "Tümü" and not _kat_tutar(sku):
                     continue
@@ -97,7 +102,12 @@ def satis_pnl(bas, bit, kanal_f, kat_f, kaynak, satislar=None):
                 ft += net
                 fa += adet
                 # Paçal anahtarı kanonik (sku_anahtar): .upper() 'Fazeon …' önekini atmıyordu (Ekim 2026)
-                fk += net - adet * pacal.get(sku_anahtar(sku), pacal.get(sku, 0.0))
+                ik = net - adet * pacal.get(sku_anahtar(sku), pacal.get(sku, 0.0))
+                fk += ik
+                o = fikan.setdefault(kn or "—", {"i_tutar": 0.0, "i_kar": 0.0, "i_adet": 0})
+                o["i_tutar"] += net
+                o["i_kar"] += ik
+                o["i_adet"] += adet
             itop["i_tutar"], itop["i_kar"] = ft, fk
             # Net adet de süzgece göre (eskiden süzgeçsiz toplam kalıyordu: firma seçilse de 7.061)
             itop["i_adet"], itop["net_adet"] = fa, int(top.get("adet") or 0) - fa
@@ -105,6 +115,16 @@ def satis_pnl(bas, bit, kanal_f, kat_f, kaynak, satislar=None):
             itop["i_tutar"] = itop["i_kar"] = 0.0
             itop["i_adet"], itop["net_adet"] = 0, int(top.get("adet") or 0)
             eksik.append(f"Süzgeçli iadeler okunamadı ({type(e).__name__}) — iadeler düşmüyor")
+        ikan = fikan
+    else:
+        try:                                        # kanal iade adedi (iade_kanal_ozet adet vermez)
+            for ir in kaynak.iadeler(bas, bit) or []:
+                kn = (ir.get("kanal") or "").strip() or "—"
+                if kn in ikan:
+                    ikan[kn] = dict(ikan[kn], i_adet=int(ikan[kn].get("i_adet", 0)) + int(ir.get("iade_adet") or 0))
+        except Exception:  # noqa: BLE001
+            pass
+    ikan = iade_kanala_esle(list(kanal), ikan)      # satış kanalı adına bağlı
 
     # ── Kategori desteği (kategori süzgeci + firma "Tümü") ──
     kat_destek = 0.0
