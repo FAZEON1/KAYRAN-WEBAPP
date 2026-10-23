@@ -2343,7 +2343,11 @@ def _sayfa_kar_pnl(*, _kar_ok, _sb, kpi_serit, sayi):
 
         st.markdown(_B2.grup_basligi("Firma kırılımı", "satıra tıkla: firmanın sipariş geçmişi açılır"),
                     unsafe_allow_html=True)
-        _kr = sorted(kanal.items(), key=lambda x: -x[1]["net_kar"])
+        # İadeler firmasına düşer (satis_pnl ikan'ı satış kanalı adına bağlar); Ciro ve Adet de net, satışsız
+        # iadesi olan firma kendi satırında (kullanıcı 23.10.2026). Satır toplamı = net ciro.
+        _kanal_t = dict(kanal)
+        for _kn in _ikan:
+            _kanal_t.setdefault(_kn, {"ciro": 0.0, "destek": 0.0, "net_kar": 0.0, "adet": 0})
 
         def _kn_net(kn, v):
             _ik = _ikan.get(kn, {})
@@ -2351,6 +2355,7 @@ def _sayfa_kar_pnl(*, _kar_ok, _sb, kpi_serit, sayi):
             _nk = v["net_kar"] - _ik.get("i_kar", 0.0)
             _ns = v["ciro"] - v.get("destek", 0.0) - _ik.get("i_tutar", 0.0)
             return _nc, _nk, ((_nk / _ns * 100) if _ns > 0 else 0.0)
+        _kr = sorted(_kanal_t.items(), key=lambda x: -_kn_net(*x)[1])
         # Ortak tablo (shared/tablo.py): satır tıklaması pencereyi açar, kutucuk
         # sütunu yok. Uzun ünvan kısa ad + tür etiketi; tamamı ipucunda.
         from shared.tablo import tablo as _ortak_tablo, kisa_unvan
@@ -2358,9 +2363,10 @@ def _sayfa_kar_pnl(*, _kar_ok, _sb, kpi_serit, sayi):
         for kn, v in _kr:
             _nc, _nk, _nm = _kn_net(kn, v)
             _ad, _tur = kisa_unvan(kn)
-            _ksat.append({"Firma": _ad or kn, "Adet": int(v["adet"]), "Ciro": v["ciro"],
+            _na = int(v["adet"]) - int(_ikan.get(kn, {}).get("i_adet", 0))
+            _ksat.append({"Firma": _ad or kn, "Adet": _na, "Ciro": _nc,
                           "Net kâr": _nk, "Marj": _nm, "_etiket": _tur, "_ipucu": kn})
-            _t["adet"] += int(v["adet"]); _t["ciro"] += v["ciro"]; _t["kar"] += _nk
+            _t["adet"] += _na; _t["ciro"] += _nc; _t["kar"] += _nk
             _t["ns"] += v["ciro"] - v.get("destek", 0.0) - _ikan.get(kn, {}).get("i_tutar", 0.0)
         if len(_ksat) > 1:
             _ksat.append({"Firma": f"Σ Toplam · {len(_kr)} firma", "Adet": _t["adet"], "Ciro": _t["ciro"],
