@@ -116,9 +116,50 @@ def _tr_tarih(v, saat=False):
     return tarih_tr(v, saat=saat)
 
 
+def _toplam_aktif_gruplu(snap, RENK, buyuk=False):
+    """Varlık / borç grupları (kayranacc.toplam_aktif.gruplandir; 23.10.2026): Net varlık = Toplam varlık −
+    Toplam borç. Grup satırı kalın, altında kalemler."""
+    _t, _k = float(snap.get("toplam", 0) or 0), float(snap.get("kur", 0) or 0)
+    fs, fk = ("13px", "12px") if buyuk else ("11px", "10.5px")
+    RENK = dict(RENK, soluk=RENK.get("soluk", "var(--k-soluk)"))
+
+    def _satir(ad, v, y, renk, kalin=True, girinti=False, zemin=True):
+        return (f'<div style="display:flex;justify-content:space-between;padding:{"4px" if kalin else "2px"} 12px '
+                f'{"4px" if kalin else "2px"} {"26px" if girinti else "12px"};margin:{"2px" if zemin else "0"} 0;'
+                f'border-radius:6px;background:{"color-mix(in srgb,var(--k-metin) 3%,transparent)" if zemin else "none"}">'
+                f'<span style="color:{RENK["metin"] if kalin else RENK["soluk"]};font-size:{fs if kalin else fk};'
+                f'font-weight:{600 if kalin else 400}">{ad}</span>'
+                f'<span style="color:{renk};font-size:{fs if kalin else fk};font-weight:{700 if kalin else 500};'
+                f'font-variant-numeric:tabular-nums">{y} &#36;{tr_sayi(float(v or 0))}</span></div>')
+
+    def _bolum(tur, baslik, toplam, y, renk):
+        h = (f'<div style="font-size:{fk};color:{RENK["soluk"]};letter-spacing:.4px;margin:10px 4px 2px">'
+             f'{baslik}</div>')
+        for gr in snap.get("gruplar") or []:
+            if gr.get("tur") != tur:
+                continue
+            h += _satir(gr["ad"], gr["toplam"], y, renk)
+            if len(gr.get("satirlar") or []) > 1:
+                h += "".join(_satir(x["ad"], x["usd"], "", RENK["soluk"], kalin=False, girinti=True, zemin=False)
+                             for x in gr["satirlar"])
+        return h + _satir(f"Toplam {baslik.lower()}", toplam, y, renk)
+
+    return (f'<div style="text-align:center;padding:{"10px 0 14px" if buyuk else "8px 0 12px"};margin-bottom:4px;'
+            f'border-bottom:1px solid color-mix(in srgb,var(--k-metin) 8%,transparent)">'
+            f'<div style="font-size:{fk};color:{RENK["soluk"]}">Net varlık (varlıklar − borçlar)</div>'
+            f'<div style="font-size:23px;font-weight:700;color:var(--k-metin);'
+            f'font-variant-numeric:tabular-nums;letter-spacing:-1px">&#36;{tr_sayi(_t)}</div>'
+            f'<div style="font-size:{fs};color:{RENK["mor2"]};font-variant-numeric:tabular-nums;'
+            f'margin-top:4px">≈ ₺{tr_sayi(_t * _k)} · kur {_k:g}</div></div>'
+            + _bolum("varlik", "Varlıklar", snap.get("brut_aktif", 0), "+", RENK["yesil"])
+            + _bolum("borc", "Borçlar", snap.get("toplam_borc", 0), "−", RENK["kirmizi"]))
+
+
 def _toplam_aktif_html(snap, RENK, buyuk=False):
     """Toplam aktifler kalemleri — kâr görünürlüğü olmayan özet ile panodaki
-    pencere AYNI fonksiyonu kullanır (eskiden iki kopya vardı)."""
+    pencere AYNI fonksiyonu kullanır (eskiden iki kopya vardı). Gruplu kayıt varsa gruplu gösterim."""
+    if snap.get("gruplar"):
+        return _toplam_aktif_gruplu(snap, RENK, buyuk)
     _t = float(snap.get("toplam", 0) or 0)
     _k = float(snap.get("kur", 0) or 0)
     _kal = [("Stok değeri (×1.20)" if float(snap.get("stok_carpan") or 1.2) > 1 else "Stok değeri (maliyet)",
