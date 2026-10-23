@@ -137,6 +137,32 @@ def cari_ozeti(cari_bak, kartlar):
     return {y: {k: round(v, 2) for k, v in d.items()} for y, d in out.items()}
 
 
+# Toplam Aktifler'de kendi satırıyla duran cariler (kullanıcı, 23.10.2026; Mikro'da 320.99 altında, "genel amaçlı
+# virman dekontu"yla açıldı). Unvandan bulunur (kod değişse de); bakiye carinin dövizinde, artı varlık, eksi borç.
+OZEL_CARILER = ("Evrakı gelmemiş ithalat işlemleri", "Yönetim diğer borçlar")
+
+
+def _unvan_anahtar(ad):
+    from shared.utils import normalize_tr
+    return " ".join(normalize_tr(ad).split())
+
+
+def ozel_cari_ozeti(cari_bak, kartlar):
+    """Toplam Aktifler 'ozel_cari' kaydı: {ad: {usd, tl, eur}} — işaretli bakiye (artı: bizim alacağımız)."""
+    hedef = {_unvan_anahtar(a): a for a in OZEL_CARILER}
+    para = {0: "tl", 1: "usd", 2: "eur"}
+    out = {}
+    for k in kartlar or []:
+        ad = hedef.get(_unvan_anahtar(k.get("cari_unvan1")))
+        kod = _s(k.get("cari_kod"))
+        dc = para.get(_i(k.get("cari_doviz_cinsi")))
+        if not ad or not dc:
+            continue
+        e = out.setdefault(ad, {"usd": 0.0, "tl": 0.0, "eur": 0.0})
+        e[dc] = round(e[dc] + _f(cari_bak.get(kod)), 2)
+    return out
+
+
 VIRMAN_GERI_GUN = 10
 
 
@@ -307,7 +333,7 @@ def cek_ozeti(satirlar):
 
 
 # ── Saf: plan ──────────────────────────────────────────────────────
-def plan_yap(veri, bankalar, mevcut_cekler, mevcut_cari, mevcut_ithalat):
+def plan_yap(veri, bankalar, mevcut_cekler, mevcut_cari, mevcut_ithalat, mevcut_ozel=None):
     """veri: {hareket, banka_kart, cari_kart, cek}. Döner: karşılaştırma + yazılacaklar."""
     hareket, bk, ck = veri["hareket"], veri["banka_kart"], veri["cari_kart"]
     bb = banka_bakiyeleri(hareket, bk)
@@ -330,7 +356,9 @@ def plan_yap(veri, bankalar, mevcut_cekler, mevcut_cari, mevcut_ithalat):
     cari = cari_ozeti(cb, ck)
     fts = faturasiz_teslimler(veri.get("alim"))
     ith = ithalat_odenen(cari_bakiyeleri(donem_sonu_virmansiz(hareket), ck), ck, fts)
+    ozel = ozel_cari_ozeti(cb, ck)
     return {
+        "ozel_cari": ozel, "ozel_cari_degisir": ozel != (mevcut_ozel or {}),
         "faturasiz_teslim": fts,
         "banka": banka, "banka_disarida": disarida,
         "cek": cek, "cek_degisir": cek_imzasi(cek) != cek_imzasi(mevcut_cekler),
@@ -396,7 +424,8 @@ def plan_hazirla():
     cli = _cli()
     bankalar = cli.table("bankalar").select("*").order("id").execute().data or []
     cekler = cli.table("cekler").select("*").execute().data or []
-    return plan_yap(veri_oku(), bankalar, cekler, _aktif_veri("cari"), _aktif_veri("ithalat"))
+    return plan_yap(veri_oku(), bankalar, cekler, _aktif_veri("cari"), _aktif_veri("ithalat"),
+                    _aktif_veri("ozel_cari"))
 
 
 KAYNAK_ADI = "Mikro"
@@ -427,6 +456,8 @@ def uygula(plan, ilk=False):
         sonuc["cari"] = bool(db.aktif_excel_kaydet(KAYNAK_ADI, "cari", plan["cari"]))
     if plan["ithalat_degisir"]:
         sonuc["ithalat"] = bool(db.aktif_excel_kaydet(KAYNAK_ADI, "ithalat", plan["ithalat"]))
+    if plan.get("ozel_cari_degisir"):
+        sonuc["ozel_cari"] = bool(db.aktif_excel_kaydet(KAYNAK_ADI, "ozel_cari", plan["ozel_cari"]))
     bagli = sorted(b["id"] for b in plan["banka"] if b.get("mikro_kod") and b.get("id") is not None)
     d = durum()
     if d.get("bagli_bankalar") != bagli:

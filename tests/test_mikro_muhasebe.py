@@ -120,6 +120,20 @@ def test_ithalat_odenen_yurt_disi_tedarikci_avanslari():
     assert M.ithalat_odenen(cb, kart) == pytest.approx(314924.35)
 
 
+
+def test_ozel_cari_unvandan_isaretli_bakiye():
+    """23.10.2026: genel amaçlı virman dekontu (X-20): 320.99.001 "EVRAKI GELMEMİŞ İTHALAT İŞLEMLERİ" alacak
+    260.800 $, 320.99.002 "YÖNETİM DİĞER BORÇLAR" alacak 50.000 $. Unvandan bulunur; cari_ozeti'ne girmez."""
+    cb = {"320.99.001": -260800.0, "320.99.002": -50000.0, "320.01.001": -5148.0}
+    kart = [{"cari_kod": "320.99.001", "cari_unvan1": "EVRAKI GELMEMİŞ İTHALAT İŞLEMLERİ", "cari_doviz_cinsi": 1},
+            {"cari_kod": "320.99.002", "cari_unvan1": "YÖNETİM  DİĞER BORÇLAR", "cari_doviz_cinsi": 1},
+            {"cari_kod": "320.01.001", "cari_unvan1": "ÖRNEK", "cari_doviz_cinsi": 0}]
+    o = M.ozel_cari_ozeti(cb, kart)
+    assert o == {"Evrakı gelmemiş ithalat işlemleri": {"usd": -260800.0, "tl": 0.0, "eur": 0.0},
+                 "Yönetim diğer borçlar": {"usd": -50000.0, "tl": 0.0, "eur": 0.0}}
+    assert M.cari_ozeti(cb, kart)["borc"]["usd"] == 0.0
+    assert M.ozel_cari_ozeti(cb, kart[2:]) == {}                         # hesap açılmadıysa boş
+
 def test_cari_bakiyesi_kur_farki_haric_karsi_dovizle():
     h = [
         _h(cha_kod="120.01.003", cha_tip=0, cha_d_cins=1, cha_meblag=1000),       # satış faturası $

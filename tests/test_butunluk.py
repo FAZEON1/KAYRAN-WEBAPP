@@ -244,7 +244,7 @@ KRITIK_FONKSIYONLAR = {
                               "rapor_yaz", "durum", "acik_mi", "son_aktarim",
                               "otomatik"],   # Geçmiş İthalatlar Mikro'dan (Eki 2026)
     "ithalat.mikro_ithalat_ekran": ["degisen_satirlari", "pacal_satirlari", "bolum"],
-    "kayranacc.mikro_aktif": ["onek_uyar", "kalem_bul", "defter_kalemleri", "satis_maliyeti_orani", "kayit_yap",
+    "kayranacc.mikro_aktif": ["onek_uyar", "ozel_kodlar", "kalem_bul", "defter_kalemleri", "satis_maliyeti_orani", "kayit_yap",
                               "manuel_cakisan", "manuel_usd", "cakisan_etki", "usd_ozeti", "veri_oku", "plan_hazirla",
                               "kayitli", "uygula", "durum", "acik_mi", "ac", "son_aktarim",
                               "otomatik", "stok_carpani"],   # Toplam Aktifler: Mikro defter kalemleri + satış maliyeti (Eki 2026)
@@ -253,7 +253,7 @@ KRITIK_FONKSIYONLAR = {
     "kayranacc.mikro_alinan": ["aylik", "ay_kuru", "usd_satirlari", "durum", "acik_mi",
                                "mikro_satirlari"],   # alınan destekler Mikro 602 (Eki 2026)
     "shared.mikro_kilit": ["sahip_adi", "al", "birak", "tur_kilidi"],   # eşitleme turu kilidi (Eki 2026)
-    "kayranacc.mikro_muhasebe": ["faturasiz_teslimler", "bagli_banka_mi", "yalniz_bagli_mi", "donem_sonu_virmansiz", "hareket_tutari", "bakiyeler", "banka_bakiyeleri", "cari_bakiyeleri", "cari_ozeti",
+    "kayranacc.mikro_muhasebe": ["faturasiz_teslimler", "bagli_banka_mi", "yalniz_bagli_mi", "donem_sonu_virmansiz", "hareket_tutari", "bakiyeler", "banka_bakiyeleri", "cari_bakiyeleri", "cari_ozeti", "ozel_cari_ozeti",
                                  "ithalat_odenen", "banka_eslestir", "cek_satirlari", "cek_imzasi", "cek_ozeti",
                                  "plan_yap", "veri_oku", "plan_hazirla", "uygula", "durum", "acik_mi", "ac",
                                  "son_aktarim", "otomatik"],
@@ -286,7 +286,7 @@ KRITIK_FONKSIYONLAR = {
                                  "veri_oku", "hesapla"],      # tahsilat listesi, Mikro 120 (22.10.2026)
     "kayranacc.tahsilat_ekran": ["render"],
     # Toplam Aktifler Muhasebe'den kalktı, eşitleme turunda hesaplanır, Yönetim'de görünür (22.10.2026)
-    "kayranacc.toplam_aktif": ["gruplandir", "stok_degeri", "cari_usd", "banka_usd", "hesapla", "kayit", "yazilmali_mi", "veri_oku",
+    "kayranacc.toplam_aktif": ["gruplandir", "ozel_usd", "stok_degeri", "cari_usd", "banka_usd", "hesapla", "kayit", "yazilmali_mi", "veri_oku",
                                "guncelle", "otomatik"],
     "kayranacc.toplam_aktif_ekran": ["ayrinti", "yetkili_mi"],
     "kayranacc.mikro_banka_hareket": ["hareket_listesi", "hesap_kodu", "oku"],   # banka penceresi (22.10.2026)

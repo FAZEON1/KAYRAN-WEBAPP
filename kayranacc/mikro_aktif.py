@@ -50,7 +50,6 @@ KAPSANAN = ("102", "103", "120", "340", "153", "320.50")
 
 # (ad, hesap önekleri, hariç önekler) — tutar işaretli: borç bakiyesi artı (varlık), alacak bakiyesi eksi (borç)
 DEFTER_KALEMLERI = (
-    ("Kasa", ("100",), ()),
     ("İş ve personel avansları", ("195", "196"), ()),
     ("Verilen depozito ve teminatlar", ("226",), ()),
     ("Peşin ödenen vergiler", ("193",), ()),
@@ -63,9 +62,19 @@ DEFTER_KALEMLERI = (
     ("Kredi ve kart borçları", ("300", "303", "309"), ()),
     ("Yurt içi satıcılar", ("320",), ("320.50",)),
 )
+# Kasa (100) hiçbir kaleme girmez (kullanıcı, 23.10.2026: "kasa kaldırılacak, başlığı hiç olmasın, tutar bir yere
+# yansımasın"). DEFTER_KALEMLERI'nde 100 yok; hiçbir önek 100'ü tutmaz (testte denetlenir).
+HARIC_HESAP = ("100",)
+
+# "Evrakı gelmemiş ithalat işlemleri" ve "Yönetim diğer borçlar" (kullanıcı, 23.10.2026; Mikro'da cari 320.99.001 /
+# .002, genel amaçlı virman dekontuyla). Toplam Aktifler'e CARİ bakiyeden girer (kayranacc.mikro_muhasebe.
+# ozel_cari_ozeti): biri muhasebe kodsuz açıldı, muhasebe tarafı gecikebilir. Burada iki kez sayılmasınlar diye
+# muhasebe tarafında hiçbir kaleme girmezler: 320.99 öneki ve hesap planında adı bu adlarla aynı olan hesaplar.
+OZEL_HESAPLAR = ("Evrakı gelmemiş ithalat işlemleri", "Yönetim diğer borçlar")
+OZEL_ONEK = ("320.99",)
+
 # Manuel kalem bu kelimelerden birini taşıyorsa aynı şey Mikro'dan geliyor sayılır (kalem adı → kelimeler)
 MANUEL_KELIME = {
-    "Kasa": ("NAKİT KASA", "KASA BAKİYE"),
     "İş ve personel avansları": ("AVANS",),
     "Verilen depozito ve teminatlar": ("DEPOZİTO", "TEMİNAT"),
     "Peşin ödenen vergiler": ("PEŞİN VERGİ", "GEÇİCİ VERGİ"),
@@ -114,23 +123,39 @@ def onek_uyar(kod, onekler):
     return any(kod == o or kod.startswith(o + ".") for o in onekler)
 
 
-def kalem_bul(kod):
+def _ad_anahtar(ad):
+    from shared.utils import normalize_tr
+    return " ".join(normalize_tr(ad).split())
+
+
+def ozel_kodlar(hesap_adlari):
+    """{hesap kodu: OZEL_HESAPLAR adı} — hesap planında adı birebir (Türkçe harf / büyük-küçük / boşluk farkı
+    gözetmeden) tutan hesaplar."""
+    hedef = {_ad_anahtar(a): a for a in OZEL_HESAPLAR}
+    return {_s(k): hedef[_ad_anahtar(ad)] for k, ad in (hesap_adlari or {}).items() if _ad_anahtar(ad) in hedef}
+
+
+def kalem_bul(kod, ozel=None):
+    if onek_uyar(kod, HARIC_HESAP + OZEL_ONEK + tuple(ozel or ())):
+        return None
     for ad, onek, haric in DEFTER_KALEMLERI:
         if onek_uyar(kod, onek) and not onek_uyar(kod, haric):
             return ad
     return None
 
 
-def defter_kalemleri(satirlar):
-    """mikro_muhasebe_ay satırları → [{ad, tl, hesaplar {kod: tl}}] (kümülatif bakiye, TL; DEFTER_KALEMLERI sırası)."""
+def defter_kalemleri(satirlar, hesap_adlari=None):
+    """mikro_muhasebe_ay satırları → [{ad, tl, hesaplar {kod: tl}}] (kümülatif bakiye, TL; DEFTER_KALEMLERI sırası).
+    hesap_adlari: {kod: ad} — adı OZEL_HESAPLAR'dan biri olan hesap sayılmaz (cari bakiyeden gelir)."""
     bak = defaultdict(float)
     for r in satirlar or []:
         kod = _s(r.get("hesap_kod"))
         if kod:
             bak[kod] += _f(r.get("borc")) - _f(r.get("alacak"))
+    ozel = ozel_kodlar(hesap_adlari)
     out = {ad: {"ad": ad, "tl": 0.0, "hesaplar": {}} for ad, _o, _h in DEFTER_KALEMLERI}
     for kod, v in sorted(bak.items()):
-        ad = kalem_bul(kod)
+        ad = kalem_bul(kod, ozel)
         if ad and abs(v) >= KURUS:
             out[ad]["tl"] += v
             out[ad]["hesaplar"][kod] = round(v, 2)
@@ -175,7 +200,7 @@ def satis_maliyeti_orani(satirlar, hesap_adlari, bugun):
 
 
 def kayit_yap(satirlar, hesap_adlari, bugun):
-    return {"kalemler": defter_kalemleri(satirlar), "satis_maliyeti": satis_maliyeti_orani(satirlar, hesap_adlari, bugun)}
+    return {"kalemler": defter_kalemleri(satirlar, hesap_adlari), "satis_maliyeti": satis_maliyeti_orani(satirlar, hesap_adlari, bugun)}
 
 
 def manuel_cakisan(manuel_kalemler, kayit):
