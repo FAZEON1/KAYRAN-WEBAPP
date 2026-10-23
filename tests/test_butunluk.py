@@ -140,7 +140,7 @@ def test_kirik_import_yok():
 KRITIK_FONKSIYONLAR = {
     "veritabani.uygula": ["dosyalari_bul", "dosya_sha", "oneri_mi", "plan_yap", "canli_mi",
                           "gecmisi_oku", "uygula", "main"],   # kayıtlı şema değişikliği (Eki 2026)
-    "kayranpm.database": ["eol_isaretle", "get_tum_depo_stok", "_kampanya_cache_temizle",
+    "kayranpm.database": ["acik_depolar", "eol_isaretle", "get_tum_depo_stok", "_kampanya_cache_temizle",
         "get_yurtici_kategoriler", "set_yurtici_kategoriler",   # 04.08'de silinmişti
         "get_satis_depolari", "depo_kanonik", "stok_hareket_coklu",
         "get_talepler", "get_talepler_kullanici", "acik_talep_sayisi", "ekle_talep",
@@ -409,7 +409,7 @@ KRITIK_FONKSIYONLAR = {
                              "bul", "aciklama"],
     "teknikservis.iade_fatura": ["firma_koku", "son_fiyat_haritasi", "fiyat_onerisi", "para_cevir", "kalem_ekle",
                                  "sepet_toplam", "fatura_daha_once", "birim_kayitlari"],
-    "yonetim_pano": ["donem_araligi", "kiyas_donemleri", "devam_ediyor", "trend_aylari", "degisim",
+    "yonetim_pano": ["fazeon_mu", "marka_ciro", "donem_araligi", "kiyas_donemleri", "devam_ediyor", "trend_aylari", "degisim",
                      "kanal_satirlari", "urun_satirlari", "destek_satirlari", "gider_satirlari",
                      "ay_kurlari", "gider_usd_satirlari", "serit_hedefi",
                      "pnl_satirlari", "kucuk_trend_svg", "ay_etiketi"],
@@ -442,7 +442,7 @@ KRITIK_FONKSIYONLAR = {
     "kayranpm.main": ["mikro_karti_mi", "run", "_sayfa_dashboard", "_sayfa_tum_urunler", "_sayfa_stok_yasi", "_sayfa_yurt_ici_alis",
                       "_sayfa_musteri_satislari", "_sayfa_kampanya_takip", "_sayfa_siparis_onerisi",
                       "_sayfa_ref_no_takibi", "_sayfa_toplu_islemler", "stok_mikrodan"],    "shared.dataframe_yamasi": ["kur", "asil_fonksiyon", "html_uygun_mu"],
-    "yonetim_hesap": ["gider_yili_bul", "gider_tahmini", "pnl_topla"],
+    "yonetim_hesap": ["iade_kirilima_dus", "gider_yili_bul", "gider_tahmini", "pnl_topla"],
     "kayranpm.ref_no": ["alinan_destek_kolonlari", "alinan_destek_excel_ice_aktar", "ref_ekle", "ref_ekle_no",
                         "ref_firma_kodu"],
     "kayranpm.kampanya_ref": ["ref_firmasi_sec", "ref_plani", "mevcut_refler", "elle_benzerler", "onizleme",

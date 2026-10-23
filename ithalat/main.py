@@ -28,7 +28,7 @@ from shared.kayit import sessiz
 
 
 # Teslim deposu seçenekleri (açılır liste)
-DEPO_SECENEKLER = ["(Seçilmedi)", "MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO", "ASEL DEPO"]
+DEPO_SECENEKLER = ["(Seçilmedi)", "MERKEZ DEPO", "HAPPY LIFE", "TEKNİK DEPO"]   # ASEL DEPO kapatıldı (talep #46)
 # Teslim Şekli (Incoterm) seçenekleri
 INCOTERM_SECENEKLER = ["(Seçilmedi)", "FOB", "EXW", "CIF", "DAP", "DDP", "FCA", "CFR", "CPT", "CIP", "DPU"]
 

@@ -303,8 +303,65 @@ def _ay_ozeti(yil, ay_idx, kur):
     """12 aylık trend için bir ayın özeti (yalnız toplamlar)."""
     bas, bit = ay_tarihleri(yil, ay_idx)
     r = pnl_topla(yil, GIDER_AYLAR[ay_idx], bas, bit, _PnlKaynak(kur), bugun=_bugun())
-    return {k: float(r.get(k, 0) or 0) for k in ("ciro", "cogs", "brut", "destek", "gider", "alinan",
-                                                  "net_kar", "marj")}
+    o = {k: float(r.get(k, 0) or 0) for k in ("ciro", "cogs", "brut", "destek", "gider", "alinan",
+                                               "net_kar", "marj")}
+    try:
+        from yonetim_pano import marka_ciro
+        o["marka"] = marka_ciro(r.get("urun"), o["ciro"], _marka_haritasi())
+    except Exception as e:  # noqa: BLE001
+        from shared.kayit import sessiz
+        sessiz("yonetim._ay_ozeti.marka", e)
+    return o
+
+
+def _marka_haritasi():
+    """{sku_anahtar: marka} — ürün kartından (aylık ciro grafiğinin Fazeon / Others ayrımı)."""
+    from kayranpm.database import get_urun_marka_kategori
+    from shared.utils import sku_anahtar
+    out = {}
+    for sku, m in (get_urun_marka_kategori() or {}).items():
+        k = sku_anahtar(sku)
+        if k and (m or {}).get("marka") and k not in out:
+            out[k] = m["marka"]
+    return out
+
+
+def _aylik_ciro(trend):
+    """Talep #44: son 12 ayın aylık cirosu (iade düşülmüş), Fazeon / Others yığılı sütun; altında dönem payı."""
+    import plotly.graph_objects as go
+    from shared.grafik import goster, rol
+    from yonetim_pano import ay_etiketi, FAZEON, OTHERS
+    dolu = [(y, i, o) for y, i, o in trend if o is not None]
+    if not dolu:
+        return
+    x = [ay_etiketi(y, i) for y, i, _o in dolu]
+    ciro = [o["ciro"] for _y, _i, o in dolu]
+    st.markdown('<div style="font-size:13px;font-weight:650;color:var(--k-metin);margin:14px 2px 0">'
+                'Aylık ciro<span style="font-weight:400;color:var(--k-silik);font-size:12px;margin-left:6px">'
+                'son 12 ay · iadeler düşülmüş · USD</span></div>', unsafe_allow_html=True)
+    fg = go.Figure()
+    if all(o.get("marka") for _y, _i, o in dolu):
+        for ad, renk in ((FAZEON, rol("ana")), (OTHERS, rol("ikincil"))):
+            v = [o["marka"][ad] for _y, _i, o in dolu]
+            fg.add_bar(x=x, y=v, name=ad, marker=dict(color=renk, line=dict(width=0)),
+                       customdata=[[tr_sayi(a), tr_sayi(c), tr_sayi(a / c * 100, 1) if c else "0"]
+                                   for a, c in zip(v, ciro)],
+                       hovertemplate="%{x} · " + ad + " $%{customdata[0]} (%%{customdata[2]})"
+                                     " · toplam $%{customdata[1]}<extra></extra>")
+    else:
+        fg.add_bar(x=x, y=ciro, name="Ciro", marker=dict(color=rol("ana"), line=dict(width=0)),
+                   customdata=[tr_sayi(c) for c in ciro], hovertemplate="%{x} · ciro $%{customdata}<extra></extra>")
+    goster(fg, key="yon_aylik_ciro", yukseklik=280, barmode="stack", bargap=0.35,
+           yaxis=dict(tickprefix="$", tickformat=",.0f"), xaxis=dict(type="category"))
+    if all(o.get("marka") for _y, _i, o in dolu):
+        top = sum(ciro) or 0.0
+        parca = []
+        for ad in (FAZEON, OTHERS):
+            t = sum(o["marka"][ad] for _y, _i, o in dolu)
+            pay = f" (%{tr_sayi(t / top * 100, 1)})" if top else ""
+            parca.append(f'{ad} <b style="color:var(--k-metin)">{_usd(t)}</b>{pay}')
+        st.markdown(f'<div style="font-size:12.5px;color:var(--k-soluk);margin:0 2px 8px">Marka dağılımı, '
+                    f'{x[0]} – {x[-1]}: {" · ".join(parca)}</div>', unsafe_allow_html=True)
 
 
 def _on_isit(yil, donem, bugun, kur, ozet=True):
@@ -552,6 +609,7 @@ def _ozet(r, yil, donem, bugun, kur, RENK, pencere, pencere_grid, pencere_bos):
         with bekle("Son 12 ay hesaplanıyor…"):
             trend = _trend(trend_aylari(yil, donem, bugun), kur)
         st.markdown(_kucuk_kartlar(trend), unsafe_allow_html=True)
+        _aylik_ciro(trend)
     except Exception as e:  # noqa: BLE001
         st.caption(f"12 aylık seyir hesaplanamadı: {type(e).__name__}")
     _k = _kanal_cubuklari(r["kanal"])
