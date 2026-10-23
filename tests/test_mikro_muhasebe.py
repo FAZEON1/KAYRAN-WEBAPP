@@ -228,3 +228,15 @@ def test_firma_ceki_bankadan_odendigi_gun_duser():
     # çekin cari tarafı değişmez: tedarikçiye borç verildiği gün kapanır
     cb = M.cari_bakiyeleri(h, [{"cari_kod": "320.05.003", "cari_doviz_cinsi": 1}])
     assert cb["320.05.003"] == pytest.approx(49450.0)
+
+
+def test_faturasiz_dusum_evraksiz_caride_karsilanani_tekrarlamaz():
+    """23.10.2026, kullanıcı: "evrakı gelmemiş ithalat işlemlerinden düşüm olsun". INNOVISION 260.800 $ faturasız;
+    virman X-20 aynı tutarı 320.99.001'e aldı → programın düşümü kalkar, avans tam sayılır, borç caride durur."""
+    cb = {"320.50.101": 260800.0, "320.50.003": 54124.35}
+    fts = {"320.50.101": 260800.0}
+    ozel = {"Evrakı gelmemiş ithalat işlemleri": {"usd": -260800.0, "tl": 0.0, "eur": 0.0}}
+    assert M.faturasiz_kalan(fts, ozel) == {}
+    assert M.ithalat_odenen(cb, CARI_KART, M.faturasiz_kalan(fts, ozel)) == pytest.approx(314924.35)
+    assert M.faturasiz_kalan(fts, {}) == fts                                    # virman yoksa düşüm sürer
+    assert M.faturasiz_kalan({"320.50.101": 260800.0, "320.50.102": 1000.0}, ozel) == {"320.50.102": 1000.0}

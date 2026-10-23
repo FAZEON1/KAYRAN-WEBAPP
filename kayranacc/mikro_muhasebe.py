@@ -227,6 +227,24 @@ def ithalat_odenen(cari_bak, kartlar, faturasiz=None):
                      if kod.startswith(ITHALAT_ONEK) and dov.get(kod) == 1 and b > KURUS), 2)
 
 
+EVRAKSIZ_CARI = "Evrakı gelmemiş ithalat işlemleri"
+
+
+def faturasiz_kalan(faturasiz, ozel):
+    """Faturasız teslimden Mikro'nun "Evrakı gelmemiş ithalat işlemleri" carisinde (320.99.001) zaten borç olarak
+    karşıladığı kısım çıkarılır; kalan avanstan düşülür. Kullanıcı (23.10.2026): "evrakı gelmemiş ithalat
+    işlemlerinden düşüm olsun" — virman dekontu X-20 INNOVISION'ın 260.800 $'ını bu cariye aldı; programın kendi
+    düşümü de sürerse aynı mal net varlıktan iki kez düşülürdü. Virman atılmamış yeni bir teslimde düşüm sürer."""
+    karsilanan = max(-_f(((ozel or {}).get(EVRAKSIZ_CARI) or {}).get("usd")), 0.0)
+    out = {}
+    for kod, v in sorted((faturasiz or {}).items()):
+        d = min(v, karsilanan)
+        karsilanan -= d
+        if v - d > KURUS:
+            out[kod] = round(v - d, 2)
+    return out
+
+
 # ── Saf: uygulamadaki banka hesabı ↔ Mikro banka kartı ──────────────
 _BANKALAR = (("ZIRAAT", ("ZIRAAT",)), ("GARANTI", ("GARANTI",)), ("HALK", ("HALK",)),
              ("YKB", ("YAPI", "YKB")), ("IS", ("IS BANK", "ISBANK")))
@@ -355,8 +373,8 @@ def plan_yap(veri, bankalar, mevcut_cekler, mevcut_cari, mevcut_ithalat, mevcut_
     cek = cek_satirlari(veri["cek"], hareket, cad, bad)
     cari = cari_ozeti(cb, ck)
     fts = faturasiz_teslimler(veri.get("alim"))
-    ith = ithalat_odenen(cari_bakiyeleri(donem_sonu_virmansiz(hareket), ck), ck, fts)
     ozel = ozel_cari_ozeti(cb, ck)
+    ith = ithalat_odenen(cari_bakiyeleri(donem_sonu_virmansiz(hareket), ck), ck, faturasiz_kalan(fts, ozel))
     return {
         "ozel_cari": ozel, "ozel_cari_degisir": ozel != (mevcut_ozel or {}),
         "faturasiz_teslim": fts,
