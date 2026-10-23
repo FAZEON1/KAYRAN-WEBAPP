@@ -74,13 +74,16 @@ def test_formul_defter_kapali_eski_sayfa_gibi():
 
 def test_formul_defter_acik_stok_maliyetle_cakisan_manuel_sayilmaz():
     from kayranacc import toplam_aktif as T
-    defter = {"kalemler": [{"ad": "Kasa", "tl": 99200.0}, {"ad": "Ödenecek SGK", "tl": -49600.0}],
+    # Kasa 23.10.2026'dan beri Mikro'dan alınmıyor: çakışma örneği personel avansıyla
+    defter = {"kalemler": [{"ad": "İş ve personel avansları", "tl": 99200.0}, {"ad": "Ödenecek SGK", "tl": -49600.0}],
               "satis_maliyeti": {"oran": 0.02}}
-    r = T.hesapla(_g(defter=defter, defter_acik=True))
+    manuel = [{"id": 4, "aciklama": "EERA HAVUZ BÜTÇE", "tutar": 119000, "tip": "ekle"},
+              {"id": 5, "aciklama": "Personel avans", "tutar": 4960, "para_birimi": "TL", "tip": "cikar"}]
+    r = T.hesapla(_g(defter=defter, defter_acik=True, manuel=manuel))
     assert r["stok_carpan"] == 1.0 and r["stok"] == pytest.approx(700000)
     assert r["defter_arti"] == pytest.approx(2000) and r["defter_eksi"] == pytest.approx(1000)
     assert r["satis_maliyeti"] == pytest.approx(14000)
-    assert r["manuel_cikar"] == 0 and r["cakisan"] == {5: "Kasa"}       # "Nakit kasa" Mikro'dan geliyor
+    assert r["manuel_cikar"] == 0 and r["cakisan"] == {5: "İş ve personel avansları"}   # Mikro'dan geliyor
     assert r["toplam"] == pytest.approx(700000 + 300000 + 3000 + 5110 + 119000 - 1100 - 700 + 2000 - 1000 - 14000)
 
 

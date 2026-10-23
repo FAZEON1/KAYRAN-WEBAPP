@@ -55,13 +55,13 @@ def test_defter_kalemleri_isaretli_bakiye():
          _r("361.01.001", 100, 600), _r("320.01.001", 0, 400), _r("320.50.005", 900_000),
          _r("102.01.001", 5_000_000), _r("320", 10)]
     k = {x["ad"]: x for x in M.defter_kalemleri(s)}
-    assert k["Kasa"]["tl"] == pytest.approx(1_066_589)
+    assert "Kasa" not in k                                                  # kasa hiçbir yere yansımaz (23.10.2026)
     assert k["İş ve personel avansları"]["tl"] == pytest.approx(1400)
     assert k["KDV (indirilecek − hesaplanan)"]["tl"] == pytest.approx(-3500)
     assert k["Ödenecek SGK"]["tl"] == pytest.approx(-500)
     assert k["Yurt içi satıcılar"]["tl"] == pytest.approx(-390)            # 320.50 (ithalat avansı) hariç
     assert "320.50.005" not in k["Yurt içi satıcılar"]["hesaplar"]
-    assert sum(x["tl"] for x in k.values()) == pytest.approx(1_066_589 + 1400 - 3500 - 500 - 390)
+    assert sum(x["tl"] for x in k.values()) == pytest.approx(1400 - 3500 - 500 - 390)
 
 
 @_M_gerek
@@ -90,7 +90,7 @@ def test_turkce_i_hesap_adiyla_eslesir():
 
 
 def _kayit():
-    s = [_r("361.01.001", 0, 4960), _r("100.001", 9920), _r("600.01.001", 0, 100_000), _r("770.03.018", 2_000)]
+    s = [_r("361.01.001", 0, 4960), _r("195.01.006", 9920), _r("600.01.001", 0, 100_000), _r("770.03.018", 2_000)]
     return M.kayit_yap(s, ADLAR, BUGUN)
 
 
@@ -162,7 +162,9 @@ def test_toplam_aktif_gruplu_ayni_toplam():
     """23.10.2026: Net varlık = Σ varlık − Σ borç; 320.50 avansı ve 159 tek grupta (yoldaki / antrepodaki mal)."""
     from kayranacc.toplam_aktif import hesapla, BORC, VARLIK
     import yonetim
-    defter = {"kalemler": [{"ad": "Kasa", "tl": 49600}, {"ad": "Antrepodaki mal ve sipariş avansları", "tl": 496000},
+    defter = {"kalemler": [{"ad": "Antrepodaki mal ve sipariş avansları", "tl": 496000},
+                           {"ad": "Evrakı gelmemiş ithalat işlemleri", "tl": 49600},
+                           {"ad": "Yönetim diğer borçlar", "tl": -99200},
                            {"ad": "İş ve personel avansları", "tl": 99200}, {"ad": "Ödenecek SGK", "tl": -24800}],
               "satis_maliyeti": {"oran": 0.01}}
     g = {"stok": [1000.0, {}], "ithalat": 300.0, "cari": {"borc": {"usd": 400.0}, "alacak": {"usd": 900.0}},
@@ -170,11 +172,29 @@ def test_toplam_aktif_gruplu_ayni_toplam():
          "defter": defter, "defter_acik": True, "kur": 49.6, "eur_usd": 1.1}
     r = hesapla(g)
     gr = {x["ad"]: x for x in r["gruplar"]}
-    assert gr["Nakit"]["toplam"] == 1200.0                              # banka 200 + kasa 1000
-    assert gr["Yoldaki / antrepodaki mal (ödenen)"]["toplam"] == 10300.0  # 320.50 300 + 159 10.000
+    assert gr["Nakit"]["toplam"] == 200.0 and len(gr["Nakit"]["satirlar"]) == 1   # yalnız banka; kasa yok
+    assert gr["Yoldaki / antrepodaki mal (ödenen)"]["toplam"] == 11300.0  # 320.50 300 + 159 10.000 + evrakı gel. 1.000
+    assert gr["Yönetim diğer borçlar"]["tur"] == BORC and gr["Yönetim diğer borçlar"]["toplam"] == 2000.0
     assert gr["Vergi, KDV, SGK, tahakkuk, kart, satıcı"]["tur"] == BORC
     v = sum(x["toplam"] for x in r["gruplar"] if x["tur"] == VARLIK)
     b = sum(x["toplam"] for x in r["gruplar"] if x["tur"] == BORC)
     assert abs(r["brut_aktif"] - v) < 0.01 and abs((v - b) - r["toplam"]) < 0.02
     h = yonetim._toplam_aktif_html(dict(r), {"metin": "#000", "yesil": "#0a0", "kirmizi": "#a00", "mor2": "#a0a"})
     assert "Net varlık" in h and "Toplam varlıklar" in h and "Sipariş avansı / antrepodaki mal (159)" in h
+
+
+@_M_gerek
+def test_kasa_hicbir_yere_yansimaz_ozel_hesaplar_adindan():
+    """23.10.2026: kasa (100) hiçbir kaleme girmez; Mikro'da 320 altında açılacak iki hesap adından bulunur ve
+    "Yurt içi satıcılar"a girmez."""
+    adlar = {"320.09": "EVRAKI GELMEMİŞ İTHALAT İŞLEMLERİ", "320.10": "Yönetim  Diğer Borçlar",
+             "320.01.001": "ÖRNEK SATICI"}
+    s = [_r("100.001", 1_061_408), _r("320.09.001", 50_000), _r("320.10", 0, 80_000), _r("320.01.001", 0, 400)]
+    k = {x["ad"]: x for x in M.defter_kalemleri(s, adlar)}
+    assert not any("100.001" in x["hesaplar"] for x in k.values())
+    assert k["Evrakı gelmemiş ithalat işlemleri"]["tl"] == pytest.approx(50_000)
+    assert k["Yönetim diğer borçlar"]["tl"] == pytest.approx(-80_000)
+    assert k["Yurt içi satıcılar"]["tl"] == pytest.approx(-400)
+    assert M.kalem_bul("100.001") is None and "Kasa" not in M.MANUEL_KELIME
+    k = {x["ad"]: x for x in M.defter_kalemleri(s)}                        # hesap henüz açılmadı: satıcılarda
+    assert k["Evrakı gelmemiş ithalat işlemleri"]["tl"] == 0.0

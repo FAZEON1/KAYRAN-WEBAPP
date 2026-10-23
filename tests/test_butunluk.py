@@ -244,7 +244,7 @@ KRITIK_FONKSIYONLAR = {
                               "rapor_yaz", "durum", "acik_mi", "son_aktarim",
                               "otomatik"],   # Geçmiş İthalatlar Mikro'dan (Eki 2026)
     "ithalat.mikro_ithalat_ekran": ["degisen_satirlari", "pacal_satirlari", "bolum"],
-    "kayranacc.mikro_aktif": ["onek_uyar", "kalem_bul", "defter_kalemleri", "satis_maliyeti_orani", "kayit_yap",
+    "kayranacc.mikro_aktif": ["onek_uyar", "ozel_kodlar", "kalem_bul", "defter_kalemleri", "satis_maliyeti_orani", "kayit_yap",
                               "manuel_cakisan", "manuel_usd", "cakisan_etki", "usd_ozeti", "veri_oku", "plan_hazirla",
                               "kayitli", "uygula", "durum", "acik_mi", "ac", "son_aktarim",
                               "otomatik", "stok_carpani"],   # Toplam Aktifler: Mikro defter kalemleri + satış maliyeti (Eki 2026)

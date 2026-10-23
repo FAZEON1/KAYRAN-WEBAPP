@@ -65,8 +65,11 @@ def banka_usd(bankalar, kur):
 # bir kez. Yoldaki / antrepodaki mal tek satırda: tedarikçiye verilen avans (320.50) ve sipariş avansı (159) aynı
 # paranın iki durağıdır (dönem sonu 320.50 → 159 virmanı), ikisi birlikte "ithalat için ödenen"dir. Toplam değişmez.
 VARLIK, BORC = "varlik", "borc"
-NAKIT_KALEM = ("Kasa",)
-YOLDAKI_KALEM = ("Antrepodaki mal ve sipariş avansları",)
+# Kasa (100) gösterilmez ve hiçbir toplama girmez (kullanıcı, 23.10.2026); nakit = yalnız banka.
+YOLDAKI_KALEM = {"Antrepodaki mal ve sipariş avansları": "Sipariş avansı / antrepodaki mal (159)",
+                 "Evrakı gelmemiş ithalat işlemleri": "Evrakı gelmemiş ithalat işlemleri"}
+# Kendi başlığıyla duran borç (Mikro'da 320 altında; kayranacc.mikro_aktif.OZEL_HESAPLAR)
+AYRI_BORC = ("Yönetim diğer borçlar",)
 
 
 def gruplandir(stok, ithalat, banka, alacak, borc, cek, ekle, cikar, defter_kalemleri, satis_maliyeti):
@@ -74,14 +77,14 @@ def gruplandir(stok, ithalat, banka, alacak, borc, cek, ekle, cikar, defter_kale
     Σ varlık − Σ borç = hesapla()'nın toplamı (testte denetlenir)."""
     nakit = [("Banka", banka)]
     yoldaki = [("Tedarikçiye verilen avans (320.50)", ithalat)]
-    diger, vergi = [], []
+    diger, vergi, ayri = [], [], {}
     for k in defter_kalemleri:
         ad, usd = k.get("ad") or "", _f(k.get("usd"))
-        if usd >= 0:
-            if ad in NAKIT_KALEM:
-                nakit.append((ad, usd))
-            elif ad in YOLDAKI_KALEM:
-                yoldaki.append(("Sipariş avansı / antrepodaki mal (159)", usd))
+        if ad in AYRI_BORC and usd < 0:
+            ayri[ad] = ayri.get(ad, 0.0) - usd
+        elif usd >= 0:
+            if ad in YOLDAKI_KALEM:
+                yoldaki.append((YOLDAKI_KALEM[ad], usd))
             else:
                 diger.append((ad, usd))
         else:
@@ -96,6 +99,7 @@ def gruplandir(stok, ithalat, banka, alacak, borc, cek, ekle, cikar, defter_kale
         (BORC, "Müşteri tarafı borç bakiyesi", [("Alınan avans / alacaklı müşteri (120 / 340)", borc)]),
         (BORC, "Verilen çekler", [("Verilen çekler", cek)]),
         (BORC, "Vergi, KDV, SGK, tahakkuk, kart, satıcı", vergi),
+    ] + [(BORC, ad, [(ad, ayri[ad])]) for ad in AYRI_BORC if ad in ayri] + [
         (BORC, "Manuel çıkarma", [("Manuel çıkarma", cikar)]),
         (BORC, "Tahmini satış masrafı", [("Stoğu satarken çıkacak masraf (tahmini)", satis_maliyeti)]),
     ]
