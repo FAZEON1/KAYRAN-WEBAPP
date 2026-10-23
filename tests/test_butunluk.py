@@ -253,7 +253,7 @@ KRITIK_FONKSIYONLAR = {
     "kayranacc.mikro_alinan": ["aylik", "ay_kuru", "usd_satirlari", "durum", "acik_mi",
                                "mikro_satirlari"],   # alınan destekler Mikro 602 (Eki 2026)
     "shared.mikro_kilit": ["sahip_adi", "al", "birak", "tur_kilidi"],   # eşitleme turu kilidi (Eki 2026)
-    "kayranacc.mikro_muhasebe": ["faturasiz_teslimler", "bagli_banka_mi", "yalniz_bagli_mi", "donem_sonu_virmansiz", "hareket_tutari", "bakiyeler", "banka_bakiyeleri", "cari_bakiyeleri", "cari_ozeti", "ozel_cari_ozeti",
+    "kayranacc.mikro_muhasebe": ["faturasiz_teslimler", "bagli_banka_mi", "yalniz_bagli_mi", "donem_sonu_virmansiz", "hareket_tutari", "bakiyeler", "banka_bakiyeleri", "cari_bakiyeleri", "cari_ozeti", "ozel_cari_ozeti", "faturasiz_kalan",
                                  "ithalat_odenen", "banka_eslestir", "cek_satirlari", "cek_imzasi", "cek_ozeti",
                                  "plan_yap", "veri_oku", "plan_hazirla", "uygula", "durum", "acik_mi", "ac",
                                  "son_aktarim", "otomatik"],
