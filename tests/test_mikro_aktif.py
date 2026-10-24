@@ -183,7 +183,7 @@ def test_toplam_aktif_gruplu_ayni_toplam():
     b = sum(x["toplam"] for x in r["gruplar"] if x["tur"] == BORC)
     assert abs(r["brut_aktif"] - v) < 0.01 and abs((v - b) - r["toplam"]) < 0.02
     h = yonetim._toplam_aktif_html(dict(r), {"metin": "#000", "yesil": "#0a0", "kirmizi": "#a00", "mor2": "#a0a"})
-    assert "Net varlık" in h and "Toplam varlıklar" in h and "Sipariş avansı / antrepodaki mal (159)" in h
+    assert "Net varlık" in h and "Toplam varlıklar" in h and "İthalat masrafları, henüz maliyete işlenmemiş (159)" in h
 
 
 @_M_gerek

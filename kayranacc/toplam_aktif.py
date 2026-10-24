@@ -62,11 +62,12 @@ def banka_usd(bankalar, kur):
 
 # ── Gösterim: varlık ve borç grupları (kullanıcı, 23.10.2026) ──────────
 # "Toplam aktiflerin matematiğini, kurgusunu doğru anla ve doğru göster." Net varlık = Varlıklar − Borçlar; her kalem
-# bir kez. Yoldaki / antrepodaki mal tek satırda: tedarikçiye verilen avans (320.50) ve sipariş avansı (159) aynı
-# paranın iki durağıdır (dönem sonu 320.50 → 159 virmanı), ikisi birlikte "ithalat için ödenen"dir. Toplam değişmez.
+# bir kez. Yoldaki / antrepodaki mal (ithalat için ödenen) iki ayrı paradır, çift sayım değil (24.10.2026, Mikro
+# kırılımı): 320.50 tedarikçiye ödenen MAL BEDELİ; 159'un tamamı 159.02 "ithalat masraf ödemeleri" (ardiye, navlun,
+# gümrük), dosya kapanınca 153'e (stok maliyetine) aktarılır. 159.01 sipariş avansı sıfırdır.
 VARLIK, BORC = "varlik", "borc"
 # Kasa (100) gösterilmez ve hiçbir toplama girmez (kullanıcı, 23.10.2026); nakit = yalnız banka.
-YOLDAKI_KALEM = {"Antrepodaki mal ve sipariş avansları": "Sipariş avansı / antrepodaki mal (159)"}
+YOLDAKI_KALEM = {"Antrepodaki mal ve sipariş avansları": "İthalat masrafları, henüz maliyete işlenmemiş (159)"}
 # Mikro cari 320.99 (kayranacc.mikro_muhasebe.ozel_cari_ozeti): eksi bakiye kendi başlığıyla borçlarda; artı bakiye
 # "Evrakı gelmemiş ithalat işlemleri" yoldaki mala, diğeri diğer alacaklara.
 OZEL_YOLDAKI = ("Evrakı gelmemiş ithalat işlemleri",)
